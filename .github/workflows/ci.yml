@@ -40,8 +40,19 @@ jobs:
       - name: Checkout Code Repository
         uses: actions/checkout@v4
 
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements/base.txt
+            requirements/local.txt
+
       - name: Build the Stack
         run: docker compose -f docker-compose.local.yml build django
+
 
       - name: Build the docs
         run: docker compose -f docker-compose.docs.yml build docs
