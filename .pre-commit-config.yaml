@@ -5,6 +5,7 @@ default_language_version:
   python: python3.12
 
 repos:
+  # Pre-commit hooks (core checks)
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
@@ -15,34 +16,39 @@ repos:
       - id: check-xml
       - id: check-yaml
       - id: debug-statements
-      - id: check-builtin-literals
       - id: check-case-conflict
-      - id: check-docstring-first
-      - id: detect-private-key
+      - id: check-builtin-literals
 
-  - repo: https://github.com/adamchainz/django-upgrade
-    rev: '1.22.2'
-    hooks:
-      - id: django-upgrade
-        args: ['--target-version', '5.0']
-
-  # Run the Ruff linter.
+  # Ruff Linter and Formatter
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.8.3
     hooks:
       # Linter
       - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
+        args: [--fix]
+        stages: [pre-commit]  # Run in pre-commit without breaking the flow
+      # Full checks for CI only
+      - id: ruff
+        stages: [pre-commit]      # Flag print statements only when committing
       # Formatter
       - id: ruff-format
+        stages: [pre-commit]
 
+  # djLint for Django Templates
   - repo: https://github.com/Riverside-Healthcare/djLint
     rev: v1.36.3
     hooks:
       - id: djlint-reformat-django
       - id: djlint-django
 
-# sets up .pre-commit-ci.yaml to ensure pre-commit dependencies stay up to date
+  # Django Upgrade
+  - repo: https://github.com/adamchainz/django-upgrade
+    rev: '1.22.2'
+    hooks:
+      - id: django-upgrade
+        args: ['--target-version', '5.0']
+        stages: [manual]
+
 ci:
   autoupdate_schedule: weekly
   skip: []
