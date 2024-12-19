@@ -10,12 +10,12 @@ class UpdateRecordModel(models.Model):
     created_by = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="created_products",
+        related_name="created_users",
     )
     updated_by = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="updated_products",
+        related_name="updated_users",
     )
 
     class Meta:
@@ -33,17 +33,18 @@ class Product(UpdateRecordModel):
     slug = models.SlugField(unique=True, blank=False)
     price = models.DecimalField(decimal_places=2, max_digits=8)
     description = models.CharField(max_length=100)
-    body = models.TextField()
+    body = models.TextField(blank=False)
     status = models.CharField(
         max_length=1,
         choices=STATUS_CHOICES,
         default=ACTIVE,
     )
+    image = models.ImageField(upload_to="product_images/")
+
+    def __str__(self):
+        return self.name
 
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
         return super().save(*args, **kwargs)
-
-    def __str__(self):
-        return self.name
