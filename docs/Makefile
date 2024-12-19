@@ -23,6 +23,12 @@ livehtml:
 apidocs:
 	sphinx-apidoc -o $(SOURCEDIR)/api $(APP)
 
+makemigrations:
+	docker compose -f docker-compose.local.yml run --rm django python manage.py makemigrations
+
+migrate:
+	docker compose -f docker-compose.local.yml run --rm django python manage.py migrate
+	
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile

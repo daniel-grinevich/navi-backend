@@ -1,7 +1,6 @@
 # ruff: noqa: ERA001, E501
 """Base settings to build other settings files upon."""
 
-
 from pathlib import Path
 
 import environ
@@ -86,6 +85,7 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "navi_backend.users",
+    "navi_backend.fakeapi",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
