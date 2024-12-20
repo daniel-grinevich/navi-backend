@@ -1,15 +1,16 @@
 from rest_framework import serializers
 
-from navi_backend.fakeapi.models import Product, Option
+from navi_backend.fakeapi.models import Option
+from navi_backend.fakeapi.models import Product
 
 
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            "name", 
-            "price", 
-            "description", 
+            "name",
+            "price",
+            "description",
             "body",
             "status",
             "image",

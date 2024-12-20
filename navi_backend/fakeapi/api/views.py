@@ -1,12 +1,12 @@
-from rest_framework import viewsets
-from rest_framework.response import Response
-from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
-from navi_backend.fakeapi.models import Product, Option
-from navi_backend.fakeapi.api.serializers import (
-    ProductSerializer,
-    OptionSerializer,
-)
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from navi_backend.fakeapi.api.serializers import OptionSerializer
+from navi_backend.fakeapi.api.serializers import ProductSerializer
+from navi_backend.fakeapi.models import Option
+from navi_backend.fakeapi.models import Product
 
 
 class ProductViewSet(viewsets.ViewSet):
@@ -21,12 +21,12 @@ class ProductViewSet(viewsets.ViewSet):
         queryset = self.get_queryset()
         serializer = ProductSerializer(queryset, many=True)
         return Response(serializer.data)
-    
+
     # Use a action to get by name
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def search(self, request):
         # Filter products by 'name' query parameter
-        name = request.query_params.get('name', None)
+        name = request.query_params.get("name", None)
         if name:
             queryset = self.get_queryset().filter(name__icontains=name)
             serializer = ProductSerializer(queryset, many=True)
@@ -45,6 +45,7 @@ class OptionViewSet(viewsets.ViewSet):
     """
     override get_queryset method to all options
     """
+
     def get_queryset(self):
         return Option.objects.all()
 
@@ -68,5 +69,5 @@ class OptionViewSet(viewsets.ViewSet):
             return Response(serializer.data)
         return Response(
             {"error": "The 'name' query parameter is required."},
-            status=400
+            status=400,
         )
