@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.text import slugify
+
 from navi_backend.users.models import User
 
 
@@ -39,8 +40,8 @@ class Option(UpdateRecordModel):
     image = models.ImageField(upload_to="option_images/", blank=True, null=True)
 
     class Meta:
-        ordering = ['name']
-        
+        ordering = ["name"]
+
     def __str__(self):
         return self.name
 
@@ -68,7 +69,7 @@ class Product(UpdateRecordModel):
     image = models.ImageField(upload_to="product_images/")
 
     class Meta:
-        ordering = ['name']
+        ordering = ["name"]
 
     def __str__(self):
         return self.name
@@ -83,16 +84,16 @@ class OptionSet(UpdateRecordModel):
     name = models.CharField(max_length=50, blank=False, unique=True)
     products = models.ManyToManyField(
         Product,
-        related_name="option_sets"
+        related_name="option_sets",
     )
     options = models.ManyToManyField(
         Option,
-        related_name="option_sets"
+        related_name="option_sets",
     )
 
     def __str__(self):
         return self.name
-    
+
 
 # def save(self, *args, **kwargs):
 #         if not self.slug or self.name != self._state.fields_cache.get('name'):

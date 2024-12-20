@@ -2,11 +2,9 @@ from django.conf import settings
 from rest_framework.routers import DefaultRouter
 from rest_framework.routers import SimpleRouter
 
-from navi_backend.fakeapi.api.views import (
-    ProductViewSet,
-    OptionViewSet,
-    OptionSetsViewSet
-)
+from navi_backend.fakeapi.api.views import OptionSetsViewSet
+from navi_backend.fakeapi.api.views import OptionViewSet
+from navi_backend.fakeapi.api.views import ProductViewSet
 
 # from navi_backend.fakeapi.api.views import FakeApiViewSet
 from navi_backend.users.api.views import UserViewSet
