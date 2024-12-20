@@ -5,6 +5,33 @@ from users.models import User
 
 
 # Create your models here.
+class Port(models.Model):
+    name = models.CharField(max_length=200, null=True, blank=True)
+    # eventually add location info
+    slug = models.SlugField(unique=True, blank=False)
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        return super().save(*args, **kwargs)
+
+
+class PaymentType(models.Model):
+    name = models.CharField(max_length=200, null=True, blank=True)
+    slug = models.SlugField(unique=True, blank=False)
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        return super().save(*args, **kwargs)
+
+
 class Category(models.Model):
 
     name = models.CharField(max_length=200, null=True, blank=True)
@@ -25,7 +52,7 @@ class MenuItem(models.Model):
     description = models.TextField(null=True, blank=True)
     price = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
     image = models.ImageField(upload_to="product_images/")
-    createdAt = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     slug = models.SlugField(unique=True, blank=False)
 
     def __str__(self):
@@ -39,15 +66,18 @@ class MenuItem(models.Model):
 
 class Order(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    paymentMethod = models.CharField(max_length=200, null=True, blank=True)
+    payment_type = models.ForeignKey(
+        PaymentType, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    port = models.ForeignKey(Port, on_delete=models.SET_NULL, null=True, blank=True)
     totalPrice = models.DecimalField(
         max_digits=7, decimal_places=2, null=True, blank=True
     )
-    createdAt = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     slug = models.SlugField(unique=True, blank=False)
 
     def __str__(self):
-        return str(self.createdAt)
+        return str(self.created_at)
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -72,8 +102,9 @@ class OrderItem(models.Model):
         return super().save(*args, **kwargs)
 
 
-class CustomizationType(models.Model):
+class CustomizationGroup(models.Model):
     name = models.CharField(max_length=200, null=True, blank=True)
+    category = models.ManyToManyField(Category)
     slug = models.SlugField(unique=True, blank=False)
 
     def __str__(self):
@@ -87,9 +118,23 @@ class CustomizationType(models.Model):
 
 class Customization(models.Model):
     name = models.CharField(max_length=200, null=True, blank=True)
+    group = models.ForeignKey(CustomizationGroup, on_delete=models.SET_NULL, null=True)
+    slug = models.SlugField(unique=True, blank=False)
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        return super().save(*args, **kwargs)
+
+
+class OrderCustomization(models.Model):
+    name = models.CharField(max_length=200, null=True, blank=True)
     order_item = models.ForeignKey(OrderItem, on_delete=models.SET_NULL, null=True)
-    customization_type = models.ForeignKey(
-        CustomizationType, on_delete=models.SET_NULL, null=True
+    customization = models.ForeignKey(
+        Customization, on_delete=models.SET_NULL, null=True
     )
     qty = models.IntegerField(null=True, blank=True, default=0)
     slug = models.SlugField(unique=True, blank=False)
