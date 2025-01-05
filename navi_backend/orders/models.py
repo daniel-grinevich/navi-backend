@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.text import slugify
 
-from users.models import User
+from navi_backend.users.models import User
 
 
 # Create your models here.
