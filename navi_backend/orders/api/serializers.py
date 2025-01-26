@@ -13,7 +13,7 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             "user",
-            "paymentType",
+            "payment_type",
             "port",
             "totalPrice",
             "created_at",
