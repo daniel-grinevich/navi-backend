@@ -86,6 +86,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "navi_backend.users",
     "navi_backend.fakeapi",
+    "navi_backend.orders",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
