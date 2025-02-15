@@ -3,7 +3,14 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from navi_backend.orders.models import Order, MenuItem
+from navi_backend.orders.models import (
+    Order,
+    MenuItem,
+    Port,
+    PaymentType,
+    OrderItem,
+    OrderCustomization,
+)
 from rest_framework.permissions import (
     IsAuthenticated,
     IsAdminUser,
@@ -11,7 +18,13 @@ from rest_framework.permissions import (
 )
 from .permissions import ReadOnly, IsOwnerOrAdmin
 
-from .serializers import OrderSerializer, MenuItemSerializer
+from .serializers import (
+    OrderSerializer,
+    MenuItemSerializer,
+    PortSerializer,
+    PaymentTypeSerializer,
+    OrderItemSerializer,
+)
 
 
 class MenuItemViewSet(viewsets.ModelViewSet):
@@ -50,3 +63,38 @@ class OrderViewSet(viewsets.ModelViewSet):
         Set the `user` field to the currently authenticated user.
         """
         serializer.save(user=self.request.user)
+
+
+class OrderItemViewSet(viewsets.ModelViewSet):
+    serializer_class = OrderItemSerializer
+
+    def get_queryset(self):
+        """
+        Restrict query to order items belonging to a specific order.
+        - Admins can access all orders.
+        - Regular users can only access their own order items.
+        """
+        order_id = self.kwargs.get("order_id")
+        order = Order.objects.filter(id=order_id).first()
+
+        if not order:
+            return (
+                OrderItem.objects.none()
+            )  # Return empty queryset if order doesn't exist
+
+        if self.request.user.is_staff or order.user == self.request.user:
+            return OrderItem.objects.filter(order_id=order_id)
+
+        return OrderItem.objects.none()  # Unauthorized users get an empty queryset
+
+
+class PortViewSet(viewsets.ModelViewSet):
+    queryset = Port.objects.all()
+    serializer_class = PortSerializer
+    permission_classes = [IsAdminUser | ReadOnly]
+
+
+class PaymentTypeViewSet(viewsets.ModelViewSet):
+    queryset = PaymentType.objects.all()
+    serializer_class = PaymentTypeSerializer
+    permission_classes = [IsAdminUser | ReadOnly]
