@@ -81,7 +81,7 @@ class Order(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.name)
+            self.slug = slugify(self.created_at)
         return super().save(*args, **kwargs)
 
 
