@@ -1,44 +1,52 @@
+
+from django.core.cache import cache
+from django.db import transaction
+from django.conf import settings
 from django.shortcuts import get_object_or_404
-from rest_framework import viewsets
+from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
+from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+import logging
 
+from navi_backend.core.pagination import StandardResultsSetPagination
 from navi_backend.fakeapi.api.serializers import OptionSerializer
-from navi_backend.fakeapi.api.serializers import ProductSerializer
+from navi_backend.fakeapi.api.serializers import (
+    ProductSerializer,
+    ProductDetailSerializer,
+    ProductBulkCreateSerializer,
+    ProductBulkUpdateSerializer,
+)
 from navi_backend.fakeapi.models import Option
 from navi_backend.fakeapi.models import Product
 
 
-class ProductViewSet(viewsets.ViewSet):
+class ProductViewSet(viewsets.ModelViewSet):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter
+    ]
+    filterset_fields = ['status','price']
+    search_fields = ['name','description']
+    ordering_fields = ['name','price','created_at']
+    ordering = ['-created_at']
+
+    throttle_classes = [UserRateThrottle, AnonRateThrottle]
+
+    def get_serializer_class(self):
+        return ProductSerializer
+    
     def get_queryset(self):
-        """
-        override get_queryset method to all products
-        """
-        return Product.objects.all()
+        cache_key = f'products_{"admin" if self.request.user.}'
 
-    # Built in function list -> think of this like a root url
-    def list(self, request):
-        queryset = self.get_queryset()
-        serializer = ProductSerializer(queryset, many=True)
-        return Response(serializer.data)
-
-    # Use a action to get by name
-    @action(detail=False, methods=["get"])
-    def search(self, request):
-        # Filter products by 'name' query parameter
-        name = request.query_params.get("name", None)
-        if name:
-            queryset = self.get_queryset().filter(name__icontains=name)
-            serializer = ProductSerializer(queryset, many=True)
-            return Response(serializer.data)
-        return Response({"error": "No name parameter provided"}, status=400)
-
-    def retrieve(self, request, pk=None):
-        # Retrieve a single product by Id
-        queryset = self.get_queryset()
-        product = get_object_or_404(queryset, pk=pk)
-        serializer = ProductSerializer(product)
-        return Response(serializer.data)
 
 
 class OptionViewSet(viewsets.ViewSet):

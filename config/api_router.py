@@ -12,7 +12,7 @@ from navi_backend.users.api.views import UserViewSet
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 
 router.register("users", UserViewSet)
-router.register(r"products", ProductViewSet, basename="products")
+router.register(r"products", ProductViewSet)
 router.register(r"options", OptionViewSet, basename="options")
 # router.register(r"optionsets", OptionSetsViewSet)
 
