@@ -20,7 +20,7 @@ from navi_backend.orders.api.views import (
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 
 router.register("users", UserViewSet)
-router.register(r"products", ProductViewSet, basename="products")
+router.register(r"products", ProductViewSet)
 router.register(r"options", OptionViewSet, basename="options")
 router.register(r"orders", OrderViewSet, basename="orders")
 router.register(r"menuitems", MenuItemViewSet, basename="menuitems")
