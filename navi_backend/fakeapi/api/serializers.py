@@ -9,11 +9,18 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             "name",
+            "slug",
             "price",
             "description",
             "body",
             "status",
             "image",
+            "is_featured",
+            "view_count",
+            "version",
+            "is_deleted",
+            "last_modified_ip",
+            "last_modified_user_agent",
             "created_by",
             "created_at",
             "updated_by",
