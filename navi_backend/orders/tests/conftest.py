@@ -1,5 +1,12 @@
 import pytest
-from .factories import OrderItemFactory, OrderFactory, MenuItemFactory
+from django.utils import timezone
+from .factories import (
+    OrderItemFactory,
+    OrderFactory,
+    MenuItemFactory,
+    PaymentTypeFactory,
+    PortFactory,
+)
 from navi_backend.users.tests.factories import UserFactory
 from rest_framework.test import APIRequestFactory
 from navi_backend.users.models import User
@@ -8,6 +15,19 @@ from navi_backend.users.models import User
 @pytest.fixture
 def new_order(db):
     return OrderFactory()
+
+
+@pytest.fixture
+def order_data(db):
+    user = UserFactory()
+    payment_type = PaymentTypeFactory()
+    port = PortFactory()
+    return {
+        "user": user.pk,
+        "payment_type": payment_type.pk,
+        "port": port.pk,
+        "total_price": 7.00,
+    }
 
 
 @pytest.fixture
@@ -49,8 +69,8 @@ def api_rf() -> APIRequestFactory:
 def get_response(api_rf: APIRequestFactory):
     """Helper to get response from a viewset."""
 
-    def _get_response(user, view, method, url, pk=None):
-        request = api_rf.generic(method, url)
+    def _get_response(user, view, method, url, data=None, pk=None):
+        request = api_rf.generic(method, url, data=data, format="json")
         request.user = user
         if pk:
             return view(request, pk=pk)
