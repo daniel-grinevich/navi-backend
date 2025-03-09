@@ -108,9 +108,6 @@ class Port(
     UpdateRecordModel,
     AuditModel,
 ):
-    name = models.CharField(max_length=200, null=True, blank=True)
-    # eventually add location info
-    slug = models.SlugField(unique=True, blank=False)
 
     def __str__(self):
         return self.name
@@ -125,8 +122,6 @@ class PaymentType(
     UpdateRecordModel,
     AuditModel,
 ):
-    name = models.CharField(max_length=200, null=True, blank=True)
-    slug = models.SlugField(unique=True, blank=False)
 
     def __str__(self):
         return self.name
@@ -141,9 +136,6 @@ class Category(
     UpdateRecordModel,
     AuditModel,
 ):
-
-    name = models.CharField(max_length=200, null=True, blank=True)
-    slug = models.SlugField(unique=True, blank=False)
 
     def __str__(self):
         return self.name
@@ -402,7 +394,6 @@ class OrderItem(
 ):
     menu_item = models.ForeignKey(MenuItem, on_delete=models.SET_NULL, null=True)
     order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True)
-    name = models.CharField(max_length=200, null=True, blank=True)
     qty = models.IntegerField(null=True, blank=True, default=1)
     price = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
 
@@ -419,7 +410,6 @@ class CustomizationGroup(
     UpdateRecordModel,
     AuditModel,
 ):
-    name = models.CharField(max_length=200, null=True, blank=True)
     category = models.ManyToManyField(Category)
 
     def __str__(self):
@@ -435,7 +425,6 @@ class Customization(
     UpdateRecordModel,
     AuditModel,
 ):
-    name = models.CharField(max_length=200, null=True, blank=True)
     group = models.ForeignKey(CustomizationGroup, on_delete=models.SET_NULL, null=True)
 
     def __str__(self):
@@ -451,7 +440,6 @@ class OrderCustomization(
     UpdateRecordModel,
     AuditModel,
 ):
-    name = models.CharField(max_length=200, null=True, blank=True)
     order_item = models.ForeignKey(OrderItem, on_delete=models.SET_NULL, null=True)
     customization = models.ForeignKey(
         Customization, on_delete=models.SET_NULL, null=True
