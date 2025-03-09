@@ -20,9 +20,19 @@ class MenuItemFactory(factory.django.DjangoModelFactory):
 
     name = Faker("name")
     category = factory.SubFactory(CategoryFactory)
-    description = Faker("paragraph")
-    price = factory.LazyFunction(lambda: round(random.uniform(10.00, 100.00), 2))
+    description = Faker("text", max_nb_chars=100)
+    body = Faker("text", max_nb_chars=100)
+    price = Faker(
+        "pydecimal",
+        left_digits=3,
+        right_digits=2,
+        positive=True,
+        min_value=10.00,
+        max_value=100.00,
+    )
     image = factory.django.ImageField(color="blue")
+    created_by = factory.SubFactory(UserFactory)
+    updated_by = factory.SubFactory(UserFactory)
     created_at = timezone.now()
     slug = factory.Sequence(lambda n: n)
 
