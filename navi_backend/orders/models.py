@@ -41,7 +41,7 @@ class SlugifiedModel(models.Model):
         max_length=200,
         unique=True,
         db_index=True,
-        help_text=_("Unqiue name"),
+        help_text=_("Unique name"),
     )
     slug = models.SlugField(
         _("Slug"),
@@ -102,7 +102,12 @@ class UpdateRecordModel(models.Model):
 
 
 # Create your models here.
-class Port(models.Model):
+class Port(
+    SlugifiedModel,
+    StatusModel,
+    UpdateRecordModel,
+    AuditModel,
+):
     name = models.CharField(max_length=200, null=True, blank=True)
     # eventually add location info
     slug = models.SlugField(unique=True, blank=False)
@@ -111,12 +116,15 @@ class Port(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
         return super().save(*args, **kwargs)
 
 
-class PaymentType(models.Model):
+class PaymentType(
+    SlugifiedModel,
+    StatusModel,
+    UpdateRecordModel,
+    AuditModel,
+):
     name = models.CharField(max_length=200, null=True, blank=True)
     slug = models.SlugField(unique=True, blank=False)
 
@@ -124,12 +132,15 @@ class PaymentType(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
         return super().save(*args, **kwargs)
 
 
-class Category(models.Model):
+class Category(
+    SlugifiedModel,
+    StatusModel,
+    UpdateRecordModel,
+    AuditModel,
+):
 
     name = models.CharField(max_length=200, null=True, blank=True)
     slug = models.SlugField(unique=True, blank=False)
@@ -248,9 +259,6 @@ class MenuItem(
             raise ValidationError({"status": _("Deleted menuitem cannot be active.")})
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
-
         if not self._state.adding:
             self.version += 1
 
@@ -364,7 +372,12 @@ class MenuItem(
         self.save(update_fields=["is_featured", "updated_at", "version"])
 
 
-class Order(models.Model):
+class Order(
+    SlugifiedModel,
+    StatusModel,
+    UpdateRecordModel,
+    AuditModel,
+):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     payment_type = models.ForeignKey(
         PaymentType, on_delete=models.SET_NULL, null=True, blank=True
@@ -373,76 +386,80 @@ class Order(models.Model):
     totalPrice = models.DecimalField(
         max_digits=7, decimal_places=2, null=True, blank=True
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    slug = models.SlugField(unique=True, blank=False)
 
     def __str__(self):
         return str(self.created_at)
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.created_at)
         return super().save(*args, **kwargs)
 
 
-class OrderItem(models.Model):
+class OrderItem(
+    SlugifiedModel,
+    StatusModel,
+    UpdateRecordModel,
+    AuditModel,
+):
     menu_item = models.ForeignKey(MenuItem, on_delete=models.SET_NULL, null=True)
     order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True)
     name = models.CharField(max_length=200, null=True, blank=True)
     qty = models.IntegerField(null=True, blank=True, default=1)
     price = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
-    slug = models.SlugField(unique=True, blank=False)
 
     def __str__(self):
         return str(self.name)
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
         return super().save(*args, **kwargs)
 
 
-class CustomizationGroup(models.Model):
+class CustomizationGroup(
+    SlugifiedModel,
+    StatusModel,
+    UpdateRecordModel,
+    AuditModel,
+):
     name = models.CharField(max_length=200, null=True, blank=True)
     category = models.ManyToManyField(Category)
-    slug = models.SlugField(unique=True, blank=False)
 
     def __str__(self):
         return self.name
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
         return super().save(*args, **kwargs)
 
 
-class Customization(models.Model):
+class Customization(
+    SlugifiedModel,
+    StatusModel,
+    UpdateRecordModel,
+    AuditModel,
+):
     name = models.CharField(max_length=200, null=True, blank=True)
     group = models.ForeignKey(CustomizationGroup, on_delete=models.SET_NULL, null=True)
-    slug = models.SlugField(unique=True, blank=False)
 
     def __str__(self):
         return self.name
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
         return super().save(*args, **kwargs)
 
 
-class OrderCustomization(models.Model):
+class OrderCustomization(
+    SlugifiedModel,
+    StatusModel,
+    UpdateRecordModel,
+    AuditModel,
+):
     name = models.CharField(max_length=200, null=True, blank=True)
     order_item = models.ForeignKey(OrderItem, on_delete=models.SET_NULL, null=True)
     customization = models.ForeignKey(
         Customization, on_delete=models.SET_NULL, null=True
     )
     qty = models.IntegerField(null=True, blank=True, default=0)
-    slug = models.SlugField(unique=True, blank=False)
 
     def __str__(self):
         return self.name
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
         return super().save(*args, **kwargs)
