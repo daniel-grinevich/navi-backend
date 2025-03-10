@@ -16,26 +16,7 @@ from navi_backend.users.models import User
 from navi_backend.orders.managers import MenuItemManager
 
 
-class AuditModel(models.Model):
-    is_deleted = models.BooleanField(default=False)
-    deleted_at = models.DateTimeField(null=True, blank=True)
-    last_modified_ip = models.GenericIPAddressField(
-        _("last modified IP"),
-        null=True,
-        editable=False,
-    )
-    last_modified_user_agent = models.CharField(
-        _("last modified user agent"),
-        max_length=200,
-        null=True,
-        editable=False,
-    )
-
-    class Meta:
-        abstract = True
-
-
-class SlugifiedModel(models.Model):
+class NamedModel(models.Model):
     name = models.CharField(
         _("Name"),
         max_length=200,
@@ -43,6 +24,15 @@ class SlugifiedModel(models.Model):
         db_index=True,
         help_text=_("Unique name"),
     )
+
+    class Meta:
+        abstract = True
+
+    def __str__(self):
+        return self.name
+
+
+class SlugifiedModel(models.Model):
     slug = models.SlugField(
         _("Slug"),
         unique=True,
@@ -54,33 +44,10 @@ class SlugifiedModel(models.Model):
     class Meta:
         abstract = True
 
-    def __str__(self):
-        return self.name
-
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
         return super().save(*args, **kwargs)
-
-
-class StatusModel(models.Model):
-    class Status(models.TextChoices):
-        ACTIVE = "A", _("Active")
-        INACTIVE = "I", _("Inactive")
-        DRAFT = "D", _("Draft")
-        ARCHIVED = "R", _("Archived")
-
-    status = models.CharField(
-        _("Status"),
-        max_length=1,
-        choices=Status.choices,
-        default=Status.ACTIVE,
-        db_index=True,
-        help_text=_("availability status"),
-    )
-
-    class Meta:
-        abstract = True
 
 
 class UpdateRecordModel(models.Model):
@@ -101,30 +68,104 @@ class UpdateRecordModel(models.Model):
         abstract = True
 
 
+class AuditModel(UpdateRecordModel):
+    class Status(models.TextChoices):
+        ACTIVE = "A", _("Active")
+        INACTIVE = "I", _("Inactive")
+        DRAFT = "D", _("Draft")
+        ARCHIVED = "R", _("Archived")
+
+    status = models.CharField(
+        _("Status"),
+        max_length=1,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+        db_index=True,
+        help_text=_("availability status"),
+    )
+
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    last_modified_ip = models.GenericIPAddressField(
+        _("last modified IP"),
+        null=True,
+        editable=False,
+    )
+    last_modified_user_agent = models.CharField(
+        _("last modified user agent"),
+        max_length=200,
+        null=True,
+        editable=False,
+    )
+
+    class Meta:
+        abstract = True
+
+    @property
+    def is_active(self):
+        """Check if menuitem is active."""
+        return self.status == self.Status.ACTIVE and not self.is_deleted
+
+    def activate(self):
+        """Activate the product."""
+        if self.is_deleted:
+            raise ValidationError(_("Cannot activate deleted menuitem."))
+        self.status = self.Status.ACTIVE
+        self.save(update_fields=["status", "updated_at", "version"])
+
+    def archive(self):
+        self.status = self.Status.ARCHIVED
+        self.save(update_fields=["status", "updated_at", "version"])
+
+    def soft_delete(self, user_ip=None, user_agent=None):
+        self.is_deleted = True
+        self.deleted_at = timezone.now()
+        self.status = self.Status.INACTIVE
+        self.last_modified_ip = user_ip
+        self.last_modified_user_agent = user_agent
+        self.save(
+            update_fields=[
+                "is_deleted",
+                "deleted_at",
+                "status",
+                "last_modified_ip",
+                "last_modified_user_agent",
+                "updated_at",
+                "version",
+            ]
+        )
+
+    def restore(self):
+        """Restore a soft-deleted product."""
+        if not self.is_deleted:
+            raise ValidationError(_("Cannot restore non-deleted menuitem."))
+        self.is_deleted = False
+        self.deleted_at = None
+        self.save(
+            update_fields=[
+                "is_deleted",
+                "deleted_at",
+                "updated_at",
+                "version",
+            ]
+        )
+
+    def clean(self):
+        if self.is_deleted and self.status == self.Status.ACTIVE:
+            raise ValidationError({"status": _("Deleted menuitem cannot be active.")})
+
+
+9
+
+
 # Create your models here.
-class Port(
-    SlugifiedModel,
-    StatusModel,
-    UpdateRecordModel,
-    AuditModel,
-):
-
-    def __str__(self):
-        return self.name
-
-    def save(self, *args, **kwargs):
-        return super().save(*args, **kwargs)
 
 
 class PaymentType(
     SlugifiedModel,
-    StatusModel,
-    UpdateRecordModel,
+    NamedModel,
     AuditModel,
 ):
-
-    def __str__(self):
-        return self.name
 
     def save(self, *args, **kwargs):
         return super().save(*args, **kwargs)
@@ -132,24 +173,17 @@ class PaymentType(
 
 class Category(
     SlugifiedModel,
-    StatusModel,
-    UpdateRecordModel,
+    NamedModel,
     AuditModel,
 ):
 
-    def __str__(self):
-        return self.name
-
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
         return super().save(*args, **kwargs)
 
 
 class MenuItem(
     SlugifiedModel,
-    StatusModel,
-    UpdateRecordModel,
+    NamedModel,
     AuditModel,
 ):
     price = models.DecimalField(
@@ -284,55 +318,6 @@ class MenuItem(
             cache.set(cache_key, cached_value, timeout=3600)
         return cached_value
 
-    @property
-    def is_active(self):
-        """Check if menuitem is active."""
-        return self.status == self.Status.ACTIVE and not self.is_deleted
-
-    def activate(self):
-        """Activate the product."""
-        if self.is_deleted:
-            raise ValidationError(_("Cannot activate deleted menuitem."))
-        self.status = self.Status.ACTIVE
-        self.save(update_fields=["status", "updated_at", "version"])
-
-    def archive(self):
-        self.status = self.Status.ARCHIVED
-        self.save(update_fields=["status", "updated_at", "version"])
-
-    def soft_delete(self, user_ip=None, user_agent=None):
-        self.is_deleted = True
-        self.deleted_at = timezone.now()
-        self.status = self.Status.INACTIVE
-        self.last_modified_ip = user_ip
-        self.last_modified_user_agent = user_agent
-        self.save(
-            update_fields=[
-                "is_deleted",
-                "deleted_at",
-                "status",
-                "last_modified_ip",
-                "last_modified_user_agent",
-                "updated_at",
-                "version",
-            ]
-        )
-
-    def restore(self):
-        """Restore a soft-deleted product."""
-        if not self.is_deleted:
-            raise ValidationError(_("Cannot restore non-deleted menuitem."))
-        self.is_deleted = False
-        self.deleted_at = None
-        self.save(
-            update_fields=[
-                "is_deleted",
-                "deleted_at",
-                "updated_at",
-                "version",
-            ]
-        )
-
     def increment_view_count(self):
         """Increment the view count safely using F() expressions."""
         self.__class__.objects.filter(pk=self.pk).update(
@@ -364,23 +349,132 @@ class MenuItem(
         self.save(update_fields=["is_featured", "updated_at", "version"])
 
 
+class RasberryPi(
+    SlugifiedModel,
+    NamedModel,
+    AuditModel,
+):
+    mac_address = models.CharField(max_length=100, unique=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    location = models.CharField(max_length=255, blank=True)
+    is_connected = models.BooleanField(default=False)
+    firmware_version = models.CharField(max_length=50, blank=True)
+    last_seen = models.DateTimeField(auto_now=True)
+
+
+class MachineType(
+    SlugifiedModel,
+    NamedModel,
+    AuditModel,
+):
+    model_number = models.CharField(max_length=100)
+    maintenance_frequency = models.IntegerField(
+        help_text="Required Maintenance Frequency in Days"
+    )
+    supported_drinks = models.ManyToManyField(MenuItem, blank=True)
+
+
+class EspressoMachine(
+    SlugifiedModel,
+    NamedModel,
+    AuditModel,
+):
+    serial_number = models.CharField(max_length=100, unique=True)
+    machine_type = models.ForeignKey(
+        MachineType,
+        verbose_name=_("Machine Type"),
+        related_name="espresso_machine",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text=_("Espresso Machine type"),
+    )
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    port = models.IntegerField(blank=True, null=True)
+    is_online = models.BooleanField(default=False)
+    last_maintenance_date = models.DateField(blank=True, null=True)
+    last_maintenance_date_time = models.DateTimeField(blank=True, null=True)
+
+
+class NaviPort(
+    SlugifiedModel,
+    NamedModel,
+    AuditModel,
+):
+    espresso_machine = models.ForeignKey(
+        EspressoMachine,
+        verbose_name=_("Espresso Machine"),
+        related_name="navi_port",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text=_("Espresso Machine attached to this NaviPort"),
+    )
+    rasberry_pi = models.ForeignKey(
+        RasberryPi,
+        verbose_name=_("Rasberry Pi"),
+        related_name="navi_port",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text=_("Rasberry Pi attached to this NaviPort"),
+    )
+
+    def save(self, *args, **kwargs):
+        return super().save(*args, **kwargs)
+
+
 class Order(
     SlugifiedModel,
-    StatusModel,
-    UpdateRecordModel,
     AuditModel,
 ):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     payment_type = models.ForeignKey(
-        PaymentType, on_delete=models.SET_NULL, null=True, blank=True
-    )
-    port = models.ForeignKey(Port, on_delete=models.SET_NULL, null=True, blank=True)
-    totalPrice = models.DecimalField(
-        max_digits=7, decimal_places=2, null=True, blank=True
+        PaymentType,
+        verbose_name=_("Payment Type"),
+        related_name="orders",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text=_("Payment method used for this order"),
     )
 
+    navi_port = models.ForeignKey(
+        NaviPort, on_delete=models.SET_NULL, null=True, blank=True
+    )
+
+    price = models.DecimalField(
+        _("Price"),
+        decimal_places=2,
+        max_digits=8,
+        validators=[
+            MaxValueValidator(Decimal(99999.99)),
+            MinValueValidator(Decimal(0.01)),
+        ],
+        help_text=_("Price of order in dollars (between $99999-$0.01)"),
+    )
+
+    class Status(models.TextChoices):
+        ORDERED = "O", _("Ordered")
+        SENT = "S", _("Sent")
+        COMPLETED = "D", _("Completed")
+        CANCELLED = "C", _("Cancelled")
+
+    status = models.CharField(
+        _("Status"),
+        max_length=1,
+        choices=Status.choices,
+        default=Status.ORDERED,
+        db_index=True,
+        help_text=_("Order status"),
+    )
+
+    def clean(self):
+        if self.price and self.price < 0:
+            raise ValidationError({"price": _("Price cannot be negative.")})
+
     def __str__(self):
-        return str(self.created_at)
+        return f"{self.user} (v{self.created_at})"
 
     def save(self, *args, **kwargs):
         return super().save(*args, **kwargs)
@@ -388,14 +482,27 @@ class Order(
 
 class OrderItem(
     SlugifiedModel,
-    StatusModel,
-    UpdateRecordModel,
     AuditModel,
 ):
     menu_item = models.ForeignKey(MenuItem, on_delete=models.SET_NULL, null=True)
     order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True)
-    qty = models.IntegerField(null=True, blank=True, default=1)
-    price = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    quantity = models.IntegerField(
+        default=1,
+        validators=[
+            MaxValueValidator(100),
+            MinValueValidator(1),
+        ],
+    )
+    unit_price = models.DecimalField(
+        _("Unit Price"),
+        decimal_places=2,
+        max_digits=8,
+        validators=[
+            MaxValueValidator(Decimal(99999.99)),
+            MinValueValidator(Decimal(0.01)),
+        ],
+        help_text=_("Price per unit in dollars (between $99999-$0.01)"),
+    )
 
     def __str__(self):
         return str(self.name)
@@ -403,29 +510,50 @@ class OrderItem(
     def save(self, *args, **kwargs):
         return super().save(*args, **kwargs)
 
+    @property
+    def total_price(self):
+        return self.unit_price * self.quantity
+
 
 class CustomizationGroup(
     SlugifiedModel,
-    StatusModel,
-    UpdateRecordModel,
+    NamedModel,
     AuditModel,
 ):
     category = models.ManyToManyField(Category)
+    description = models.CharField(_("Description"), max_length=255, blank=True)
+    display_order = models.PositiveIntegerField(_("Display Order"), default=0)
+    is_required = models.BooleanField(_("Required"), default=False)
 
     def __str__(self):
         return self.name
 
     def save(self, *args, **kwargs):
         return super().save(*args, **kwargs)
+
+    class Meta:
+        ordering = ["display_order", "name"]
+        verbose_name = _("Customization Group")
 
 
 class Customization(
     SlugifiedModel,
-    StatusModel,
-    UpdateRecordModel,
+    NamedModel,
     AuditModel,
 ):
     group = models.ForeignKey(CustomizationGroup, on_delete=models.SET_NULL, null=True)
+    description = models.CharField(_("Description"), max_length=255, blank=True)
+    display_order = models.PositiveIntegerField(_("Display Order"), default=0)
+    price = models.DecimalField(
+        _("Price"),
+        decimal_places=2,
+        max_digits=8,
+        validators=[
+            MaxValueValidator(Decimal(99999.99)),
+            MinValueValidator(Decimal(0.01)),
+        ],
+        help_text=_("Price of customization in dollars (between $99999-$0.01)"),
+    )
 
     def __str__(self):
         return self.name
@@ -433,18 +561,40 @@ class Customization(
     def save(self, *args, **kwargs):
         return super().save(*args, **kwargs)
 
+    class Meta:
+        ordering = ["display_order", "name"]
+        verbose_name = _("Customization")
+
 
 class OrderCustomization(
     SlugifiedModel,
-    StatusModel,
-    UpdateRecordModel,
     AuditModel,
 ):
     order_item = models.ForeignKey(OrderItem, on_delete=models.SET_NULL, null=True)
     customization = models.ForeignKey(
         Customization, on_delete=models.SET_NULL, null=True
     )
-    qty = models.IntegerField(null=True, blank=True, default=0)
+    quantity = models.IntegerField(
+        default=1,
+        validators=[
+            MaxValueValidator(100),
+            MinValueValidator(1),
+        ],
+    )
+    unit_price = models.DecimalField(
+        _("Unit Price"),
+        decimal_places=2,
+        max_digits=8,
+        validators=[
+            MaxValueValidator(Decimal(99999.99)),
+            MinValueValidator(Decimal(0.01)),
+        ],
+        help_text=_("Price per unit in dollars (between $99999-$0.01)"),
+    )
+
+    @property
+    def total_price(self):
+        return self.quantity * self.unit_price
 
     def __str__(self):
         return self.name

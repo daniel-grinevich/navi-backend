@@ -6,7 +6,10 @@ from .models import (
     OrderCustomization,
     Category,
     PaymentType,
-    Port,
+    NaviPort,
+    RasberryPi,
+    MachineType,
+    EspressoMachine,
     CustomizationGroup,
 )
 
@@ -17,5 +20,8 @@ admin.site.register(OrderItem)
 admin.site.register(OrderCustomization)
 admin.site.register(Category)
 admin.site.register(PaymentType)
-admin.site.register(Port)
+admin.site.register(NaviPort)
+admin.site.register(EspressoMachine)
+admin.site.register(RasberryPi)
+admin.site.register(MachineType)
 admin.site.register(CustomizationGroup)
