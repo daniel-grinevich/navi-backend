@@ -1,3 +1,11 @@
+Best Practice
+For a Django API with a Next.js frontend:
+	•	Put most validation in serializers (the DRF way)
+	•	Use models for database integrity constraints
+	•	Use views only for contextual validation that depends on request state
+Serializers are the most important validation layer for APIs as they're designed specifically to validate, transform, and structure API data.
+
+
 # Navi Backend
 
 Behold My Awesome Project!
