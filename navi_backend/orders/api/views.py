@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from navi_backend.orders.models import (
     Order,
     MenuItem,
-    Port,
+    NaviPort,
     PaymentType,
     OrderItem,
     OrderCustomization,
@@ -21,7 +21,7 @@ from .permissions import ReadOnly, IsOwnerOrAdmin
 from .serializers import (
     OrderSerializer,
     MenuItemSerializer,
-    PortSerializer,
+    NaviPortSerializer,
     PaymentTypeSerializer,
     OrderItemSerializer,
 )
@@ -40,10 +40,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         """
         Assign different permissions for actions.
         """
-        if self.action in ["list", "retrieve", "update", "partial_update", "destroy"]:
+        if self.action in ["list", "retrieve", "update", "partial_update"]:
             permission_classes = [IsAuthenticated, IsOwnerOrAdmin]
         elif self.action == "create":
             permission_classes = [IsAuthenticated]
+        elif self.action == "destroy":
+            permission_classes = [IsAdminUser]
         else:
             permission_classes = [IsAuthenticated]  # Default for other actions
         return [permission() for permission in permission_classes]
@@ -88,9 +90,9 @@ class OrderItemViewSet(viewsets.ModelViewSet):
         return OrderItem.objects.none()  # Unauthorized users get an empty queryset
 
 
-class PortViewSet(viewsets.ModelViewSet):
-    queryset = Port.objects.all()
-    serializer_class = PortSerializer
+class NaviPortViewSet(viewsets.ModelViewSet):
+    queryset = NaviPort.objects.all()
+    serializer_class = NaviPortSerializer
     permission_classes = [IsAdminUser | ReadOnly]
 
 

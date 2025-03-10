@@ -5,7 +5,7 @@ from navi_backend.orders.models import (
     OrderCustomization,
     Customization,
     OrderItem,
-    Port,
+    NaviPort,
     PaymentType,
 )
 
@@ -72,9 +72,9 @@ class CustomizationSerializer(serializers.ModelSerializer):
         ]
 
 
-class PortSerializer(serializers.ModelSerializer):
+class NaviPortSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Port
+        model = NaviPort
         fields = [
             "name",
             "slug",
