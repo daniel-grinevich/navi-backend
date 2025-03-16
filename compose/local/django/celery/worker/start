@@ -1,0 +1,3 @@
+#!/bin/sh
+# This script starts the Celery worker for local development with debug logging.
+exec celery -A config.celery worker -l debug

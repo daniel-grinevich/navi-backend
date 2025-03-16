@@ -5,8 +5,10 @@ from navi_backend.orders.models import (
     OrderCustomization,
     Customization,
     OrderItem,
-    Port,
+    NaviPort,
     PaymentType,
+    Ingredient,
+    MenuItemIngredient,
 )
 
 
@@ -16,9 +18,12 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = [
             "user",
             "payment_type",
-            "port",
-            "totalPrice",
+            "navi_port",
+            "price",
             "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
             "slug",
         ]
 
@@ -29,14 +34,35 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = [
             "menu_item",
             "order",
-            "price",
-            "name",
-            "qty",
+            "unit_price",
+            "quantity",
+            "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
             "slug",
         ]
 
 
+class MenuItemIngredientSerializer(serializers.ModelSerializer):
+    ingredient = serializers.StringRelatedField()
+
+    class Meta:
+        model = MenuItemIngredient
+        fields = [
+            "ingredient",
+            "quantity",
+            "unit",
+        ]
+
+
 class MenuItemSerializer(serializers.ModelSerializer):
+    ingredients = MenuItemIngredientSerializer(
+        many=True,
+        source="menu_item_ingredients",  # Related name from model
+        read_only=True,
+    )
+
     class Meta:
         model = MenuItem
         fields = [
@@ -46,6 +72,9 @@ class MenuItemSerializer(serializers.ModelSerializer):
             "price",
             "image",
             "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
             "slug",
         ]
 
@@ -72,9 +101,9 @@ class CustomizationSerializer(serializers.ModelSerializer):
         ]
 
 
-class PortSerializer(serializers.ModelSerializer):
+class NaviPortSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Port
+        model = NaviPort
         fields = [
             "name",
             "slug",
@@ -87,4 +116,55 @@ class PaymentTypeSerializer(serializers.ModelSerializer):
         fields = [
             "name",
             "slug",
+        ]
+
+
+class IngredientSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ingredient
+        fields = [
+            "name",
+            "description",
+            "slug",
+            "name",
+            "description",
+            "is_allergen",
+            "status",
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+        ]
+
+
+class MenuItemIngredientSerializer(serializers.ModelSerializer):
+    ingredient = serializers.StringRelatedField()
+
+    class Meta:
+        model = MenuItemIngredient
+        fields = ["ingredient", "amount", "unit"]
+
+
+class MenuItemSerializer(serializers.ModelSerializer):
+    ingredients = MenuItemIngredientSerializer(
+        many=True,
+        source="menu_item_ingredients",  # Related name from model
+        read_only=True,
+    )
+
+    class Meta:
+        model = MenuItem
+        fields = [
+            "slug",
+            "name",
+            "status",
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+            "image",
+            "body",
+            "description",
+            "price",
+            "ingredients",
         ]

@@ -8,12 +8,12 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
-def test_create_order(new_order):
-    assert new_order
+def test_create_order(order):
+    assert order
 
 
-def test_create_order_item(new_order_item):
-    assert new_order_item
+def test_create_order_item(order_item):
+    assert order_item
 
 
 """ @pytest.mark.parametrize(

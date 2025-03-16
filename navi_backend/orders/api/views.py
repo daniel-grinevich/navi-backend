@@ -6,10 +6,12 @@ from rest_framework.response import Response
 from navi_backend.orders.models import (
     Order,
     MenuItem,
-    Port,
+    NaviPort,
     PaymentType,
     OrderItem,
     OrderCustomization,
+    MenuItemIngredient,
+    Ingredient,
 )
 from rest_framework.permissions import (
     IsAuthenticated,
@@ -21,9 +23,11 @@ from .permissions import ReadOnly, IsOwnerOrAdmin
 from .serializers import (
     OrderSerializer,
     MenuItemSerializer,
-    PortSerializer,
+    NaviPortSerializer,
     PaymentTypeSerializer,
     OrderItemSerializer,
+    MenuItemIngredientSerializer,
+    IngredientSerializer,
 )
 
 
@@ -31,6 +35,52 @@ class MenuItemViewSet(viewsets.ModelViewSet):
     queryset = MenuItem.objects.all()
     serializer_class = MenuItemSerializer
     permission_classes = [IsAdminUser | ReadOnly]
+
+    @action(detail=True, methods=["post"])
+    def add_ingredient(self, request, pk=None):
+        """
+        Adds an ingredient to a specific MenuItem.
+        """
+        menu_item = self.get_object()
+
+        ingredient_id = request.data.get("ingredient_id")
+        quantity = request.data.get("quantity")
+        unit = request.data.get("unit")
+
+        if not (ingredient_id and quantity and unit):
+            return Response(
+                {"error": "ingredient_id, quantity, and unit are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ingredient = Ingredient.objects.filter(id=ingredient_id).first()
+
+        if not ingredient:
+            return Response(
+                {"error": "Invalid ingredient ID"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Create or update the ingredient in the recipe
+        menu_item_ingredient, created = MenuItemIngredient.objects.update_or_create(
+            menu_item=menu_item,
+            ingredient=ingredient,
+            defaults={"quantity": quantity, "unit": unit},
+        )
+
+        return Response(
+            MenuItemIngredientSerializer(menu_item_ingredient).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["get"])
+    def ingredients(self, request, pk=None):
+        """
+        Retrieve all ingredients for a specific MenuItem.
+        """
+        menu_item = self.get_object()
+        ingredients = menu_item.menu_item_ingredients.select_related("ingredient")
+        return Response(MenuItemIngredientSerializer(ingredients, many=True).data)
 
 
 class OrderViewSet(viewsets.ModelViewSet):
@@ -40,10 +90,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         """
         Assign different permissions for actions.
         """
-        if self.action in ["list", "retrieve", "update", "partial_update", "destroy"]:
+        if self.action in ["list", "retrieve", "update", "partial_update"]:
             permission_classes = [IsAuthenticated, IsOwnerOrAdmin]
         elif self.action == "create":
             permission_classes = [IsAuthenticated]
+        elif self.action == "destroy":
+            permission_classes = [IsAdminUser]
         else:
             permission_classes = [IsAuthenticated]  # Default for other actions
         return [permission() for permission in permission_classes]
@@ -88,9 +140,9 @@ class OrderItemViewSet(viewsets.ModelViewSet):
         return OrderItem.objects.none()  # Unauthorized users get an empty queryset
 
 
-class PortViewSet(viewsets.ModelViewSet):
-    queryset = Port.objects.all()
-    serializer_class = PortSerializer
+class NaviPortViewSet(viewsets.ModelViewSet):
+    queryset = NaviPort.objects.all()
+    serializer_class = NaviPortSerializer
     permission_classes = [IsAdminUser | ReadOnly]
 
 
@@ -98,3 +150,13 @@ class PaymentTypeViewSet(viewsets.ModelViewSet):
     queryset = PaymentType.objects.all()
     serializer_class = PaymentTypeSerializer
     permission_classes = [IsAdminUser | ReadOnly]
+
+
+class MenuItemIngredientViewSet(viewsets.ModelViewSet):
+    queryset = MenuItemIngredient.objects.select_related("menu_item", "ingredient")
+    serializer_class = MenuItemIngredientSerializer
+
+
+class IngredientViewSet(viewsets.ModelViewSet):
+    queryset = Ingredient.objects.all()
+    serializer_class = IngredientSerializer

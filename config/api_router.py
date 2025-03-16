@@ -12,8 +12,10 @@ from navi_backend.orders.api.views import (
     OrderViewSet,
     MenuItemViewSet,
     OrderItemViewSet,
-    PortViewSet,
+    NaviPortViewSet,
     PaymentTypeViewSet,
+    IngredientViewSet,
+    MenuItemIngredientViewSet,
 )
 
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
@@ -25,8 +27,14 @@ router.register(r"menuitems", MenuItemViewSet, basename="menuitems")
 router.register(
     r"orders/(?P<order_id>\d+)/items", OrderItemViewSet, basename="orderitems"
 )
-router.register(r"ports", PortViewSet, basename="ports")
+router.register(r"ports", NaviPortViewSet, basename="ports")
 router.register(r"paymenttypes", PaymentTypeViewSet, basename="paymenttypes")
+
+router.register(r"ingredients", IngredientViewSet, basename="ingredient")
+router.register(
+    r"menu-item-ingredients", MenuItemIngredientViewSet, basename="menu-item-ingredient"
+)
+
 # router.register(r"optionsets", OptionSetsViewSet)
 
 app_name = "api"
