@@ -349,6 +349,57 @@ class MenuItem(
         self.save(update_fields=["is_featured", "updated_at", "version"])
 
 
+class Ingredient(NamedModel, SlugifiedModel, AuditModel):
+    """Individual ingredient details."""
+
+    description = models.TextField(blank=True)
+    is_allergen = models.BooleanField(
+        _("Allergen"),
+        default=False,
+        help_text=_("Check if this ingredient is a common allergen"),
+    )
+
+    def __str__(self):
+        return self.name
+
+
+class MenuItemIngredient(models.Model):
+    """Through model to track ingredient quantities for menu items."""
+
+    menu_item = models.ForeignKey(
+        MenuItem,
+        on_delete=models.CASCADE,
+        related_name="menu_item_ingredients",
+        help_text=_("Menu item this ingredient belongs to"),
+    )
+    ingredient = models.ForeignKey(
+        Ingredient,
+        on_delete=models.CASCADE,
+        related_name="menu_item_ingredients",
+        help_text=_("Ingredient used in this menu item"),
+    )
+    quantity = models.DecimalField(
+        _("Amount"),
+        max_digits=7,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal(0.01))],
+        help_text=_("Amount of ingredient required (e.g., grams, ounces)"),
+    )
+    unit = models.CharField(
+        _("Unit"),
+        max_length=50,
+        help_text=_("Unit of measurement (e.g., g, oz, ml)"),
+    )
+
+    class Meta:
+        unique_together = ["menu_item", "ingredient"]
+
+    def __str__(self):
+        return (
+            f"{self.amount} {self.unit} {self.ingredient.name} in {self.menu_item.name}"
+        )
+
+
 class RasberryPi(
     SlugifiedModel,
     NamedModel,
