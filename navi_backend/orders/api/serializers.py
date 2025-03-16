@@ -45,11 +45,11 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class MenuItemIngredientSerializer(serializers.ModelSerializer):
-    ingredient = serializers.StringRelatedField()
 
     class Meta:
         model = MenuItemIngredient
         fields = [
+            "menu_item",
             "ingredient",
             "quantity",
             "unit",
@@ -135,14 +135,6 @@ class IngredientSerializer(serializers.ModelSerializer):
             "created_by",
             "updated_by",
         ]
-
-
-class MenuItemIngredientSerializer(serializers.ModelSerializer):
-    ingredient = serializers.StringRelatedField()
-
-    class Meta:
-        model = MenuItemIngredient
-        fields = ["ingredient", "amount", "unit"]
 
 
 class MenuItemSerializer(serializers.ModelSerializer):

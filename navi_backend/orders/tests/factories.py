@@ -238,3 +238,4 @@ class MenuItemIngredientFactory(
     menu_item = factory.SubFactory(MenuItemFactory)
     ingredient = factory.SubFactory(IngredientFactory)
     quantity = factory.Faker("pyfloat", left_digits=1, right_digits=2, positive=True)
+    unit = Faker("text", max_nb_chars=10)

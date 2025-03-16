@@ -395,9 +395,7 @@ class MenuItemIngredient(models.Model):
         unique_together = ["menu_item", "ingredient"]
 
     def __str__(self):
-        return (
-            f"{self.amount} {self.unit} {self.ingredient.name} in {self.menu_item.name}"
-        )
+        return f"{self.quantity} {self.unit} {self.ingredient.name} in {self.menu_item.name}"
 
 
 class RasberryPi(

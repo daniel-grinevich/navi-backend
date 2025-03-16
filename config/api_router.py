@@ -23,16 +23,16 @@ router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 router.register("users", UserViewSet)
 router.register(r"products", ProductViewSet, basename="products")
 router.register(r"orders", OrderViewSet, basename="orders")
-router.register(r"menuitems", MenuItemViewSet, basename="menuitems")
+router.register(r"menu_items", MenuItemViewSet, basename="menu_items")
 router.register(
-    r"orders/(?P<order_id>\d+)/items", OrderItemViewSet, basename="orderitems"
+    r"orders/(?P<order_id>\d+)/items", OrderItemViewSet, basename="order_items"
 )
 router.register(r"ports", NaviPortViewSet, basename="ports")
-router.register(r"paymenttypes", PaymentTypeViewSet, basename="paymenttypes")
+router.register(r"payment_types", PaymentTypeViewSet, basename="payment_types")
 
 router.register(r"ingredients", IngredientViewSet, basename="ingredient")
 router.register(
-    r"menu-item-ingredients", MenuItemIngredientViewSet, basename="menu-item-ingredient"
+    r"menu_item_ingredients", MenuItemIngredientViewSet, basename="menu_item_ingredient"
 )
 
 # router.register(r"optionsets", OptionSetsViewSet)

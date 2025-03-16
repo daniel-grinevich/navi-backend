@@ -10,6 +10,7 @@ from .factories import (
     NaviPortFactory,
     IngredientFactory,
     CategoryFactory,
+    MenuItemIngredientFactory,
 )
 from navi_backend.users.tests.factories import UserFactory
 from rest_framework.test import APIRequestFactory
@@ -132,3 +133,26 @@ def get_response(api_rf: APIRequestFactory):
 def ingredient():
     ingredient = IngredientFactory(name="Espresso")
     return ingredient
+
+
+@pytest.fixture
+def menu_item_ingredient():
+    menu_item = MenuItemFactory(name="Latte")
+    ingredient = IngredientFactory(name="Milk")
+    return MenuItemIngredientFactory(
+        menu_item=menu_item, ingredient=ingredient, quantity="200", unit="g"
+    )
+
+
+@pytest.fixture
+def menu_item_ingredient_data():
+    menu_item = MenuItemFactory(name="Capp")
+    ingredient = IngredientFactory(name="espresso")
+    return json.dumps(
+        {
+            "menu_item": menu_item.pk,
+            "ingredient": ingredient.pk,
+            "quantity": "200",
+            "unit": "g",
+        }
+    )
