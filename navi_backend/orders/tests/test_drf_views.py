@@ -185,9 +185,9 @@ class TestMenuItemViewSets:
     @pytest.mark.parametrize(
         "view_name, method, url",
         [
-            ("create", "POST", "/api/menuitems/"),
-            ("destroy", "DELETE", "/api/menuitems/{pk}/"),
-            ("partial_update", "PATCH", "/api/menuitems/{pk}/"),
+            ("create", "POST", "/api/menu_items/"),
+            ("destroy", "DELETE", "/api/menu_items/{pk}/"),
+            ("partial_update", "PATCH", "/api/menu_items/{pk}/"),
         ],
     )
     def test_create_menu_item(
@@ -209,7 +209,6 @@ class TestMenuItemViewSets:
             )
             response.user = admin_user
             response = view(response)
-            print(response.data)
             assert response.status_code == status.HTTP_201_CREATED
             assert MenuItem.objects.filter(name="Latte").exists()
 
@@ -238,43 +237,55 @@ class TestMenuItemViewSets:
             assert response.status_code == status.HTTP_200_OK
             assert menu_item.name == "Capp"
 
-    """ def test_get_menu_item_with_ingredients(self, api_rf):
-        menu_item = MenuItemFactory(name="Pizza Margherita")
-        ingredient = IngredientFactory(name="Mozzarella")
-        MenuItemIngredientFactory(
-            menu_item=menu_item, ingredient=ingredient, quantity="200", unit="g"
-        )
-
-        url = f"/menu-items/{menu_item.id}/ingredients/"
-        response = api_rf.get(url)
+    def test_get_menu_item_with_ingredients(
+        self, menu_item_ingredient, get_response, user
+    ):
+        view = MenuItemIngredientViewSet.as_view({"get": "list"})
+        menu_item = menu_item_ingredient.menu_item
+        url = f"/menuitems/{menu_item.pk}/ingredients/"
+        response = get_response(user, view, "GET", url)
         assert response.status_code == status.HTTP_200_OK
-        assert response.data == [
-            {"ingredient": "Mozzarella", "quantity": "200", "unit": "g"}
-        ]
 
-    def test_add_ingredient_to_menu_item(self, api_rf):
-        menu_item = MenuItemFactory(name="Lasagna")
-        ingredient = IngredientFactory(name="Cheese")
-
-        url = f"/menu-items/{menu_item.id}/add_ingredient/"
-        payload = {"ingredient_id": ingredient.id, "quantity": "300", "unit": "g"}
-        response = api_rf.post(url, payload)
+    def test_add_ingredient_to_menu_item(
+        self, menu_item, ingredient, get_response, admin_user
+    ):
+        view = MenuItemViewSet.as_view({"post": "add_ingredient"})
+        url = f"/menuitems/{menu_item.pk}/add_ingredient/"
+        payload = json.dumps(
+            {"ingredient_id": ingredient.id, "quantity": "300", "unit": "g"}
+        )
+        response = get_response(
+            admin_user,
+            view,
+            "POST",
+            url.format(pk=menu_item.pk),
+            data=payload,
+            pk=menu_item.pk,
+        )
 
         assert response.status_code == status.HTTP_201_CREATED
         assert MenuItemIngredient.objects.filter(
             menu_item=menu_item, ingredient=ingredient
         ).exists()
 
-    def test_fail_add_invalid_ingredient(self, api_rf):
-        menu_item = MenuItemFactory(name="Lasagna")
-
-        url = f"/menu-items/{menu_item.id}/add_ingredient/"
-        payload = {
-            "ingredient_id": 9999,
-            "quantity": "300",
-            "unit": "g",
-        }  # Non-existent ingredient
-        response = api_rf.post(url, payload)
+    def test_fail_add_invalid_ingredient(self, menu_item, get_response, admin_user):
+        view = MenuItemViewSet.as_view({"post": "add_ingredient"})
+        url = f"/menu_items/{menu_item.pk}/add_ingredient/"
+        payload = json.dumps(
+            {
+                "ingredient_id": 9999,
+                "quantity": "300",
+                "unit": "g",
+            }
+        )  # Non-existent ingredient
+        response = get_response(
+            admin_user,
+            view,
+            "POST",
+            url.format(pk=menu_item.pk),
+            data=payload,
+            pk=menu_item.pk,
+        )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert "Invalid ingredient ID" in response.data["error"]
@@ -283,22 +294,71 @@ class TestMenuItemViewSets:
 @pytest.mark.django_db
 class TestMenuItemIngredientEndpoints:
 
-    def test_update_menu_item_ingredient(self, api_rf):
-        menu_item_ingredient = MenuItemIngredientFactory(quantity="200", unit="ml")
-        url = f"/menu-item-ingredients/{menu_item_ingredient.id}/"
-        payload = {"quantity": "500", "unit": "ml"}
-        response = api_rf.put(url, payload)
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            ("create", "POST", "/api/menu_item_ingredients/"),
+            (
+                "partial_update",
+                "PATCH",
+                "/api/menu_item_ingredients/{pk}/",
+            ),
+            (
+                "destroy",
+                "DELETE",
+                "/api/menu_item_ingredients/{pk}/",
+            ),
+        ],
+    )
+    def test_create_menu_item_ingredient(
+        self,
+        get_response,
+        admin_user,
+        method,
+        view_name,
+        url,
+        menu_item_ingredient_data,
+        menu_item_ingredient,
+        api_rf,
+    ):
+        view = MenuItemIngredientViewSet.as_view({method.lower(): view_name})
+        if view_name == "create":
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url,
+                data=menu_item_ingredient_data,
+            )
+            assert response.status_code == status.HTTP_201_CREATED
+            assert MenuItemIngredient.objects.filter(
+                menu_item__name__contains="Capp"
+            ).exists()
 
-        menu_item_ingredient.refresh_from_db()
-        assert response.status_code == status.HTTP_200_OK
-        assert menu_item_ingredient.quantity == "500"
+        if view_name == "delete":
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=menu_item_ingredient.pk),
+                pk=menu_item_ingredient.pk,
+            )
+            assert response.status_code == status.HTTP_204_NO_CONTENT
+            assert not MenuItemIngredient.objects.filter(
+                id=menu_item_ingredient.id
+            ).exists()
 
-    def test_delete_menu_item_ingredient(self, api_rf):
-        menu_item_ingredient = MenuItemIngredientFactory()
-        url = f"/menu-item-ingredients/{menu_item_ingredient.id}/"
-        response = api_rf.delete(url)
-        assert response.status_code == status.HTTP_204_NO_CONTENT
-        assert not MenuItemIngredient.objects.filter(
-            id=menu_item_ingredient.id
-        ).exists()
- """
+        if view_name == "partial_update":
+            payload = json.dumps({"quantity": "999"})
+            print(MenuItemIngredient.objects.filter(pk=menu_item_ingredient.pk))
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=menu_item_ingredient.pk),
+                data=payload,
+                pk=menu_item_ingredient.pk,
+            )
+            menu_item_ingredient.refresh_from_db()
+            assert response.status_code == status.HTTP_200_OK
+            assert menu_item_ingredient.quantity == 999.00
