@@ -11,6 +11,8 @@ from .models import (
     MachineType,
     EspressoMachine,
     CustomizationGroup,
+    Ingredient,
+    MenuItemIngredient,
 )
 
 # Register your models here.
@@ -25,3 +27,5 @@ admin.site.register(EspressoMachine)
 admin.site.register(RasberryPi)
 admin.site.register(MachineType)
 admin.site.register(CustomizationGroup)
+admin.site.register(Ingredient)
+admin.site.register(MenuItemIngredient)
