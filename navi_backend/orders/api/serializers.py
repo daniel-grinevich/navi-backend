@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework_nested.serializers import NestedHyperlinkedModelSerializer
 from navi_backend.orders.models import (
     Order,
     MenuItem,
@@ -9,6 +10,9 @@ from navi_backend.orders.models import (
     PaymentType,
     Ingredient,
     MenuItemIngredient,
+    RasberryPi,
+    EspressoMachine,
+    MachineType,
 )
 
 
@@ -29,6 +33,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = OrderItem
         fields = [
@@ -53,29 +58,6 @@ class MenuItemIngredientSerializer(serializers.ModelSerializer):
             "ingredient",
             "quantity",
             "unit",
-        ]
-
-
-class MenuItemSerializer(serializers.ModelSerializer):
-    ingredients = MenuItemIngredientSerializer(
-        many=True,
-        source="menu_item_ingredients",  # Related name from model
-        read_only=True,
-    )
-
-    class Meta:
-        model = MenuItem
-        fields = [
-            "name",
-            "category",
-            "description",
-            "price",
-            "image",
-            "created_at",
-            "created_by",
-            "updated_at",
-            "updated_by",
-            "slug",
         ]
 
 
@@ -107,6 +89,12 @@ class NaviPortSerializer(serializers.ModelSerializer):
         fields = [
             "name",
             "slug",
+            "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
+            "rasberry_pi",
+            "espresso_machine",
         ]
 
 
@@ -116,6 +104,10 @@ class PaymentTypeSerializer(serializers.ModelSerializer):
         fields = [
             "name",
             "slug",
+            "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
         ]
 
 
@@ -159,4 +151,58 @@ class MenuItemSerializer(serializers.ModelSerializer):
             "description",
             "price",
             "ingredients",
+        ]
+
+
+class RasberryPiSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RasberryPi
+        fields = [
+            "name",
+            "slug",
+            "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
+            "mac_address",
+            "ip_address",
+            "location",
+            "is_connected",
+            "firmware_version",
+            "last_seen",
+        ]
+
+
+class EspressoMachineSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EspressoMachine
+        fields = [
+            "name",
+            "slug",
+            "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
+            "serial_number",
+            "machine_type",
+            "ip_address",
+            "port",
+            "is_online",
+            "last_maintenance_at",
+        ]
+
+
+class MachineTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MachineType
+        fields = [
+            "name",
+            "slug",
+            "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
+            "model_number",
+            "maintenance_frequency",
+            "supported_drinks",
         ]

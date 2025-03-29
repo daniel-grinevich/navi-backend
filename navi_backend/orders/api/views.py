@@ -1,3 +1,4 @@
+import re
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -12,6 +13,11 @@ from navi_backend.orders.models import (
     OrderCustomization,
     MenuItemIngredient,
     Ingredient,
+    RasberryPi,
+    MachineType,
+    EspressoMachine,
+    Customization,
+    CustomizationGroup,
 )
 from rest_framework.permissions import (
     IsAuthenticated,
@@ -28,6 +34,9 @@ from .serializers import (
     OrderItemSerializer,
     MenuItemIngredientSerializer,
     IngredientSerializer,
+    EspressoMachineSerializer,
+    MachineTypeSerializer,
+    RasberryPiSerializer,
 )
 
 
@@ -126,16 +135,21 @@ class OrderItemViewSet(viewsets.ModelViewSet):
         - Admins can access all orders.
         - Regular users can only access their own order items.
         """
-        order_id = self.kwargs.get("order_id")
-        order = Order.objects.filter(id=order_id).first()
-
+        path = self.request.path
+        order_pk = ""
+        match = re.search(r"/orders/(\d+)/items", path)
+        if match:
+            order_pk = match.group(1)
+        # order_item = OrderItem.objects.filter(pk=order_item_id)
+        order = Order.objects.filter(pk=order_pk).first()
+        print("ORDER", self.kwargs, "URL ", self.request)
         if not order:
             return (
                 OrderItem.objects.none()
             )  # Return empty queryset if order doesn't exist
 
         if self.request.user.is_staff or order.user == self.request.user:
-            return OrderItem.objects.filter(order_id=order_id)
+            return OrderItem.objects.filter(order_id=order_pk)
 
         return OrderItem.objects.none()  # Unauthorized users get an empty queryset
 
@@ -155,8 +169,22 @@ class PaymentTypeViewSet(viewsets.ModelViewSet):
 class MenuItemIngredientViewSet(viewsets.ModelViewSet):
     queryset = MenuItemIngredient.objects.select_related("menu_item", "ingredient")
     serializer_class = MenuItemIngredientSerializer
+    permission_classes = [IsAdminUser | ReadOnly]
 
 
 class IngredientViewSet(viewsets.ModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
+    permission_classes = [IsAdminUser | ReadOnly]
+
+
+class RasberryPiViewSet(viewsets.ModelViewSet):
+    queryset = RasberryPi.objects.all()
+    serializer_class = RasberryPiSerializer
+    permission_classes = [IsAdminUser]
+
+
+class EspressoMachineViewSet(viewsets.ModelViewSet):
+    queryset = EspressoMachine.objects.all()
+    serializer_class = EspressoMachineSerializer
+    permission_classes = [IsAdminUser]

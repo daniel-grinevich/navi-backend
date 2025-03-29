@@ -441,8 +441,7 @@ class EspressoMachine(
     ip_address = models.GenericIPAddressField(blank=True, null=True)
     port = models.IntegerField(blank=True, null=True)
     is_online = models.BooleanField(default=False)
-    last_maintenance_date = models.DateField(blank=True, null=True)
-    last_maintenance_date_time = models.DateTimeField(blank=True, null=True)
+    last_maintenance_at = models.DateTimeField(blank=True, null=True)
 
 
 class NaviPort(
@@ -554,7 +553,7 @@ class OrderItem(
     )
 
     def __str__(self):
-        return str(self.name)
+        return f"{self.order} {self.menu_item}"
 
     def save(self, *args, **kwargs):
         return super().save(*args, **kwargs)

@@ -1,5 +1,9 @@
 import factory
 from factory import Faker
+import random
+from django.utils import timezone
+from django.utils.text import slugify
+
 from ..models import (
     Order,
     OrderItem,
@@ -14,9 +18,6 @@ from ..models import (
     MachineType,
 )
 from ...users.tests.factories import UserFactory
-import random
-from django.utils import timezone
-from django.utils.text import slugify
 
 
 class AuditFactory(factory.Factory):
@@ -34,7 +35,7 @@ class AuditFactory(factory.Factory):
 class SlugifiedFactory(factory.Factory):
     """Base factory for SlugifiedModel."""
 
-    name = factory.Faker("sentence", nb_words=3)
+    name = factory.Sequence(lambda n: "Name %03d" % n)
     slug = factory.Sequence(lambda n: "123-555-%04d" % n)
 
     class Meta:
@@ -107,7 +108,7 @@ class RasberryPiFactory(
     class Meta:
         model = RasberryPi
 
-    name = factory.Faker("word")
+    name = factory.Sequence(lambda n: "Pi %03d" % n)
     mac_address = factory.Faker("mac_address")
     ip_address = factory.Faker("ipv4")
     location = factory.Faker("address")
@@ -126,15 +127,9 @@ class MachineTypeFactory(
     class Meta:
         model = MachineType
 
-    name = factory.Faker("word")
+    name = factory.Sequence(lambda n: "Type %03d" % n)
     model_number = factory.Faker("bothify", text="MT###")
     maintenance_frequency = factory.Faker("random_int", min=30, max=365)
-
-    @factory.post_generation
-    def supported_drinks(self, create, extracted, **kwargs):
-        if not create or not extracted:
-            return
-        self.supported_drinks.add(*extracted)
 
 
 class EspressoMachineFactory(
@@ -147,14 +142,13 @@ class EspressoMachineFactory(
     class Meta:
         model = EspressoMachine
 
-    name = factory.Faker("word")
+    name = factory.Sequence(lambda n: "Machine %03d" % n)
     serial_number = factory.Faker("bothify", text="EM###-####")
     machine_type = factory.SubFactory(MachineTypeFactory)
     ip_address = factory.Faker("ipv4")
     port = factory.Faker("random_int", min=8000, max=9000)
     is_online = factory.Faker("boolean")
-    last_maintenance_date = factory.Faker("date_object")
-    last_maintenance_date_time = factory.LazyFunction(timezone.now)
+    last_maintenance_at = factory.LazyFunction(timezone.now)
 
 
 class NaviPortFactory(
@@ -225,7 +219,7 @@ class IngredientFactory(
     class Meta:
         model = Ingredient
 
-    name = factory.Faker("word")
+    name = factory.Sequence(lambda n: "Ingredient %03d" % n)
     description = factory.Faker("sentence")
 
 
