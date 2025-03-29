@@ -1,7 +1,8 @@
 import pytest
 import json
-from django.utils import timezone
+from django.utils import timezone, dateformat
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import transaction
 from .factories import (
     OrderItemFactory,
     OrderFactory,
@@ -11,6 +12,9 @@ from .factories import (
     IngredientFactory,
     CategoryFactory,
     MenuItemIngredientFactory,
+    EspressoMachineFactory,
+    MachineTypeFactory,
+    RasberryPiFactory,
 )
 from navi_backend.users.tests.factories import UserFactory
 from rest_framework.test import APIRequestFactory
@@ -27,17 +31,55 @@ def order_data(db):
     user = UserFactory()
     payment_type = PaymentTypeFactory()
     navi_port = NaviPortFactory()
-    return {
-        "user": user.slug,
-        "payment_type": payment_type.slug,
-        "navi_port": navi_port.pk,
-        "total_price": 7.00,
-    }
+    datetime = dateformat.format(timezone.now(), "Y-m-d H:i:s")
+    return json.dumps(
+        {
+            "user": user.pk,
+            "payment_type": payment_type.pk,
+            "navi_port": navi_port.pk,
+            "price": 7.00,
+            "created_at": datetime,
+            "created_by": user.pk,
+            "updated_at": datetime,
+            "updated_by": user.pk,
+            "slug": "test1",
+        }
+    )
 
 
 @pytest.fixture
 def order_item(db):
     return OrderItemFactory()
+
+
+@pytest.fixture
+def order_item_data(db):
+    user = UserFactory()
+    menu_item = MenuItemFactory()
+    order = OrderFactory()
+    datetime = dateformat.format(timezone.now(), "Y-m-d H:i:s")
+    return json.dumps(
+        {
+            "menu_item": menu_item.pk,
+            "order": order.pk,
+            "navi_port": navi_port.pk,
+            "quantity": 1,
+            "unit_price": 7.00,
+            "created_at": datetime,
+            "created_by": user.pk,
+            "updated_at": datetime,
+            "updated_by": user.pk,
+            "slug": "test1",
+        }
+    )
+
+
+@pytest.fixture
+def order_and_order_items():
+    order = OrderFactory()
+    order_item_1 = OrderItemFactory(order=order)
+    order_item_2 = OrderItemFactory(order=order)
+    return order, order_item_1, order_item_2
 
 
 @pytest.fixture
@@ -120,11 +162,12 @@ def get_response(api_rf: APIRequestFactory):
     def _get_response(
         user, view, method, url, data=None, pk=None, content_type="application/json"
     ):
-        request = api_rf.generic(method, url, data=data, content_type=content_type)
-        request.user = user
-        if pk:
-            return view(request, pk=pk)
-        return view(request)
+        with transaction.atomic():
+            request = api_rf.generic(method, url, data=data, content_type=content_type)
+            request.user = user
+            if pk:
+                return view(request, pk=pk)
+            return view(request)
 
     return _get_response
 
@@ -156,3 +199,47 @@ def menu_item_ingredient_data():
             "unit": "g",
         }
     )
+
+
+@pytest.fixture
+def navi_port_data(admin_user):
+    espresso_machine = EspressoMachineFactory(name="navi1")
+    rasberry_pi = RasberryPiFactory(name="razz")
+    return json.dumps(
+        {
+            "slug": "test1",
+            "name": "Navi_Port_1",
+            "status": "A",
+            "created_at": "2012-04-23T18:25:43.511Z",
+            "updated_at": "2012-04-23T18:25:43.511Z",
+            "created_by": admin_user.pk,
+            "updated_by": admin_user.pk,
+            "rasberry_pi": rasberry_pi.pk,
+            "espresso_machine": espresso_machine.pk,
+        }
+    )
+
+
+@pytest.fixture
+def navi_port():
+    return NaviPortFactory(name="Navi_Port_2")
+
+
+@pytest.fixture
+def payment_type_data(admin_user):
+    return json.dumps(
+        {
+            "slug": "test1",
+            "name": "Payment_Type_1",
+            "status": "A",
+            "created_at": "2012-04-23T18:25:43.511Z",
+            "updated_at": "2012-04-23T18:25:43.511Z",
+            "created_by": admin_user.pk,
+            "updated_by": admin_user.pk,
+        }
+    )
+
+
+@pytest.fixture
+def payment_type():
+    return PaymentTypeFactory(name="Payment_2")
