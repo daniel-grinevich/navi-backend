@@ -15,6 +15,9 @@ from navi_backend.orders.api.views import (
     PaymentTypeViewSet,
     IngredientViewSet,
     MenuItemIngredientViewSet,
+    EspressoMachineViewSet,
+    RasberryPiViewSet,
+    MachineTypeMachineViewSet,
 )
 
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
@@ -22,16 +25,26 @@ router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 router.register("users", UserViewSet)
 router.register(r"products", ProductViewSet, basename="products")
 router.register(
-    r"orders/(?P<order_id>\d+)/items", OrderItemViewSet, basename="order_items"
+    r"orders/(?P<order_pk>\d+)/items", OrderItemViewSet, basename="order-items"
 )
 router.register(r"orders", OrderViewSet, basename="orders")
-router.register(r"menu_items", MenuItemViewSet, basename="menu_items")
-router.register(r"navi_ports", NaviPortViewSet, basename="navi_ports")
-router.register(r"payment_types", PaymentTypeViewSet, basename="payment_types")
+router.register(r"menu_items", MenuItemViewSet, basename="menu-items")
+router.register(
+    r"navi_ports/(?P<navi_port_pk>\d+)/rasberry-pis",
+    RasberryPiViewSet,
+    basename="rasberry-pis",
+)
+router.register(
+    r"navi_ports/(?P<navi_port_pk>\d+)/espresso_machines",
+    EspressoMachineViewSet,
+    basename="espresso-machines",
+)
+router.register(r"navi_ports", NaviPortViewSet, basename="navi-ports")
+router.register(r"payment_types", PaymentTypeViewSet, basename="payment-types")
 
 router.register(r"ingredients", IngredientViewSet, basename="ingredient")
 router.register(
-    r"menu_item_ingredients", MenuItemIngredientViewSet, basename="menu_item_ingredient"
+    r"menu_item_ingredients", MenuItemIngredientViewSet, basename="menu-item-ingredient"
 )
 
 app_name = "api"

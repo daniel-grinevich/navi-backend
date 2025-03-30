@@ -1,9 +1,10 @@
-import re
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+
+from .utils import getParentPK
 from navi_backend.orders.models import (
     Order,
     MenuItem,
@@ -99,11 +100,17 @@ class OrderViewSet(viewsets.ModelViewSet):
         """
         Assign different permissions for actions.
         """
-        if self.action in ["list", "retrieve", "update", "partial_update"]:
+        if self.action in [
+            "list",
+            "retrieve",
+            "update",
+            "partial_update",
+            "cancel_order",
+        ]:
             permission_classes = [IsAuthenticated, IsOwnerOrAdmin]
         elif self.action == "create":
             permission_classes = [IsAuthenticated]
-        elif self.action == "destroy":
+        elif self.action in ["destroy", "send_order_to_navi_port"]:
             permission_classes = [IsAdminUser]
         else:
             permission_classes = [IsAuthenticated]  # Default for other actions
@@ -118,6 +125,51 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Order.objects.filter(
             user=self.request.user
         )  # Users can only see their own orders
+
+    @action(detail=True, methods=["put"], name="Cancel Order")
+    def cancel_order(self, request, pk=None):
+        """Cancels an order if it's in an ordered state ('O')."""
+        print(self.get_queryset())
+        order = get_object_or_404(self.get_queryset(), pk=pk)
+
+        if order.status != "O":
+            return Response(
+                {"detail": "Order could not be cancelled."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        order.status = "C"
+        order.save()
+        return Response(
+            {"detail": "Order cancelled successfully."},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["get"], name="Retrieve and Mark Order as Sent")
+    def send_order_to_navi_port(self, request, pk=None):
+        """
+        GET: Return order details and update status to 'sent' ('S').
+        """
+        order = get_object_or_404(self.get_queryset(), pk=pk)
+
+        if order.status == "S":
+            return Response(
+                {"detail": "Order is already sent."},
+                status=status.HTTP_200_OK,
+            )
+
+        if order.status != "O":  # 'O' = Open
+            return Response(
+                {"detail": "Order cannot be sent."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Update status to "Sent"
+        order.status = "S"
+        order.save()
+
+        # Return updated order details
+        serializer = self.get_serializer(order)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
         """
@@ -135,14 +187,8 @@ class OrderItemViewSet(viewsets.ModelViewSet):
         - Admins can access all orders.
         - Regular users can only access their own order items.
         """
-        path = self.request.path
-        order_pk = ""
-        match = re.search(r"/orders/(\d+)/items", path)
-        if match:
-            order_pk = match.group(1)
-        # order_item = OrderItem.objects.filter(pk=order_item_id)
+        order_pk = getParentPK(self.request.path, "orders")
         order = Order.objects.filter(pk=order_pk).first()
-        print("ORDER", self.kwargs, "URL ", self.request)
         if not order:
             return (
                 OrderItem.objects.none()
@@ -185,6 +231,26 @@ class RasberryPiViewSet(viewsets.ModelViewSet):
 
 
 class EspressoMachineViewSet(viewsets.ModelViewSet):
-    queryset = EspressoMachine.objects.all()
     serializer_class = EspressoMachineSerializer
     permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        navi_port_pk = getParentPK(self.request.path, "navi_ports")
+        navi_port = NaviPort.objects.filter(pk=navi_port_pk).first()
+        if not navi_port:
+            return NaviPort.objects.none()
+
+        return NaviPort.objects.filter(navi_port_id=navi_port_pk)
+
+
+class MachineTypeMachineViewSet(viewsets.ModelViewSet):
+    serializer_class = MachineTypeSerializer
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        navi_port_pk = getParentPK(self.request.path, "navi_ports")
+        navi_port = NaviPort.objects.filter(pk=navi_port_pk).first()
+        if not navi_port:
+            return NaviPort.objects.none()
+
+        return NaviPort.objects.filter(navi_port_id=navi_port_pk)

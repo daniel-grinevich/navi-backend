@@ -1,6 +1,7 @@
 import pytest
 import json
 from django.db import transaction
+from django.urls import reverse
 from rest_framework.test import APIRequestFactory
 from rest_framework import status
 from navi_backend.orders.models import (
@@ -179,6 +180,68 @@ class TestOrderViewSet:
             other_order.refresh_from_db()
             assert response.status_code == status.HTTP_200_OK
             assert other_order.price == 100.00
+
+    def test_cancel_order_success(self, get_response, admin_user):
+        """Test that an order in 'Ordered' status can be cancelled."""
+        order = OrderFactory(status="O")
+        view = OrderViewSet.as_view({"put": "cancel_order"})
+        url = reverse("orders-cancel-order", kwargs={"pk": order.pk})
+        response = get_response(admin_user, view, "PUT", url, pk=order.pk)
+        order.refresh_from_db()
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["detail"] == "Order cancelled successfully."
+        assert order.status == "C"  # Status should be updated to "Cancelled"
+
+    def test_cancel_order_fails_if_not_ordered(self, admin_user, get_response):
+        """Test that an order cannot be cancelled if it is already 'Sent' or 'Cancelled'."""
+        cancelled_order = OrderFactory(status="C")
+        sent_order = OrderFactory(status="S")
+        view = OrderViewSet.as_view({"put": "cancel_order"})
+        for order in [sent_order, cancelled_order]:
+            url = reverse("orders-cancel-order", kwargs={"pk": order.pk})
+            response = get_response(admin_user, view, "PUT", url, pk=order.pk)
+
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            assert response.data["detail"] == "Order could not be cancelled."
+
+    def test_send_order_success(self, get_response, admin_user):
+        order = OrderFactory(status="O")
+        """Test that an 'Ordered' order is retrieved and marked as 'Sent'."""
+        view = OrderViewSet.as_view({"get": "send_order_to_navi_port"})
+        url = reverse("orders-send-order-to-navi-port", kwargs={"pk": order.pk})
+        response = get_response(admin_user, view, "GET", url, pk=order.pk)
+
+        order.refresh_from_db()
+        assert response.status_code == status.HTTP_200_OK
+        assert order.status == "S"  # Order should be updated to 'Sent'
+
+    def test_send_order_already_sent(self, get_response, admin_user):
+        sent_order = OrderFactory(status="S")
+        """Test that an already 'Sent' order is not updated but returns success."""
+        view = OrderViewSet.as_view({"get": "send_order_to_navi_port"})
+        url = reverse("orders-send-order-to-navi-port", kwargs={"pk": sent_order.pk})
+        response = get_response(admin_user, view, "GET", url, pk=sent_order.pk)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["detail"] == "Order is already sent."
+
+    def test_send_order_fails_if_not_ordered(self, get_response, admin_user):
+        cancelled_order = OrderFactory(status="C")
+        """Test that an order cannot be sent if it is not in 'Ordered' status."""
+        view = OrderViewSet.as_view({"get": "send_order_to_navi_port"})
+        url = reverse(
+            "orders-send-order-to-navi-port", kwargs={"pk": cancelled_order.pk}
+        )
+        response = get_response(admin_user, view, "GET", url, pk=cancelled_order.pk)
+
+        assert response.status_code in [
+            status.HTTP_403_FORBIDDEN,
+            status.HTTP_404_NOT_FOUND,
+        ]
+        assert response.data["detail"] == "Order cannot be sent."
 
 
 @pytest.mark.django_db
@@ -874,10 +937,7 @@ class TestOrderItemViewSet:
     def test_view_access(
         self, admin_user, get_response, view_name, method, url, order_and_order_items
     ):
-        order = OrderFactory()
-        order_item_1 = OrderItemFactory(order=order)
-        order_item_2 = OrderItemFactory(order=order)
-        order_item_3 = OrderItemFactory(order=order)
+        order, order_item_1, order_item_2, order_item_3 = order_and_order_items
         view = OrderItemViewSet.as_view({method.lower(): view_name})
 
         if view_name == "list":
@@ -885,10 +945,10 @@ class TestOrderItemViewSet:
                 admin_user, view, method, url.format(order_pk=order.pk)
             )
             assert response.status_code == status.HTTP_200_OK
-            assert len(response.data) == 3
+            assert len(response.data) == 2
 
         if view_name == "retrieve":
-            for order_item in [order_item_1, order_item_2, order_item_3]:
+            for order_item in [order_item_1, order_item_2]:
                 response = get_response(
                     admin_user,
                     view,
@@ -896,7 +956,144 @@ class TestOrderItemViewSet:
                     url.format(pk=order_item.pk, order_pk=order.pk),
                     pk=order_item.pk,
                 )
-                print(url.format(pk=order_item.pk, order_pk=order.pk))
-                print(order_item.pk)
-                print(order.pk)
+                assert response.status_code == status.HTTP_200_OK
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=order_item_3.pk, order_pk=order.pk),
+                pk=order_item_3.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+
+
+@pytest.mark.django_db
+class TestRasberryPiViewSet:
+
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            ("create", "POST", "/api/rasberry_pis/"),
+            (
+                "partial_update",
+                "PATCH",
+                "/api/rasberry_pi/{pk}/",
+            ),
+            (
+                "destroy",
+                "DELETE",
+                "/api/navi_ports/{pk}/",
+            ),
+        ],
+    )
+    def test_write_access(
+        self,
+        get_response,
+        admin_user,
+        user,
+        method,
+        view_name,
+        url,
+        navi_port_data,
+        navi_port,
+    ):
+        view = NaviPortViewSet.as_view({method.lower(): view_name})
+        if view_name == "create":
+            response = get_response(
+                user,
+                view,
+                method,
+                url,
+                data=navi_port_data,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url,
+                data=navi_port_data,
+            )
+            assert response.status_code == status.HTTP_201_CREATED
+            assert NaviPort.objects.filter(name="Navi_Port_1").exists()
+
+        if view_name == "delete":
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(pk=navi_port.pk),
+                pk=navi_port.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=navi_port.pk),
+                pk=navi_port.pk,
+            )
+            assert response.status_code == status.HTTP_204_NO_CONTENT
+            assert not NaviPort.objects.filter(id=navi_port.id).exists()
+
+        if view_name == "partial_update":
+            payload = json.dumps({"name": "DanielSucks"})
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(pk=navi_port.pk),
+                data=payload,
+                pk=navi_port.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=navi_port.pk),
+                data=payload,
+                pk=navi_port.pk,
+            )
+            navi_port.refresh_from_db()
+            assert response.status_code == status.HTTP_200_OK
+            assert navi_port.name == "DanielSucks"
+
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            ("list", "GET", "/api/api/navi_ports/"),
+            ("retrieve", "GET", "/api/navi_ports/{pk}/"),
+        ],
+    )
+    def test_view_access(self, user, get_response, view_name, method, url):
+        navi_ports = NaviPortFactory.create_batch(3)
+        view = NaviPortViewSet.as_view({method.lower(): view_name})
+
+        if view_name == "list":
+            response = get_response(user, view, method, url)
+            assert response.status_code == status.HTTP_200_OK
+            assert len(response.data) == 3
+
+        if view_name == "retrieve":
+            for navi_port in navi_ports:
+                response = get_response(
+                    user,
+                    view,
+                    method,
+                    url.format(pk=navi_port.pk),
+                    pk=navi_port.pk,
+                )
                 assert response.status_code == status.HTTP_200_OK
