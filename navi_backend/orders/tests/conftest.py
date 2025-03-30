@@ -23,7 +23,17 @@ from navi_backend.users.models import User
 
 @pytest.fixture
 def order(db):
-    return OrderFactory()
+    return OrderFactory(status="O")
+
+
+@pytest.fixture
+def sent_order(db):
+    return OrderFactory(status="S")
+
+
+@pytest.fixture
+def cancelled_order(db):
+    return OrderFactory(status="C")
 
 
 @pytest.fixture
@@ -77,9 +87,11 @@ def order_item_data(db):
 @pytest.fixture
 def order_and_order_items():
     order = OrderFactory()
+    order2 = OrderFactory()
     order_item_1 = OrderItemFactory(order=order)
     order_item_2 = OrderItemFactory(order=order)
-    return order, order_item_1, order_item_2
+    order_item_3 = OrderItemFactory(order=order2)
+    return order, order_item_1, order_item_2, order_item_3
 
 
 @pytest.fixture
