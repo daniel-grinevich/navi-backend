@@ -13,6 +13,7 @@ from navi_backend.orders.models import (
     MenuItem,
     Ingredient,
     MenuItemIngredient,
+    RasberryPi,
 )
 from .factories import (
     OrderItemFactory,
@@ -22,6 +23,7 @@ from .factories import (
     NaviPortFactory,
     PaymentTypeFactory,
     OrderFactory,
+    RasberryPiFactory,
 )
 from navi_backend.orders.tests.factories import (
     UserFactory,
@@ -35,6 +37,7 @@ from navi_backend.orders.api.views import (
     MenuItemIngredientViewSet,
     NaviPortViewSet,
     PaymentTypeViewSet,
+    RasberryPiViewSet,
 )
 
 # Potentially switch request setup to generic function
@@ -976,16 +979,16 @@ class TestRasberryPiViewSet:
     @pytest.mark.parametrize(
         "view_name, method, url",
         [
-            ("create", "POST", "/api/rasberry_pis/"),
+            ("create", "POST", "/api/navi_ports/{navi_port_pk}/rasberry_pis/"),
             (
                 "partial_update",
                 "PATCH",
-                "/api/rasberry_pi/{pk}/",
+                "/api/navi_ports/{navi_port_pk}/rasberry_pis/{pk}/",
             ),
             (
                 "destroy",
                 "DELETE",
-                "/api/navi_ports/{pk}/",
+                "/api/navi_ports/{navi_port_pk}/rasberry_pis/{pk}/",
             ),
         ],
     )
@@ -997,17 +1000,18 @@ class TestRasberryPiViewSet:
         method,
         view_name,
         url,
-        navi_port_data,
-        navi_port,
+        rasberry_pi_data,
+        rasberry_pi,
     ):
-        view = NaviPortViewSet.as_view({method.lower(): view_name})
+        navi_port = NaviPortFactory(rasberry_pi=rasberry_pi)
+        view = RasberryPiViewSet.as_view({method.lower(): view_name})
         if view_name == "create":
             response = get_response(
                 user,
                 view,
                 method,
-                url,
-                data=navi_port_data,
+                url.format(navi_port_pk=navi_port.pk),
+                data=rasberry_pi_data,
             )
             assert response.status_code in [
                 status.HTTP_403_FORBIDDEN,
@@ -1017,19 +1021,19 @@ class TestRasberryPiViewSet:
                 admin_user,
                 view,
                 method,
-                url,
-                data=navi_port_data,
+                url.format(navi_port_pk=navi_port.pk),
+                data=rasberry_pi_data,
             )
             assert response.status_code == status.HTTP_201_CREATED
-            assert NaviPort.objects.filter(name="Navi_Port_1").exists()
+            assert RasberryPi.objects.filter(name="Rasberry_Pi_1").exists()
 
         if view_name == "delete":
             response = get_response(
                 user,
                 view,
                 method,
-                url.format(pk=navi_port.pk),
-                pk=navi_port.pk,
+                url.format(pk=rasberry_pi.pk, navi_port_pk=navi_port.pk),
+                pk=rasberry_pi.pk,
             )
             assert response.status_code in [
                 status.HTTP_403_FORBIDDEN,
@@ -1039,11 +1043,11 @@ class TestRasberryPiViewSet:
                 admin_user,
                 view,
                 method,
-                url.format(pk=navi_port.pk),
-                pk=navi_port.pk,
+                url.format(pk=rasberry_pi.pk, navi_port_pk=navi_port.pk),
+                pk=rasberry_pi.pk,
             )
             assert response.status_code == status.HTTP_204_NO_CONTENT
-            assert not NaviPort.objects.filter(id=navi_port.id).exists()
+            assert not RasberryPi.objects.filter(id=rasberry_pi.id).exists()
 
         if view_name == "partial_update":
             payload = json.dumps({"name": "DanielSucks"})
@@ -1051,9 +1055,73 @@ class TestRasberryPiViewSet:
                 user,
                 view,
                 method,
-                url.format(pk=navi_port.pk),
+                url.format(pk=rasberry_pi.pk, navi_port_pk=navi_port.pk),
                 data=payload,
-                pk=navi_port.pk,
+                pk=rasberry_pi.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            print(RasberryPi.objects.filter(id=rasberry_pi.id))
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=rasberry_pi.pk, navi_port_pk=navi_port.pk),
+                data=payload,
+                pk=rasberry_pi.pk,
+            )
+            rasberry_pi.refresh_from_db()
+            assert response.status_code == status.HTTP_200_OK
+            assert rasberry_pi.name == "DanielSucks"
+
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            ("list", "GET", "/api/navi_ports/{navi_port_pk}/rasberry_pis/"),
+            ("retrieve", "GET", "/api/navi_ports/{navi_port_pk}/rasberry_pis/{pk}/"),
+        ],
+    )
+    def test_view_access(self, admin_user, user, get_response, view_name, method, url):
+        rasberry_pis = RasberryPiFactory.create_batch(3)
+        rasberry_pi_1, rasberry_pi_2, rasberry_pi_3 = rasberry_pis
+        navi_port = NaviPortFactory(rasberry_pi=rasberry_pi_1)
+        view = RasberryPiViewSet.as_view({method.lower(): view_name})
+
+        if view_name == "list":
+            response = get_response(
+                user, view, method, url.format(navi_port_pk=navi_port.pk)
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user, view, method, url.format(navi_port_pk=navi_port.pk)
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert len(response.data) == 1
+
+        if view_name == "retrieve":
+            for rasberry_pi in [rasberry_pi_2, rasberry_pi_3]:
+                response = get_response(
+                    admin_user,
+                    view,
+                    method,
+                    url.format(pk=rasberry_pi.pk, navi_port_pk=navi_port.pk),
+                    pk=rasberry_pi.pk,
+                )
+                assert response.status_code in [
+                    status.HTTP_403_FORBIDDEN,
+                    status.HTTP_404_NOT_FOUND,
+                ]
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(pk=rasberry_pi_1.pk, navi_port_pk=navi_port.pk),
+                pk=rasberry_pi.pk,
             )
             assert response.status_code in [
                 status.HTTP_403_FORBIDDEN,
@@ -1063,37 +1131,7 @@ class TestRasberryPiViewSet:
                 admin_user,
                 view,
                 method,
-                url.format(pk=navi_port.pk),
-                data=payload,
-                pk=navi_port.pk,
+                url.format(pk=rasberry_pi_1.pk, navi_port_pk=navi_port.pk),
+                pk=rasberry_pi_1.pk,
             )
-            navi_port.refresh_from_db()
             assert response.status_code == status.HTTP_200_OK
-            assert navi_port.name == "DanielSucks"
-
-    @pytest.mark.parametrize(
-        "view_name, method, url",
-        [
-            ("list", "GET", "/api/api/navi_ports/"),
-            ("retrieve", "GET", "/api/navi_ports/{pk}/"),
-        ],
-    )
-    def test_view_access(self, user, get_response, view_name, method, url):
-        navi_ports = NaviPortFactory.create_batch(3)
-        view = NaviPortViewSet.as_view({method.lower(): view_name})
-
-        if view_name == "list":
-            response = get_response(user, view, method, url)
-            assert response.status_code == status.HTTP_200_OK
-            assert len(response.data) == 3
-
-        if view_name == "retrieve":
-            for navi_port in navi_ports:
-                response = get_response(
-                    user,
-                    view,
-                    method,
-                    url.format(pk=navi_port.pk),
-                    pk=navi_port.pk,
-                )
-                assert response.status_code == status.HTTP_200_OK

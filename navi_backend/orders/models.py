@@ -297,7 +297,7 @@ class MenuItem(
         super().delete(using, keep_parents)
 
     def get_cache_key(self):
-        return f"menuitem:{self.name}:v{self.version}"
+        return f"menuitem:{self.name.replace(" ", "_")}:v{self.version}"
 
     def invalidate_cache(self):
         """Invalidate all cached data for this product."""
