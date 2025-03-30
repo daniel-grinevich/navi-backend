@@ -19,6 +19,7 @@ from navi_backend.orders.models import (
     EspressoMachine,
     Customization,
     CustomizationGroup,
+    Category,
 )
 from rest_framework.permissions import (
     IsAuthenticated,
@@ -38,6 +39,10 @@ from .serializers import (
     EspressoMachineSerializer,
     MachineTypeSerializer,
     RasberryPiSerializer,
+    CustomizationSerializer,
+    CustomizationGroupSerializer,
+    OrderCustomizationSerializer,
+    CategorySerializer,
 )
 
 
@@ -188,7 +193,10 @@ class OrderItemViewSet(viewsets.ModelViewSet):
         - Regular users can only access their own order items.
         """
         order_pk = getParentPK(self.request.path, "orders")
-        order = Order.objects.filter(pk=order_pk).first()
+        # respect order permissions
+        order_viewset = OrderViewSet()
+        order_viewset.request = self.request  # Inject request into OrderViewSet
+        order = order_viewset.get_queryset().filter(pk=order_pk).first()
         if not order:
             return (
                 OrderItem.objects.none()
@@ -225,9 +233,16 @@ class IngredientViewSet(viewsets.ModelViewSet):
 
 
 class RasberryPiViewSet(viewsets.ModelViewSet):
-    queryset = RasberryPi.objects.all()
     serializer_class = RasberryPiSerializer
     permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        navi_port_pk = getParentPK(self.request.path, "navi_ports")
+        navi_port = NaviPort.objects.filter(pk=navi_port_pk).first()
+        if not navi_port:
+            return RasberryPi.objects.none()
+
+        return RasberryPi.objects.filter(navi_port__pk=navi_port_pk)
 
 
 class EspressoMachineViewSet(viewsets.ModelViewSet):
@@ -238,19 +253,45 @@ class EspressoMachineViewSet(viewsets.ModelViewSet):
         navi_port_pk = getParentPK(self.request.path, "navi_ports")
         navi_port = NaviPort.objects.filter(pk=navi_port_pk).first()
         if not navi_port:
-            return NaviPort.objects.none()
+            return EspressoMachine.objects.none()
 
-        return NaviPort.objects.filter(navi_port_id=navi_port_pk)
+        return EspressoMachine.objects.filter(navi_port__pk=navi_port_pk)
 
 
 class MachineTypeMachineViewSet(viewsets.ModelViewSet):
+    queryset = MachineType.objects.all()
     serializer_class = MachineTypeSerializer
     permission_classes = [IsAdminUser]
 
-    def get_queryset(self):
-        navi_port_pk = getParentPK(self.request.path, "navi_ports")
-        navi_port = NaviPort.objects.filter(pk=navi_port_pk).first()
-        if not navi_port:
-            return NaviPort.objects.none()
 
-        return NaviPort.objects.filter(navi_port_id=navi_port_pk)
+class CustomizationViewSet(viewsets.ModelViewSet):
+    queryset = Customization.objects.all()
+    serializer_class = CustomizationSerializer
+    permission_classes = [IsAdminUser | ReadOnly]
+
+
+class CustomizationGroupViewSet(viewsets.ModelViewSet):
+    queryset = CustomizationGroup.objects.all()
+    serializer_class = CustomizationGroupSerializer
+    permission_classes = [IsAdminUser | ReadOnly]
+
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = [IsAdminUser | ReadOnly]
+
+
+class OrderCustomizationViewSet(viewsets.ModelViewSet):
+    serializer_class = OrderCustomizationSerializer
+
+    def get_queryset(self):
+        order_item_pk = getParentPK(self.request.path, "items")
+        # respect order permissions
+        order_item_viewset = OrderItemViewSet()
+        order_item_viewset.request = self.request  # Inject request into OrderViewSet
+        order_item = order_item_viewset.get_queryset().filter(pk=order_item_pk).first()
+        if not order_item:
+            return OrderCustomization.objects.none()
+
+        return OrderCustomization.objects.filter(order_item_id=order_item_pk)

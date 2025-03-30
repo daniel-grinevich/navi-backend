@@ -18,6 +18,10 @@ from navi_backend.orders.api.views import (
     EspressoMachineViewSet,
     RasberryPiViewSet,
     MachineTypeMachineViewSet,
+    CategoryViewSet,
+    CustomizationViewSet,
+    CustomizationGroupViewSet,
+    OrderCustomizationViewSet,
 )
 
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
@@ -25,12 +29,17 @@ router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 router.register("users", UserViewSet)
 router.register(r"products", ProductViewSet, basename="products")
 router.register(
+    r"orders/(?P<order_pk>\d+)/items/(?P<order_item_pk>\d+)/customizations",
+    OrderCustomizationViewSet,
+    basename="order-items-customization",
+)
+router.register(
     r"orders/(?P<order_pk>\d+)/items", OrderItemViewSet, basename="order-items"
 )
 router.register(r"orders", OrderViewSet, basename="orders")
 router.register(r"menu_items", MenuItemViewSet, basename="menu-items")
 router.register(
-    r"navi_ports/(?P<navi_port_pk>\d+)/rasberry-pis",
+    r"navi_ports/(?P<navi_port_pk>\d+)/rasberry_pis",
     RasberryPiViewSet,
     basename="rasberry-pis",
 )
@@ -46,6 +55,13 @@ router.register(r"ingredients", IngredientViewSet, basename="ingredient")
 router.register(
     r"menu_item_ingredients", MenuItemIngredientViewSet, basename="menu-item-ingredient"
 )
+router.register(r"machine_types", MachineTypeMachineViewSet, basename="machine-types")
+router.register(r"categories", CategoryViewSet, basename="categories")
+router.register(r"custimizations", CustomizationViewSet, basename="custimizations")
+router.register(
+    r"custimization_groups", CustomizationGroupViewSet, basename="custimization-groups"
+)
+
 
 app_name = "api"
 urlpatterns = router.urls

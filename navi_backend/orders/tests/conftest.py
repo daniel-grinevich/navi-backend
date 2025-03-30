@@ -27,16 +27,6 @@ def order(db):
 
 
 @pytest.fixture
-def sent_order(db):
-    return OrderFactory(status="S")
-
-
-@pytest.fixture
-def cancelled_order(db):
-    return OrderFactory(status="C")
-
-
-@pytest.fixture
 def order_data(db):
     user = UserFactory()
     payment_type = PaymentTypeFactory()
@@ -244,6 +234,30 @@ def payment_type_data(admin_user):
             "slug": "test1",
             "name": "Payment_Type_1",
             "status": "A",
+            "created_at": "2012-04-23T18:25:43.511Z",
+            "updated_at": "2012-04-23T18:25:43.511Z",
+            "created_by": admin_user.pk,
+            "updated_by": admin_user.pk,
+        }
+    )
+
+
+@pytest.fixture
+def rasberry_pi(db):
+    return RasberryPiFactory()
+
+
+@pytest.fixture
+def rasberry_pi_data(admin_user):
+    return json.dumps(
+        {
+            "slug": "test1",
+            "name": "Rasberry_Pi_1",
+            "mac_address": "01:23:45:67:89:AB",
+            "ip_address": "192.168.1.1",
+            "location": "test",
+            "is_connected": True,
+            "firmware_version": "v1",
             "created_at": "2012-04-23T18:25:43.511Z",
             "updated_at": "2012-04-23T18:25:43.511Z",
             "created_by": admin_user.pk,

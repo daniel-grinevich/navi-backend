@@ -5,6 +5,8 @@ from navi_backend.orders.models import (
     MenuItem,
     OrderCustomization,
     Customization,
+    CustomizationGroup,
+    Category,
     OrderItem,
     NaviPort,
     PaymentType,
@@ -65,11 +67,14 @@ class OrderCustomizationSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderCustomization
         fields = [
-            "name",
             "order_item",
             "customization",
-            "qty",
+            "quantity",
             "slug",
+            "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
         ]
 
 
@@ -79,6 +84,13 @@ class CustomizationSerializer(serializers.ModelSerializer):
         fields = [
             "name",
             "group",
+            "description",
+            "display_order",
+            "price",
+            "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
             "slug",
         ]
 
@@ -193,6 +205,7 @@ class EspressoMachineSerializer(serializers.ModelSerializer):
 
 
 class MachineTypeSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = MachineType
         fields = [
@@ -205,4 +218,35 @@ class MachineTypeSerializer(serializers.ModelSerializer):
             "model_number",
             "maintenance_frequency",
             "supported_drinks",
+        ]
+
+
+class CustomizationGroupSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Customization
+        fields = [
+            "name",
+            "category",
+            "description",
+            "display_order",
+            "is_required",
+            "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
+            "slug",
+        ]
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customization
+        fields = [
+            "name",
+            "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
+            "slug",
         ]
