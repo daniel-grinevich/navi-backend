@@ -59,7 +59,9 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # APPS
 # ------------------------------------------------------------------------------
+# TODO remove this django apps and add it in at local versus prod levels.... i think this would work.
 DJANGO_APPS = [
+    "django_admin_env_notice",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -323,4 +325,4 @@ CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://redis:6379
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
-CELERY_TIMEZONE = TIME_ZONE  # This uses your project's timezone
+CELERY_TIMEZONE = TIME_ZONE

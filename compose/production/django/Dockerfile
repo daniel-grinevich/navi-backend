@@ -89,8 +89,14 @@ RUN chown -R django:django ${APP_HOME}
 
 USER django
 
+ARG DJANGO_SECRET_KEY
+ENV DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+
+ARG DJANGO_ADMIN_URL
+ENV DJANGO_ADMIN_URL={$DJANGO_ADMIN_URL}
+
 RUN DATABASE_URL="" \
-  DJANGO_SETTINGS_MODULE="config.settings.test" \
-  python manage.py compilemessages
+  DJANGO_SETTINGS_MODULE="config.settings.production" \
+  python manage.py compilemessages --verbosity=2
 
 ENTRYPOINT ["/entrypoint"]

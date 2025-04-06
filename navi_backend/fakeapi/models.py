@@ -10,6 +10,7 @@ from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 from imagekit.models import ProcessedImageField
 from imagekit.processors import ResizeToFit
+from imagekit.processors import ResizeToFill
 
 from navi_backend.core.validators import validate_image_extension
 from navi_backend.core.validators import validate_image_size
@@ -283,13 +284,12 @@ class Product(UpdateRecordModel):
         help_text=_("Product availability status"),
     )
     image = ProcessedImageField(
-        verbose_name=_("Image"),
-        upload_to="product_images/%Y/%m/",
-        processors=[ResizeToFit(1200, 1200)],
+        upload_to="fakeapi_product_images/%Y/%m/",
+        processors=[ResizeToFill(800, 800)],
         format="JPEG",
-        options={"quality": 85},
-        validators=[validate_image_size, validate_image_extension],
-        help_text=_("Product image (max 5MB, JPEG/PNG)"),
+        options={"quality": 90},
+        blank=True,
+        null=True,
     )
     is_featured = models.BooleanField(
         _("featured"),

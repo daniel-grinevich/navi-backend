@@ -1,0 +1,181 @@
+volumes:
+  development_postgres_data: {}
+  development_postgres_data_backups: {}
+  development_traefik: {}
+  development_django_media: {}
+  traefik_logs: {}
+
+networks:
+  development_network:
+    driver: bridge
+
+services:
+  django:
+    build:
+      context: .
+      dockerfile: ./compose/development/django/Dockerfile
+    image: navi_backend_development_django
+    volumes:
+      - .:/app:z
+      - development_django_media:/app/navi_backend/media:z
+    user: "${UID:-1000}:${GID:-1000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.django.rule=Host(`django.localhost`)"
+      - "traefik.http.services.django.loadbalancer.server.port=8000"
+      - "traefik.http.routers.django.entrypoints=web"
+      - "traefik.http.routers.django.middlewares=django-stripprefix"
+      - "traefik.http.middlewares.django-stripprefix.stripprefix.prefixes=/"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: /start
+    networks:
+      - development_network
+
+  postgres:
+    build:
+      context: .
+      dockerfile: ./compose/development/postgres/Dockerfile
+    image: navi_backend_development_postgres
+    volumes:
+      - development_postgres_data:/var/lib/postgresql/data
+      - development_postgres_data_backups:/backups
+    ports:
+      - 5432
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER} #redudant 
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD} #redudant 
+      - POSTGRES_DB=${POSTGRES_DB} #redudant 
+      - POSTGRES_PORT=${POSTGRES_PORT} #redudant 
+      - POSTGRES_HOST=${POSTGRES_HOST} #redudant 
+      - DATABASE_URL=${DATABASE_URL} # Just keep this one lol
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"] # Health check needs user and db
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - development_network
+
+  traefik:
+    build:
+      context: .
+      dockerfile: ./compose/development/traefik/Dockerfile
+    image: navi_backend_development_traefik
+    depends_on:
+      - django
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - ./compose/development/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+    ports:
+      - "80:80"
+      - "8080:8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)"
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+      - "traefik.http.routers.traefik.entrypoints=web"
+      - "traefik.http.routers.traefik.middlewares=traefik-auth" # username: admin password: admin
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:$$apr1$$H6uskkkW$$IgXLP6ewTrSuBkTrqE8wj/"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - development_network
+
+  redis:
+    image: docker.io/redis:6
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - development_network
+
+  nginx:
+    build:
+      context: .
+      dockerfile: ./compose/development/nginx/Dockerfile
+    image: navi_backend_development_nginx
+    depends_on:
+      - django
+    volumes:
+      - development_django_media:/usr/share/nginx/media:ro,z
+    user: "${UID:-1000}:${GID:-1000}"
+    networks:
+      - development_network
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: ./compose/development/django/Dockerfile
+    image: navi_backend_development_django
+    volumes:
+      - .:/app:z  # Mount source code for live development
+      - development_django_media:/app/navi_backend/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    command: /start-celeryworker
+    networks:
+      - development_network
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: ./compose/development/django/Dockerfile
+    image: navi_backend_development_django
+    volumes:
+      - .:/app:z  # Mount source code for live development
+      - development_django_media:/app/navi_backend/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      celery_worker:
+        condition: service_started
+    env_file:
+      - .env
+    command: /start-celerybeat
+    networks:
+      - development_network
+
+  flower:
+    build:
+      context: .
+      dockerfile: ./compose/development/django/Dockerfile
+    image: navi_backend_development_django
+    depends_on:
+      redis:
+        condition: service_healthy
+      celery_worker:
+        condition: service_started
+    env_file:
+      - .env
+    ports:
+      - '5555:5555'
+    command: /start-flower
+    networks:
+      - development_network
