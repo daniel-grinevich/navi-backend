@@ -1,17 +1,21 @@
 from rest_framework import serializers
 
-from navi_backend.orders.models import Customization
-from navi_backend.orders.models import EspressoMachine
-from navi_backend.orders.models import Ingredient
-from navi_backend.orders.models import MachineType
-from navi_backend.orders.models import MenuItem
-from navi_backend.orders.models import MenuItemIngredient
-from navi_backend.orders.models import NaviPort
-from navi_backend.orders.models import Order
-from navi_backend.orders.models import OrderCustomization
-from navi_backend.orders.models import OrderItem
-from navi_backend.orders.models import PaymentType
-from navi_backend.orders.models import RasberryPi
+from navi_backend.orders.models import (
+    Order,
+    MenuItem,
+    OrderCustomization,
+    Customization,
+    CustomizationGroup,
+    Category,
+    OrderItem,
+    NaviPort,
+    PaymentType,
+    Ingredient,
+    MenuItemIngredient,
+    RasberryPi,
+    EspressoMachine,
+    MachineType,
+)
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -217,7 +221,7 @@ class MachineTypeSerializer(serializers.ModelSerializer):
 
 class CustomizationGroupSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Customization
+        model = CustomizationGroup
         fields = [
             "name",
             "category",
