@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from navi_backend.orders.models import (
     Order,
     MenuItem,
@@ -34,7 +35,6 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = OrderItem
         fields = [
@@ -51,7 +51,6 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class MenuItemIngredientSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = MenuItemIngredient
         fields = [
@@ -205,7 +204,6 @@ class EspressoMachineSerializer(serializers.ModelSerializer):
 
 
 class MachineTypeSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = MachineType
         fields = [
@@ -222,7 +220,6 @@ class MachineTypeSerializer(serializers.ModelSerializer):
 
 
 class CustomizationGroupSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = CustomizationGroup
         fields = [
