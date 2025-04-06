@@ -16,6 +16,9 @@ from ..models import (
     EspressoMachine,
     RasberryPi,
     MachineType,
+    Customization,
+    CustomizationGroup,
+    OrderCustomization,
 )
 from ...users.tests.factories import UserFactory
 
@@ -131,6 +134,15 @@ class MachineTypeFactory(
     model_number = factory.Faker("bothify", text="MT###")
     maintenance_frequency = factory.Faker("random_int", min=30, max=365)
 
+    @factory.post_generation
+    def supported_drinks(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            # Simple build, or nothing to add, do nothing.
+            return
+
+        # Add the iterable of groups using bulk addition
+        self.supported_drinks.add(*extracted)
+
 
 class EspressoMachineFactory(
     AuditFactory,
@@ -190,7 +202,7 @@ class OrderFactory(
     payment_type = factory.SubFactory(PaymentTypeFactory)
     navi_port = factory.SubFactory(NaviPortFactory)
     price = factory.LazyFunction(lambda: round(random.uniform(10.00, 100.00), 2))
-    status = factory.Faker("random_element", elements=["O", "S", "D", "C"])
+    status = factory.Faker("random_element", elements=["O"])
 
 
 class OrderItemFactory(
@@ -233,3 +245,60 @@ class MenuItemIngredientFactory(
     ingredient = factory.SubFactory(IngredientFactory)
     quantity = factory.Faker("pyfloat", left_digits=1, right_digits=2, positive=True)
     unit = Faker("text", max_nb_chars=10)
+
+
+class CustomizationFactory(
+    AuditFactory,
+    SlugifiedFactory,
+    StatusFactory,
+    UpdateRecordFactory,
+    factory.django.DjangoModelFactory,
+):
+    class Meta:
+        model = Customization
+
+    name = factory.Sequence(lambda n: "Customization %03d" % n)
+    description = factory.Faker("sentence")
+    display_order = factory.Faker("random_int", min=1, max=10)
+    price = factory.LazyFunction(lambda: round(random.uniform(10.00, 100.00), 2))
+
+
+class CustomizationGroupFactory(
+    AuditFactory,
+    SlugifiedFactory,
+    StatusFactory,
+    UpdateRecordFactory,
+    factory.django.DjangoModelFactory,
+):
+    class Meta:
+        model = CustomizationGroup
+
+    name = factory.Sequence(lambda n: "Customization Group %03d" % n)
+    description = factory.Faker("sentence")
+    display_order = factory.Faker("random_int", min=1, max=10)
+    is_required = factory.Faker("boolean")
+
+    @factory.post_generation
+    def category(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            # Simple build, or nothing to add, do nothing.
+            return
+
+        # Add the iterable of groups using bulk addition
+        self.category.add(*extracted)
+
+
+class OrderCustomizationFactory(
+    AuditFactory,
+    StatusFactory,
+    UpdateRecordFactory,
+    factory.django.DjangoModelFactory,
+):
+    class Meta:
+        model = OrderCustomization
+
+    slug = factory.Sequence(lambda n: "123-555-%04d" % n)
+    customization = factory.SubFactory(CustomizationFactory)
+    order_item = factory.SubFactory(OrderItemFactory)
+    quantity = factory.LazyFunction(lambda: random.randint(1, 9))
+    unit_price = factory.LazyFunction(lambda: round(random.uniform(10.00, 100.00), 2))

@@ -154,10 +154,6 @@ class AuditModel(UpdateRecordModel):
         if self.is_deleted and self.status == self.Status.ACTIVE:
             raise ValidationError({"status": _("Deleted menuitem cannot be active.")})
 
-
-9
-
-
 # Create your models here.
 
 
@@ -556,6 +552,9 @@ class OrderItem(
         return f"{self.order} {self.menu_item}"
 
     def save(self, *args, **kwargs):
+        if self.order:
+            if self.order.status != "O":
+                raise ValidationError("You can't update order items if the order is not in 'Ordered' status.")
         return super().save(*args, **kwargs)
 
     @property
@@ -645,7 +644,7 @@ class OrderCustomization(
         return self.quantity * self.unit_price
 
     def __str__(self):
-        return self.name
+        return f"{self.order_item} {self.customization}"
 
     def save(self, *args, **kwargs):
         return super().save(*args, **kwargs)

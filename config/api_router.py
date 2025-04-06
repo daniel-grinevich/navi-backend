@@ -17,7 +17,7 @@ from navi_backend.orders.api.views import (
     MenuItemIngredientViewSet,
     EspressoMachineViewSet,
     RasberryPiViewSet,
-    MachineTypeMachineViewSet,
+    MachineTypeViewSet,
     CategoryViewSet,
     CustomizationViewSet,
     CustomizationGroupViewSet,
@@ -55,7 +55,7 @@ router.register(r"ingredients", IngredientViewSet, basename="ingredient")
 router.register(
     r"menu_item_ingredients", MenuItemIngredientViewSet, basename="menu-item-ingredient"
 )
-router.register(r"machine_types", MachineTypeMachineViewSet, basename="machine-types")
+router.register(r"machine_types", MachineTypeViewSet, basename="machine-types")
 router.register(r"categories", CategoryViewSet, basename="categories")
 router.register(r"custimizations", CustomizationViewSet, basename="custimizations")
 router.register(
