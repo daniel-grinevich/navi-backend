@@ -1,21 +1,17 @@
 from rest_framework import serializers
-from rest_framework_nested.serializers import NestedHyperlinkedModelSerializer
-from navi_backend.orders.models import (
-    Order,
-    MenuItem,
-    OrderCustomization,
-    Customization,
-    CustomizationGroup,
-    Category,
-    OrderItem,
-    NaviPort,
-    PaymentType,
-    Ingredient,
-    MenuItemIngredient,
-    RasberryPi,
-    EspressoMachine,
-    MachineType,
-)
+
+from navi_backend.orders.models import Customization
+from navi_backend.orders.models import EspressoMachine
+from navi_backend.orders.models import Ingredient
+from navi_backend.orders.models import MachineType
+from navi_backend.orders.models import MenuItem
+from navi_backend.orders.models import MenuItemIngredient
+from navi_backend.orders.models import NaviPort
+from navi_backend.orders.models import Order
+from navi_backend.orders.models import OrderCustomization
+from navi_backend.orders.models import OrderItem
+from navi_backend.orders.models import PaymentType
+from navi_backend.orders.models import RasberryPi
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -35,7 +31,6 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = OrderItem
         fields = [
@@ -52,7 +47,6 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class MenuItemIngredientSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = MenuItemIngredient
         fields = [
@@ -205,7 +199,6 @@ class EspressoMachineSerializer(serializers.ModelSerializer):
 
 
 class MachineTypeSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = MachineType
         fields = [
@@ -222,7 +215,6 @@ class MachineTypeSerializer(serializers.ModelSerializer):
 
 
 class CustomizationGroupSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Customization
         fields = [
