@@ -1,0 +1,19 @@
+log:
+  level: DEBUG
+  filePath: "/var/log/traefik/traefik.log"
+
+entryPoints:
+  web:
+    address: ":80"
+
+providers:
+  docker:
+    exposedByDefault: false
+    network: development_network
+
+api:
+  insecure: true
+  dashboard: true
+
+accessLog:
+  filePath: "/var/log/traefik/access.log"

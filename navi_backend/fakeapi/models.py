@@ -9,11 +9,8 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 from imagekit.models import ProcessedImageField
-from imagekit.processors import ResizeToFit
 from imagekit.processors import ResizeToFill
 
-from navi_backend.core.validators import validate_image_extension
-from navi_backend.core.validators import validate_image_size
 from navi_backend.users.models import User
 
 

@@ -46,7 +46,10 @@ help:
 
 env:
 	@echo "Current environment: $(ENV) (using $(COMPOSE_FILE))"
-
+	
+build-d:
+	$(DC) up -d --build
+	
 build:
 	$(DC) build
 
@@ -86,7 +89,7 @@ test:
 testorders:
 	$(DC_RUN) pytest -rP navi_backend/orders
 
-coverage: 
+coverage:
 	$(DC_RUN) coverage run -m pytest
 	$(DC_RUN) coverage html
 
@@ -101,10 +104,10 @@ clean:
 	docker image prune -f
 
 merge_dev:
-	python merge_development_dotenvs_in_dotenv.py 
+	python merge_development_dotenvs_in_dotenv.py
 
 merge_prod:
-	python merge_production_dotenvs_in_dotenv.py 
+	python merge_production_dotenvs_in_dotenv.py
 
 nuke:
 	@echo "⚠️ WARNING: This will remove ALL Docker containers, images, and volumes!"
