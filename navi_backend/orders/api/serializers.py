@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from rest_framework_nested.serializers import NestedHyperlinkedModelSerializer
 from navi_backend.orders.models import (
     Order,
     MenuItem,
@@ -225,7 +224,7 @@ class MachineTypeSerializer(serializers.ModelSerializer):
 class CustomizationGroupSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = Customization
+        model = CustomizationGroup
         fields = [
             "name",
             "category",
