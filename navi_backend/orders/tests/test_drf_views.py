@@ -14,6 +14,11 @@ from navi_backend.orders.models import (
     Ingredient,
     MenuItemIngredient,
     RasberryPi,
+    EspressoMachine,
+    Customization,
+    CustomizationGroup,
+    MachineType,
+    OrderCustomization,
 )
 from .factories import (
     OrderItemFactory,
@@ -24,6 +29,12 @@ from .factories import (
     PaymentTypeFactory,
     OrderFactory,
     RasberryPiFactory,
+    EspressoMachineFactory,
+    CustomizationGroupFactory,
+    CustomizationFactory,
+    CategoryFactory,
+    MachineTypeFactory,
+    OrderCustomizationFactory,
 )
 from navi_backend.orders.tests.factories import (
     UserFactory,
@@ -38,6 +49,12 @@ from navi_backend.orders.api.views import (
     NaviPortViewSet,
     PaymentTypeViewSet,
     RasberryPiViewSet,
+    EspressoMachineViewSet,
+    CustomizationGroupViewSet,
+    CustomizationViewSet,
+    CategoryViewSet,
+    MachineTypeViewSet,
+    OrderCustomizationViewSet,
 )
 
 # Potentially switch request setup to generic function
@@ -972,6 +989,139 @@ class TestOrderItemViewSet:
                 status.HTTP_404_NOT_FOUND,
             ]
 
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            ("create", "POST", "/api/orders/{order_pk}/items/"),
+            (
+                "partial_update",
+                "PATCH",
+                "/api/orders/{order_pk}/items/{pk}/",
+            ),
+            (
+                "destroy",
+                "DELETE",
+                "/api/orders/{order_pk}/items/{pk}/",
+            ),
+        ],
+    )
+    def test_write_access(
+        self,
+        get_response,
+        admin_user,
+        user,
+        method,
+        view_name,
+        url,
+        order_item_data,
+        order_item_data2,
+        order_and_order_items,
+    ):
+        order_from_data, order_item_data = order_item_data
+        order_from_data2, order_item_data2 = order_item_data2
+        order, order_item, _, _ = order_and_order_items
+        order2 = OrderFactory(status="O")
+        view = OrderItemViewSet.as_view({method.lower(): view_name})
+        # Test create with wrong user
+        if view_name == "create":
+            response = get_response(
+                order.user,
+                view,
+                method,
+                url.format(order_pk=order_from_data.pk),
+                data=order_item_data,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            assert response.data["detail"] == "Incorrect user for order item."
+            # Test create with correct user but different order in URL
+            response = get_response(
+                order_from_data.user,
+                view,
+                method,
+                url.format(order_pk=order_from_data.pk),
+                data=order_item_data2,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            assert (
+                response.data["detail"]
+                == "Order in data does not match the order in the url."
+            )
+            # Test create with admin
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(order_pk=order_from_data.pk),
+                data=order_item_data,
+            )
+            assert response.status_code == status.HTTP_201_CREATED
+            assert OrderItem.objects.filter(order_id=order.pk).exists()
+
+            # Test create with correct user
+            response = get_response(
+                order_from_data2.user,
+                view,
+                method,
+                url.format(order_pk=order_from_data2.pk),
+                data=order_item_data2,
+            )
+            assert response.status_code == status.HTTP_201_CREATED
+            assert OrderItem.objects.filter(order_id=order.pk).exists()
+
+        if view_name == "delete":
+            response = get_response(
+                order.user,
+                view,
+                method,
+                url.format(pk=order_item.pk),
+                pk=order_item.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=order_item.pk),
+                pk=order_item.pk,
+            )
+            assert response.status_code == status.HTTP_204_NO_CONTENT
+            assert not OrderItem.objects.filter(id=order_item.id).exists()
+
+        if view_name == "partial_update":
+            payload = json.dumps({"quantity": 2.00})
+            response = get_response(
+                order.user,
+                view,
+                method,
+                url.format(pk=order_item.pk, order_pk=order2.pk),
+                data=payload,
+                pk=order_item.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                order.user,
+                view,
+                method,
+                url.format(pk=order_item.pk, order_pk=order.pk),
+                data=payload,
+                pk=order_item.pk,
+            )
+            order_item.refresh_from_db()
+            assert response.status_code == status.HTTP_200_OK
+            assert order_item.quantity == 2.00
+
 
 @pytest.mark.django_db
 class TestRasberryPiViewSet:
@@ -1063,7 +1213,6 @@ class TestRasberryPiViewSet:
                 status.HTTP_403_FORBIDDEN,
                 status.HTTP_404_NOT_FOUND,
             ]
-            print(RasberryPi.objects.filter(id=rasberry_pi.id))
             response = get_response(
                 admin_user,
                 view,
@@ -1135,3 +1284,949 @@ class TestRasberryPiViewSet:
                 pk=rasberry_pi_1.pk,
             )
             assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+class TestEspressoMachineViewSet:
+
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            ("create", "POST", "/api/navi_ports/{navi_port_pk}/espresso_machines/"),
+            (
+                "partial_update",
+                "PATCH",
+                "/api/navi_ports/{navi_port_pk}/espresso_machines/{pk}/",
+            ),
+            (
+                "destroy",
+                "DELETE",
+                "/api/navi_ports/{navi_port_pk}/espresso_machines/{pk}/",
+            ),
+        ],
+    )
+    def test_write_access(
+        self,
+        get_response,
+        admin_user,
+        user,
+        method,
+        view_name,
+        url,
+        espresso_machine_data,
+        espresso_machine,
+    ):
+        navi_port = NaviPortFactory(espresso_machine=espresso_machine)
+        view = EspressoMachineViewSet.as_view({method.lower(): view_name})
+        if view_name == "create":
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(navi_port_pk=navi_port.pk),
+                data=espresso_machine_data,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(navi_port_pk=navi_port.pk),
+                data=espresso_machine_data,
+            )
+            assert response.status_code == status.HTTP_201_CREATED
+            assert EspressoMachine.objects.filter(name="Espresso_Machine_1").exists()
+
+        if view_name == "delete":
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(pk=espresso_machine.pk, navi_port_pk=navi_port.pk),
+                pk=espresso_machine.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=espresso_machine.pk, navi_port_pk=navi_port.pk),
+                pk=espresso_machine.pk,
+            )
+            assert response.status_code == status.HTTP_204_NO_CONTENT
+            assert not EspressoMachine.objects.filter(id=espresso_machine.id).exists()
+
+        if view_name == "partial_update":
+            payload = json.dumps({"name": "DanielSucks"})
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(pk=espresso_machine.pk, navi_port_pk=navi_port.pk),
+                data=payload,
+                pk=espresso_machine.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=espresso_machine.pk, navi_port_pk=navi_port.pk),
+                data=payload,
+                pk=espresso_machine.pk,
+            )
+            espresso_machine.refresh_from_db()
+            assert response.status_code == status.HTTP_200_OK
+            assert espresso_machine.name == "DanielSucks"
+
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            ("list", "GET", "/api/navi_ports/{navi_port_pk}/espresso_machines/"),
+            (
+                "retrieve",
+                "GET",
+                "/api/navi_ports/{navi_port_pk}/espresso_machines/{pk}/",
+            ),
+        ],
+    )
+    def test_view_access(self, admin_user, user, get_response, view_name, method, url):
+        espresso_machines = EspressoMachineFactory.create_batch(3)
+        espresso_machine_1, espresso_machine_2, espresso_machine_3 = espresso_machines
+        navi_port = NaviPortFactory(espresso_machine=espresso_machine_1)
+        view = EspressoMachineViewSet.as_view({method.lower(): view_name})
+
+        if view_name == "list":
+            response = get_response(
+                user, view, method, url.format(navi_port_pk=navi_port.pk)
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user, view, method, url.format(navi_port_pk=navi_port.pk)
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert len(response.data) == 1
+
+        if view_name == "retrieve":
+            for espresso_machine in [espresso_machine_2, espresso_machine_3]:
+                response = get_response(
+                    admin_user,
+                    view,
+                    method,
+                    url.format(pk=espresso_machine.pk, navi_port_pk=navi_port.pk),
+                    pk=espresso_machine.pk,
+                )
+                assert response.status_code in [
+                    status.HTTP_403_FORBIDDEN,
+                    status.HTTP_404_NOT_FOUND,
+                ]
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(pk=espresso_machine_1.pk, navi_port_pk=navi_port.pk),
+                pk=espresso_machine_1.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=espresso_machine_1.pk, navi_port_pk=navi_port.pk),
+                pk=espresso_machine_1.pk,
+            )
+            assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+class TestCustomizationViewSet:
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            ("create", "POST", "/api/customizations/"),
+            ("destroy", "DELETE", "/api/customizations/{pk}/"),
+            ("partial_update", "PATCH", "/api/customizations/{pk}/"),
+        ],
+    )
+    def test_write_access(
+        self,
+        get_response,
+        admin_user,
+        user,
+        customization_data,
+        view_name,
+        method,
+        url,
+        customization,
+    ):
+        view = CustomizationViewSet.as_view({method.lower(): view_name})
+        if view_name == "create":
+            response = get_response(user, view, method, url, data=customization_data)
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user, view, method, url, data=customization_data
+            )
+            assert response.status_code == status.HTTP_201_CREATED
+            assert Customization.objects.filter(name="Customization_1").exists()
+
+        if view_name == "delete":
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(pk=customization.pk),
+                pk=customization.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=customization.pk),
+                pk=customization.pk,
+            )
+            assert response.status_code == status.HTTP_204_NO_CONTENT
+            assert not Customization.objects.filter(id=customization.id).exists()
+
+        if view_name == "partial_update":
+            payload = json.dumps({"name": "Latte"})
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(pk=customization.pk),
+                data=payload,
+                pk=customization.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=customization.pk),
+                data=payload,
+                pk=customization.pk,
+            )
+            customization.refresh_from_db()
+            assert response.status_code == status.HTTP_200_OK
+            assert customization.name == "Latte"
+
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            ("list", "GET", "/customizations/"),
+            ("retrieve", "GET", "/customizations/{pk}/"),
+        ],
+    )
+    def test_view_access(self, admin_user, get_response, view_name, method, url):
+        customizations = CustomizationFactory.create_batch(3)
+        view = CustomizationViewSet.as_view({method.lower(): view_name})
+
+        if view_name == "list":
+            response = get_response(admin_user, view, method, url)
+            assert response.status_code == status.HTTP_200_OK
+            assert len(response.data) == 3
+
+        if view_name == "retrieve":
+            for customization in customizations:
+                response = get_response(
+                    admin_user,
+                    view,
+                    method,
+                    url.format(pk=customization.pk),
+                    pk=customization.pk,
+                )
+                assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+class CustimizationGroupViewSet:
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            ("create", "POST", "/api/customization_groups/"),
+            ("destroy", "DELETE", "/api/customization_groups/{pk}/"),
+            ("partial_update", "PATCH", "/api/customization_groups/{pk}/"),
+        ],
+    )
+    def test_write_access(
+        self,
+        get_response,
+        admin_user,
+        user,
+        customization_data,
+        view_name,
+        method,
+        url,
+        customization,
+    ):
+        view = CustomizationGroupViewSet.as_view({method.lower(): view_name})
+        if view_name == "create":
+            response = get_response(user, view, method, url, data=customization_data)
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user, view, method, url, data=customization_data
+            )
+            assert response.status_code == status.HTTP_201_CREATED
+            assert CustomizationGroup.objects.filter(
+                name="Customization_Group_1"
+            ).exists()
+
+        if view_name == "delete":
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(pk=customization.pk),
+                pk=customization.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=customization.pk),
+                pk=customization.pk,
+            )
+            assert response.status_code == status.HTTP_204_NO_CONTENT
+            assert not CustomizationGroup.objects.filter(id=ingredient.id).exists()
+
+        if view_name == "partial_update":
+            payload = json.dumps({"name": "Latte"})
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(pk=customization.pk),
+                data=payload,
+                pk=customization.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=customization.pk),
+                data=payload,
+                pk=customization.pk,
+            )
+            customization.refresh_from_db()
+            assert response.status_code == status.HTTP_200_OK
+            assert customization.name == "Latte"
+
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            ("list", "GET", "/customization_groups/"),
+            ("retrieve", "GET", "/customization_groups/{pk}/"),
+        ],
+    )
+    def test_view_access(self, admin_user, get_response, view_name, method, url):
+        customization_groups = CustomizationGroupFactory.create_batch(3)
+        view = CustomizationGroupViewSet.as_view({method.lower(): view_name})
+
+        if view_name == "list":
+            response = get_response(admin_user, view, method, url)
+            assert response.status_code == status.HTTP_200_OK
+            assert len(response.data) == 3
+
+        if view_name == "retrieve":
+            for customization_group in customization_groups:
+                response = get_response(
+                    admin_user,
+                    view,
+                    method,
+                    url.format(pk=customization_group.pk),
+                    pk=customization_group.pk,
+                )
+                assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+class TestCategoryViewSet:
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            ("create", "POST", "/api/categories/"),
+            ("destroy", "DELETE", "/api/categories/{pk}/"),
+            ("partial_update", "PATCH", "/api/categories/{pk}/"),
+        ],
+    )
+    def test_write_access(
+        self,
+        get_response,
+        admin_user,
+        user,
+        category_data,
+        view_name,
+        method,
+        url,
+        category,
+    ):
+        view = CategoryViewSet.as_view({method.lower(): view_name})
+        if view_name == "create":
+            response = get_response(user, view, method, url, data=category_data)
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(admin_user, view, method, url, data=category_data)
+            assert response.status_code == status.HTTP_201_CREATED
+            assert Category.objects.filter(name="Category_1").exists()
+
+        if view_name == "delete":
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(pk=category.pk),
+                pk=category.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=category.pk),
+                pk=category.pk,
+            )
+            assert response.status_code == status.HTTP_204_NO_CONTENT
+            assert not Category.objects.filter(id=category.id).exists()
+
+        if view_name == "partial_update":
+            payload = json.dumps({"name": "Latte"})
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(pk=category.pk),
+                data=payload,
+                pk=category.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(pk=category.pk),
+                data=payload,
+                pk=category.pk,
+            )
+            category.refresh_from_db()
+            assert response.status_code == status.HTTP_200_OK
+            assert category.name == "Latte"
+
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            ("list", "GET", "/categories/"),
+            ("retrieve", "GET", "/categories/{pk}/"),
+        ],
+    )
+    def test_view_access(self, admin_user, get_response, view_name, method, url):
+        categories = CategoryFactory.create_batch(3)
+        view = CategoryViewSet.as_view({method.lower(): view_name})
+
+        if view_name == "list":
+            response = get_response(admin_user, view, method, url)
+            assert response.status_code == status.HTTP_200_OK
+            assert len(response.data) == 3
+
+        if view_name == "retrieve":
+            for category in categories:
+                response = get_response(
+                    admin_user,
+                    view,
+                    method,
+                    url.format(pk=category.pk),
+                    pk=category.pk,
+                )
+                assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+class TestMachineTypeViewSet:
+
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            (
+                "create",
+                "POST",
+                "/api/navi_ports/{navi_port_pk}/espresso_machines/{espresso_machine_pk}/machine_types/",
+            ),
+            (
+                "partial_update",
+                "PATCH",
+                "/api/navi_ports/{navi_port_pk}/espresso_machines/{espresso_machine_pk}/machine_types/{pk}/",
+            ),
+            (
+                "destroy",
+                "DELETE",
+                "/api/navi_ports/{navi_port_pk}/espresso_machines/{espresso_machine_pk}/machine_types/{pk}/",
+            ),
+        ],
+    )
+    def test_write_access(
+        self,
+        get_response,
+        admin_user,
+        user,
+        method,
+        view_name,
+        url,
+        machine_type_data,
+        machine_type,
+    ):
+        espresso_machine = EspressoMachineFactory(machine_type=machine_type)
+        navi_port = NaviPortFactory(espresso_machine=espresso_machine)
+        view = MachineTypeViewSet.as_view({method.lower(): view_name})
+        if view_name == "create":
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(
+                    navi_port_pk=navi_port.pk, espresso_machine_pk=espresso_machine.pk
+                ),
+                data=machine_type_data,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(
+                    navi_port_pk=navi_port.pk, espresso_machine_pk=espresso_machine.pk
+                ),
+                data=machine_type_data,
+            )
+            assert response.status_code == status.HTTP_201_CREATED
+            assert MachineType.objects.filter(name="Machine_Type_1").exists()
+
+        if view_name == "delete":
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(
+                    pk=espresso_machine.pk,
+                    navi_port_pk=navi_port.pk,
+                    espresso_machine_pk=espresso_machine.pk,
+                ),
+                pk=machine_type.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(
+                    pk=machine_type.pk,
+                    navi_port_pk=navi_port.pk,
+                    espresso_machine_pk=espresso_machine.pk,
+                ),
+                pk=machine_type.pk,
+            )
+            assert response.status_code == status.HTTP_204_NO_CONTENT
+            assert not MachineType.objects.filter(id=espresso_machine.id).exists()
+
+        if view_name == "partial_update":
+            payload = json.dumps({"name": "DanielSucks"})
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(
+                    pk=machine_type.pk,
+                    navi_port_pk=navi_port.pk,
+                    espresso_machine_pk=espresso_machine.pk,
+                ),
+                data=payload,
+                pk=machine_type.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(
+                    pk=machine_type.pk,
+                    navi_port_pk=navi_port.pk,
+                    espresso_machine_pk=espresso_machine.pk,
+                ),
+                data=payload,
+                pk=machine_type.pk,
+            )
+            machine_type.refresh_from_db()
+            assert response.status_code == status.HTTP_200_OK
+            assert machine_type.name == "DanielSucks"
+
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            (
+                "list",
+                "GET",
+                "/api/navi_ports/{navi_port_pk}/espresso_machines/{espresso_machine_pk}/machine_types/",
+            ),
+            (
+                "retrieve",
+                "GET",
+                "/api/navi_ports/{navi_port_pk}/espresso_machines/{espresso_machine_pk}/machine_types/{pk}/",
+            ),
+        ],
+    )
+    def test_view_access(self, admin_user, user, get_response, view_name, method, url):
+        machine_types = MachineTypeFactory.create_batch(3)
+        machine_type_1, machine_type_2, machine_type_3 = machine_types
+        espresso_machine = EspressoMachineFactory(machine_type=machine_type_1)
+        navi_port = NaviPortFactory(espresso_machine=espresso_machine)
+        view = MachineTypeViewSet.as_view({method.lower(): view_name})
+
+        if view_name == "list":
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(
+                    navi_port_pk=navi_port.pk,
+                    espresso_machine_pk=espresso_machine.pk,
+                ),
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(
+                    navi_port_pk=navi_port.pk,
+                    espresso_machine_pk=espresso_machine.pk,
+                ),
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert len(response.data) == 1
+
+        if view_name == "retrieve":
+            for machine_type in [machine_type_2, machine_type_3]:
+                response = get_response(
+                    admin_user,
+                    view,
+                    method,
+                    url.format(
+                        pk=machine_type.pk,
+                        navi_port_pk=navi_port.pk,
+                        espresso_machine_pk=espresso_machine.pk,
+                    ),
+                    pk=machine_type.pk,
+                )
+                assert response.status_code in [
+                    status.HTTP_403_FORBIDDEN,
+                    status.HTTP_404_NOT_FOUND,
+                ]
+            response = get_response(
+                user,
+                view,
+                method,
+                url.format(
+                    pk=machine_type_1.pk,
+                    navi_port_pk=navi_port.pk,
+                    espresso_machine_pk=espresso_machine.pk,
+                ),
+                pk=machine_type_1.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(
+                    pk=machine_type_1.pk,
+                    navi_port_pk=navi_port.pk,
+                    espresso_machine_pk=espresso_machine.pk,
+                ),
+                pk=machine_type_1.pk,
+            )
+            assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+class TestOrderCustomizationViewSet:
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            (
+                "list",
+                "GET",
+                "/api/orders/{order_pk}/items/{order_item_pk}/customizations/",
+            ),
+            (
+                "retrieve",
+                "GET",
+                "/api/orders/{order_pk}/items/{order_item_pk}/customizations/{pk}/",
+            ),
+        ],
+    )
+    def test_view_access(
+        self,
+        admin_user,
+        get_response,
+        view_name,
+        method,
+        url,
+        order_item_and_customizations,
+    ):
+        (
+            order,
+            order_item,
+            order_customization_1,
+            order_customization_2,
+            order_customization_3,
+        ) = order_item_and_customizations
+        view = OrderCustomizationViewSet.as_view({method.lower(): view_name})
+
+        if view_name == "list":
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(order_pk=order.pk, order_item_pk=order_item.pk),
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert len(response.data) == 2
+
+        if view_name == "retrieve":
+            for order_customization in [order_customization_1, order_customization_2]:
+                response = get_response(
+                    admin_user,
+                    view,
+                    method,
+                    url.format(
+                        pk=order_customization.pk,
+                        order_pk=order.pk,
+                        order_item_pk=order_item.pk,
+                    ),
+                    pk=order_customization.pk,
+                )
+                assert response.status_code == status.HTTP_200_OK
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(
+                    pk=order_customization_3.pk,
+                    order_pk=order.pk,
+                    order_item_pk=order_item.pk,
+                ),
+                pk=order_customization_3.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+
+    @pytest.mark.parametrize(
+        "view_name, method, url",
+        [
+            (
+                "create",
+                "POST",
+                "/api/orders/{order_pk}/items/{order_item_pk}/customizations/",
+            ),
+            (
+                "partial_update",
+                "PATCH",
+                "/api/orders/{order_pk}/items/{order_item_pk}/customizations/{pk}/",
+            ),
+            (
+                "destroy",
+                "DELETE",
+                "/api/orders/{order_pk}/items/{order_item_pk}/customizations/{pk}/",
+            ),
+        ],
+    )
+    def test_write_access(
+        self,
+        get_response,
+        admin_user,
+        user,
+        method,
+        view_name,
+        url,
+        order_customization_data,
+        order_customization,
+    ):
+        order, order_item, order_customization_data = order_customization_data
+        order2 = OrderFactory(status="O")
+        order_item2 = OrderItemFactory(order=order2)
+        order_customization_2 = OrderCustomizationFactory(order_item=order_item2)
+        view = OrderCustomizationViewSet.as_view({method.lower(): view_name})
+        # Test create with wrong user
+        if view_name == "create":
+            response = get_response(
+                order2.user,
+                view,
+                method,
+                url.format(order_pk=order.pk, order_item_pk=order_item.pk),
+                data=order_customization_data,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            assert response.data["detail"] == "Incorrect user for order item."
+            # Test create with correct user but different order in URL
+            response = get_response(
+                order.user,
+                view,
+                method,
+                url.format(order_pk=order.pk, order_item_pk=order_item2.pk),
+                data=order_customization_data,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            assert response.data["detail"] == "Incorrect order item for customization."
+            # Test create with admin
+            """ response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(order_pk=order.pk, order_item_pk=order_item.pk),
+                data=order_customization_data,
+            )
+            assert response.status_code == status.HTTP_201_CREATED
+            assert OrderCustomization.objects.filter(order_id=order.pk).exists() """
+
+            # Test create with correct user
+            response = get_response(
+                order.user,
+                view,
+                method,
+                url.format(order_pk=order.pk, order_item_pk=order_item.pk),
+                data=order_customization_data,
+            )
+            assert response.status_code == status.HTTP_201_CREATED
+            assert OrderCustomization.objects.filter(
+                order_item_id=order_item.pk
+            ).exists()
+
+        if view_name == "delete":
+            response = get_response(
+                order.user,
+                view,
+                method,
+                url.format(
+                    pk=order_customization.pk,
+                    order_pk=order.pk,
+                    order_item_pk=order_item.pk,
+                ),
+                pk=order_customization.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                admin_user,
+                view,
+                method,
+                url.format(
+                    pk=order_customization.pk,
+                    order_pk=order.pk,
+                    order_item_pk=order_item.pk,
+                ),
+                pk=order_customization.pk,
+            )
+            assert response.status_code == status.HTTP_204_NO_CONTENT
+            assert not OrderCustomization.objects.filter(
+                id=order_customization.id
+            ).exists()
+        if view_name == "partial_update":
+            payload = json.dumps({"quantity": 2})
+            response = get_response(
+                order.user,
+                view,
+                method,
+                url.format(
+                    pk=order_customization_2.pk,
+                    order_pk=order2.pk,
+                    order_item_pk=order_item2.pk,
+                ),
+                data=payload,
+                pk=order_customization_2.pk,
+            )
+            assert response.status_code in [
+                status.HTTP_403_FORBIDDEN,
+                status.HTTP_404_NOT_FOUND,
+            ]
+            response = get_response(
+                order2.user,
+                view,
+                method,
+                url.format(
+                    pk=order_customization_2.pk,
+                    order_pk=order2.pk,
+                    order_item_pk=order_item2.pk,
+                ),
+                data=payload,
+                pk=order_customization_2.pk,
+            )
+            order_customization_2.refresh_from_db()
+            assert response.status_code == status.HTTP_200_OK
+            assert order_customization_2.quantity == 2

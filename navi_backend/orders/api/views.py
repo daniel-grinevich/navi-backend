@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django.http import Http404
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -134,7 +135,6 @@ class OrderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["put"], name="Cancel Order")
     def cancel_order(self, request, pk=None):
         """Cancels an order if it's in an ordered state ('O')."""
-        print(self.get_queryset())
         order = get_object_or_404(self.get_queryset(), pk=pk)
 
         if order.status != "O":
@@ -186,26 +186,42 @@ class OrderViewSet(viewsets.ModelViewSet):
 class OrderItemViewSet(viewsets.ModelViewSet):
     serializer_class = OrderItemSerializer
 
+    def get_parent_order(self):
+        order_pk = getParentPK(self.request.path, "orders")
+        # respect order permissions
+        order_viewset = OrderViewSet()
+        order_viewset.request = self.request  # Inject request into OrderViewSet
+        order = order_viewset.get_queryset().filter(pk=order_pk).first()
+        return order
+
     def get_queryset(self):
         """
         Restrict query to order items belonging to a specific order.
         - Admins can access all orders.
         - Regular users can only access their own order items.
         """
-        order_pk = getParentPK(self.request.path, "orders")
-        # respect order permissions
-        order_viewset = OrderViewSet()
-        order_viewset.request = self.request  # Inject request into OrderViewSet
-        order = order_viewset.get_queryset().filter(pk=order_pk).first()
+        order = self.get_parent_order()
+
         if not order:
             return (
                 OrderItem.objects.none()
             )  # Return empty queryset if order doesn't exist
 
         if self.request.user.is_staff or order.user == self.request.user:
-            return OrderItem.objects.filter(order_id=order_pk)
+            return OrderItem.objects.filter(order_id=order.pk)
 
         return OrderItem.objects.none()  # Unauthorized users get an empty queryset
+
+    def perform_create(self, serializer):
+        order = self.get_parent_order()
+
+        if (not order) or (
+            not self.request.user.is_staff and order.user != self.request.user
+        ):
+            raise Http404("Incorrect user for order item.")
+        if serializer.validated_data["order"].pk != order.pk:
+            raise Http404("Order in data does not match the order in the url.")
+        serializer.save(order=order)
 
 
 class NaviPortViewSet(viewsets.ModelViewSet):
@@ -258,10 +274,19 @@ class EspressoMachineViewSet(viewsets.ModelViewSet):
         return EspressoMachine.objects.filter(navi_port__pk=navi_port_pk)
 
 
-class MachineTypeMachineViewSet(viewsets.ModelViewSet):
-    queryset = MachineType.objects.all()
+class MachineTypeViewSet(viewsets.ModelViewSet):
     serializer_class = MachineTypeSerializer
     permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        espresso_machine_pk = getParentPK(self.request.path, "espresso_machines")
+        espresso_machine = EspressoMachine.objects.filter(
+            pk=espresso_machine_pk
+        ).first()
+        if not espresso_machine:
+            return MachineType.objects.none()
+
+        return MachineType.objects.filter(espresso_machine__pk=espresso_machine_pk)
 
 
 class CustomizationViewSet(viewsets.ModelViewSet):
@@ -285,13 +310,42 @@ class CategoryViewSet(viewsets.ModelViewSet):
 class OrderCustomizationViewSet(viewsets.ModelViewSet):
     serializer_class = OrderCustomizationSerializer
 
-    def get_queryset(self):
+    def get_parent_order(self):
+        order_pk = getParentPK(self.request.path, "orders")
+        # respect order permissions
+        order_viewset = OrderViewSet()
+        order_viewset.request = self.request  # Inject request into OrderViewSet
+        order = order_viewset.get_queryset().filter(pk=order_pk).first()
+        return order
+
+    def get_parent_order_item(self):
         order_item_pk = getParentPK(self.request.path, "items")
         # respect order permissions
         order_item_viewset = OrderItemViewSet()
         order_item_viewset.request = self.request  # Inject request into OrderViewSet
         order_item = order_item_viewset.get_queryset().filter(pk=order_item_pk).first()
-        if not order_item:
+        return order_item
+
+    def get_queryset(self):
+        order = self.get_parent_order()
+        order_item = self.get_parent_order_item()
+        if not order_item or not order:
             return OrderCustomization.objects.none()
 
-        return OrderCustomization.objects.filter(order_item_id=order_item_pk)
+        return OrderCustomization.objects.filter(order_item_id=order_item.pk)
+
+    def perform_create(self, serializer):
+        order = self.get_parent_order()
+        order_item = self.get_parent_order_item()
+
+        if (not order) or (
+            not self.request.user.is_staff and order.user != self.request.user
+        ):
+            raise Http404("Incorrect user for order item.")
+        if not order_item:
+            raise Http404("Incorrect order item for customization.")
+        if serializer.validated_data["order_item"].pk != order_item.pk:
+            raise Http404(
+                "Order item in data does not match the order item in the url."
+            )
+        serializer.save(order_item=order_item)

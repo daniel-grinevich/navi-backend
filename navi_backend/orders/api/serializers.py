@@ -64,6 +64,7 @@ class OrderCustomizationSerializer(serializers.ModelSerializer):
             "order_item",
             "customization",
             "quantity",
+            "unit_price",
             "slug",
             "created_at",
             "created_by",
@@ -233,7 +234,7 @@ class CustomizationGroupSerializer(serializers.ModelSerializer):
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
-        model = Customization
+        model = Category
         fields = [
             "name",
             "created_at",
