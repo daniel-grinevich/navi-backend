@@ -1,0 +1,60 @@
+version: '3.9'
+
+volumes:
+  staging_postgres_data: {}
+  staging_postgres_data_backups: {}
+  staging_django_media: {} # Do we need this?
+
+secrets:
+  django_secret_key:
+    file: .envs/.staging/.django_secret
+  postgres_password:
+    file: .envs/.staging/.postgres_password
+
+services:
+  django:
+    build:
+      context: .
+      dockerfile: ./compose/staging/django/Dockerfile
+    image: navi_backend_staging_django
+    volumes:
+      - staging_django_media:/app/navi_backend/media
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - ./.envs/.staging/.django
+      - ./.envs/.staging/.postgres
+    environment:
+      - DJANGO_SECRET_KEY_FILE=/run/secrets/django_secret_key
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    ports:
+      - "5001:5000"
+    secrets:
+      - django_secret_key
+      - postgres_password
+    command: /start
+
+  postgres:
+    image: postgres:17
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+      - staging_postgres_data_backups:/backups
+    env_file:
+      - ./.envs/.staging/.postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+    ports:
+      - "5433:5432"
+    secrets:
+      - postgres_password
+
+  redis:
+    image: redis:7.4.2
+    restart: always
+    ports:
+      - "6380:6379"

@@ -1,6 +1,7 @@
 # ruff: noqa: ERA001, E501
 """Base settings to build other settings files upon."""
 
+import os
 from pathlib import Path
 
 import environ
@@ -46,6 +47,15 @@ LOCALE_PATHS = [str(BASE_DIR / "locale")]
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
 DATABASES = {"default": env.db("DATABASE_URL")}
+
+# If POSTGRES_PASSWORD_FILE is set, read the password from the file
+if "POSTGRES_PASSWORD_FILE" in os.environ:
+    try:
+        with open(os.environ["POSTGRES_PASSWORD_FILE"]) as f:
+            DATABASES["default"]["PASSWORD"] = f.read().strip()
+    except Exception:
+        pass  # Keep the existing password if file reading fails
+
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
