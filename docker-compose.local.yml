@@ -41,8 +41,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
-    image: navi_backend_local_django
-    container_name: celery_worker_local
+    image: navi_backend_local_django_celery
     depends_on:
       - postgres
       - redis
@@ -57,12 +56,10 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
-    image: navi_backend_local_django
-    container_name: celery_beat_local
+    image: navi_backend_local_django_beat
     depends_on:
       - postgres
       - redis
-      - celery_worker
     volumes:
       - .:/app:z
     env_file:
@@ -74,17 +71,15 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
-    image: navi_backend_local_django
-    container_name: flower_local
+    image: navi_backend_local_django_flower
     depends_on:
       - postgres
       - redis
-      - celery_worker
     volumes:
       - .:/app:z
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
     ports:
-      - "5555:5555"
+      - "5557:5555"
     command: /start-flower

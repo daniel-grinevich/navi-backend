@@ -48,6 +48,7 @@ LOCALE_PATHS = [str(BASE_DIR / "locale")]
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
 DATABASES = {"default": env.db("DATABASE_URL")}
 
+
 # If POSTGRES_PASSWORD_FILE is set, read the password from the file
 if "POSTGRES_PASSWORD_FILE" in os.environ:
     try:
@@ -57,6 +58,15 @@ if "POSTGRES_PASSWORD_FILE" in os.environ:
         pass  # Keep the existing password if file reading fails
 
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
+
+# Celery config
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://redis:6379/0")
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://redis:6379/0")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -324,13 +334,3 @@ SPECTACULAR_SETTINGS = {
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
     "SCHEMA_PATH_PREFIX": "/api/",
 }
-# Your stuff...
-# ------------------------------------------------------------------------------
-
-# Celery Settings
-CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://redis:6379/0")
-CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://redis:6379/0")
-CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_TASK_SERIALIZER = "json"
-CELERY_RESULT_SERIALIZER = "json"
-CELERY_TIMEZONE = TIME_ZONE  # This uses your project's timezone
