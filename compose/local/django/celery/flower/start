@@ -1,3 +1,18 @@
-#!/bin/sh
-# This script starts Flower to monitor Celery tasks locally.
-exec celery -A config.celery flower --port=5555
+#!/bin/bash
+
+set -o errexit
+set -o nounset
+
+worker_ready() {
+    celery -A config.celery inspect ping
+}
+
+until worker_ready; do
+  >&2 echo 'Celery workers not available'
+  sleep 1
+done
+>&2 echo 'Celery workers is available'
+
+exec celery -A config.celery  \
+    --broker="${CELERY_BROKER_URL}" \
+    flower

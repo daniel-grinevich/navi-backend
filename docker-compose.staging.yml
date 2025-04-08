@@ -58,3 +58,23 @@ services:
     restart: always
     ports:
       - "6380:6379"
+
+  # celery_worker:
+  #   build:
+  #     context: .
+  #     dockerfile: ./compose/staging/django/Dockerfile
+  #     image: django_celery_worker
+  #     command: /start-celeryworker
+  #     volumes:
+  #       - staging_django_media:/app/navi_backend/media
+  #     env_file:
+  #       - ./.envs/.staging/.django
+  #     depends_on:
+  #       - redis
+  #       - postgres
+  
+  # celery_beat:
+  #   build:
+  #     context: .
+  #     dockerfile: ./compose/staging/django/Dockerfile
+

@@ -1,17 +1,17 @@
 ENV ?= local
 
 COMPOSE_LOCAL = docker-compose.local.yml
-COMPOSE_DEV = docker-compose.development.yml
+COMPOSE_STAGE = docker-compose.staging.yml
 COMPOSE_PROD = docker-compose.production.yml
 
 ifeq ($(ENV),local)
   COMPOSE_FILE = $(COMPOSE_LOCAL)
-else ifeq ($(ENV),dev)
-  COMPOSE_FILE = $(COMPOSE_DEV)
+else ifeq ($(ENV),stage)
+  COMPOSE_FILE = $(COMPOSE_STAGE)
 else ifeq ($(ENV),prod)
   COMPOSE_FILE = $(COMPOSE_PROD)
 else
-  $(error Invalid environment: $(ENV). Use 'local', 'dev', or 'prod')
+  $(error Invalid environment: $(ENV). Use 'local', 'stage', or 'prod')
 endif
 
 DC = docker compose -f $(COMPOSE_FILE)
@@ -78,6 +78,18 @@ makemigrations:
 
 migrate:
 	$(DC_RUN) python manage.py migrate
+
+makemigrations-auth:
+	$(DC_RUN) python manage.py makemigrations allauth
+
+makemigrations-sites:
+	$(DC_RUN) python manage.py makemigrations sites
+
+migrate-auth:
+	$(DC_RUN) python manage.py migrate allauth
+
+migrate-sites:
+	$(DC_RUN) python manage.py migrate sites
 
 superuser:
 	$(DC_RUN) python manage.py createsuperuser
