@@ -59,22 +59,55 @@ services:
     ports:
       - "6380:6379"
 
-  # celery_worker:
-  #   build:
-  #     context: .
-  #     dockerfile: ./compose/staging/django/Dockerfile
-  #     image: django_celery_worker
-  #     command: /start-celeryworker
-  #     volumes:
-  #       - staging_django_media:/app/navi_backend/media
-  #     env_file:
-  #       - ./.envs/.staging/.django
-  #     depends_on:
-  #       - redis
-  #       - postgres
-  
-  # celery_beat:
-  #   build:
-  #     context: .
-  #     dockerfile: ./compose/staging/django/Dockerfile
+  celery_worker:
+    build:
+      context: .
+      dockerfile: ./compose/local/django/Dockerfile
+    image: navi_backend_staging_django_celery
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - staging_django_media:/app/navi_backend/media
+    env_file:
+      - ./.envs/.staging/.django
+      - ./.envs/.staging/.postgres
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    command: /start-celeryworker --concurrency=2
 
+  celery_beat:
+    build:
+      context: .
+      dockerfile: ./compose/local/django/Dockerfile
+    image: navi_backend_staging_django_beat
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - staging_django_media:/app/navi_backend/media
+    env_file:
+      - ./.envs/.staging/.django
+      - ./.envs/.staging/.postgres
+    command: /start-celerybeat
+
+  flower:
+    build:
+      context: .
+      dockerfile: ./compose/local/django/Dockerfile
+    image: navi_backend_staging_django_flower
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - staging_django_media:/app/navi_backend/media
+    env_file:
+      - ./.envs/.staging/.django
+      - ./.envs/.staging/.postgres
+    ports:
+      - "5557:5555"
+    command: /start-flower
