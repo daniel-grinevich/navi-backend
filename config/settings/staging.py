@@ -13,13 +13,9 @@ try:
 except Exception:
     SECRET_KEY = "temporary-build-only-key"
 
-# Allow localhost and local IP addresses
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    "0.0.0.0",
-    "host.docker.internal",  # This allows access from host machine to Docker container
-]
+# Only allow host from traefik.
+ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[""])
+
 
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
 

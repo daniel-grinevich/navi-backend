@@ -1,7 +1,6 @@
 from celery import Celery
 from django.conf import settings
 
-
 app = Celery("navi_backend")
 
 # Using a string means the worker doesn't have to serialize
