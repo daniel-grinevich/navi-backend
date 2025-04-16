@@ -1,5 +1,3 @@
-version: '3.9'
-
 volumes:
   staging_postgres_data: {}
   staging_postgres_data_backups: {}
@@ -36,6 +34,9 @@ services:
       - django_secret_key
       - postgres_password
     command: /start
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.django.rule=Host(`django.localhost`)"
 
   postgres:
     image: postgres:17
@@ -62,7 +63,7 @@ services:
   celery_worker:
     build:
       context: .
-      dockerfile: ./compose/local/django/Dockerfile
+      dockerfile: ./compose/staging/django/Dockerfile
     image: navi_backend_staging_django_celery
     depends_on:
       - postgres
@@ -83,7 +84,7 @@ services:
   celery_beat:
     build:
       context: .
-      dockerfile: ./compose/local/django/Dockerfile
+      dockerfile: ./compose/staging/django/Dockerfile
     image: navi_backend_staging_django_beat
     depends_on:
       - postgres
@@ -98,7 +99,7 @@ services:
   flower:
     build:
       context: .
-      dockerfile: ./compose/local/django/Dockerfile
+      dockerfile: ./compose/staging/django/Dockerfile
     image: navi_backend_staging_django_flower
     depends_on:
       - postgres
@@ -111,3 +112,14 @@ services:
     ports:
       - "5557:5555"
     command: /start-flower
+  
+  traefik:
+    image: docker.io/traefik:3.3.5
+    ports:
+      - "8008:80"
+      - "8081:8080"
+    volumes:
+      - "./compose/staging/traefik/traefik.staging.toml:/etc/traefik/traefik.toml"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+    
