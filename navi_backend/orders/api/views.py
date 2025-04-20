@@ -28,6 +28,7 @@ from rest_framework.permissions import (
     IsAuthenticatedOrReadOnly,
 )
 from .permissions import ReadOnly, IsOwnerOrAdmin
+from .mixins import TrackUserMixin
 
 from .serializers import (
     OrderSerializer,
@@ -47,7 +48,7 @@ from .serializers import (
 )
 
 
-class MenuItemViewSet(viewsets.ModelViewSet):
+class MenuItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = MenuItem.objects.all()
     serializer_class = MenuItemSerializer
     permission_classes = [IsAdminUser | ReadOnly]
@@ -99,7 +100,7 @@ class MenuItemViewSet(viewsets.ModelViewSet):
         return Response(MenuItemIngredientSerializer(ingredients, many=True).data)
 
 
-class OrderViewSet(viewsets.ModelViewSet):
+class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
     serializer_class = OrderSerializer
 
     def get_permissions(self):
@@ -180,10 +181,11 @@ class OrderViewSet(viewsets.ModelViewSet):
         """
         Set the `user` field to the currently authenticated user.
         """
-        serializer.save(user=self.request.user)
+        serializer.validated_data["user"] = self.request.user
+        super().perform_create(serializer)
 
 
-class OrderItemViewSet(viewsets.ModelViewSet):
+class OrderItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
     serializer_class = OrderItemSerializer
 
     def get_parent_order(self):
@@ -221,16 +223,21 @@ class OrderItemViewSet(viewsets.ModelViewSet):
             raise Http404("Incorrect user for order item.")
         if serializer.validated_data["order"].pk != order.pk:
             raise Http404("Order in data does not match the order in the url.")
-        serializer.save(order=order)
+        serializer.save(
+            order=order,
+            unit_price=serializer.validated_data["menu_item"].price,
+            created_by=self.request.user,
+            updated_by=self.request.user,
+        )
 
 
-class NaviPortViewSet(viewsets.ModelViewSet):
+class NaviPortViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = NaviPort.objects.all()
     serializer_class = NaviPortSerializer
     permission_classes = [IsAdminUser | ReadOnly]
 
 
-class PaymentTypeViewSet(viewsets.ModelViewSet):
+class PaymentTypeViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = PaymentType.objects.all()
     serializer_class = PaymentTypeSerializer
     permission_classes = [IsAdminUser | ReadOnly]
@@ -242,13 +249,13 @@ class MenuItemIngredientViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser | ReadOnly]
 
 
-class IngredientViewSet(viewsets.ModelViewSet):
+class IngredientViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     permission_classes = [IsAdminUser | ReadOnly]
 
 
-class RasberryPiViewSet(viewsets.ModelViewSet):
+class RasberryPiViewSet(TrackUserMixin, viewsets.ModelViewSet):
     serializer_class = RasberryPiSerializer
     permission_classes = [IsAdminUser]
 
@@ -261,7 +268,7 @@ class RasberryPiViewSet(viewsets.ModelViewSet):
         return RasberryPi.objects.filter(navi_port__pk=navi_port_pk)
 
 
-class EspressoMachineViewSet(viewsets.ModelViewSet):
+class EspressoMachineViewSet(TrackUserMixin, viewsets.ModelViewSet):
     serializer_class = EspressoMachineSerializer
     permission_classes = [IsAdminUser]
 
@@ -274,7 +281,7 @@ class EspressoMachineViewSet(viewsets.ModelViewSet):
         return EspressoMachine.objects.filter(navi_port__pk=navi_port_pk)
 
 
-class MachineTypeViewSet(viewsets.ModelViewSet):
+class MachineTypeViewSet(TrackUserMixin, viewsets.ModelViewSet):
     serializer_class = MachineTypeSerializer
     permission_classes = [IsAdminUser]
 
@@ -289,25 +296,25 @@ class MachineTypeViewSet(viewsets.ModelViewSet):
         return MachineType.objects.filter(espresso_machine__pk=espresso_machine_pk)
 
 
-class CustomizationViewSet(viewsets.ModelViewSet):
+class CustomizationViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = Customization.objects.all()
     serializer_class = CustomizationSerializer
     permission_classes = [IsAdminUser | ReadOnly]
 
 
-class CustomizationGroupViewSet(viewsets.ModelViewSet):
+class CustomizationGroupViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = CustomizationGroup.objects.all()
     serializer_class = CustomizationGroupSerializer
     permission_classes = [IsAdminUser | ReadOnly]
 
 
-class CategoryViewSet(viewsets.ModelViewSet):
+class CategoryViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [IsAdminUser | ReadOnly]
 
 
-class OrderCustomizationViewSet(viewsets.ModelViewSet):
+class OrderCustomizationViewSet(TrackUserMixin, viewsets.ModelViewSet):
     serializer_class = OrderCustomizationSerializer
 
     def get_parent_order(self):
@@ -344,8 +351,9 @@ class OrderCustomizationViewSet(viewsets.ModelViewSet):
             raise Http404("Incorrect user for order item.")
         if not order_item:
             raise Http404("Incorrect order item for customization.")
-        if serializer.validated_data["order_item"].pk != order_item.pk:
-            raise Http404(
-                "Order item in data does not match the order item in the url."
-            )
-        serializer.save(order_item=order_item)
+        serializer.save(
+            order_item=order_item,
+            unit_price=serializer.validated_data["customization"].price,
+            created_by=self.request.user,
+            updated_by=self.request.user,
+        )

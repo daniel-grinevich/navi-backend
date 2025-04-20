@@ -116,10 +116,10 @@ clean:
 	docker image prune -f
 
 merge_dev:
-	python merge_development_dotenvs_in_dotenv.py
+	python env_merger/merge_staging_dotenvs_in_dotenv.py
 
 merge_prod:
-	python merge_production_dotenvs_in_dotenv.py
+	python env_merger/merge_production_dotenvs_in_dotenv.py
 
 nuke:
 	@echo "⚠️ WARNING: This will remove ALL Docker containers, images, and volumes!"

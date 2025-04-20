@@ -3,7 +3,7 @@ import os
 from collections.abc import Sequence
 from pathlib import Path
 
-BASE_DIR = Path(__file__).parent.resolve()
+BASE_DIR = Path(__file__).parent.parent.resolve()
 PRODUCTION_DOTENVS_DIR = BASE_DIR / ".envs" / ".staging"
 PRODUCTION_DOTENV_FILES = [
     PRODUCTION_DOTENVS_DIR / ".django",

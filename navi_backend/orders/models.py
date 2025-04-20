@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
@@ -46,7 +47,11 @@ class SlugifiedModel(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.name)
+            try:
+                self.slug = slugify(self.name)
+            except:
+                self.slug=slugify(str(uuid.uuid4())[:8])
+        self.full_clean()
         return super().save(*args, **kwargs)
 
 
@@ -284,7 +289,6 @@ class MenuItem(
         if not self._state.adding:
             self.version += 1
 
-        self.full_clean()
         super().save(*args, **kwargs)
         self.invalidate_cache()
 
@@ -487,16 +491,14 @@ class Order(
         NaviPort, on_delete=models.SET_NULL, null=True, blank=True
     )
 
-    price = models.DecimalField(
-        _("Price"),
-        decimal_places=2,
-        max_digits=8,
-        validators=[
-            MaxValueValidator(Decimal(99999.99)),
-            MinValueValidator(Decimal(0.01)),
-        ],
-        help_text=_("Price of order in dollars (between $99999-$0.01)"),
-    )
+    @property
+    def price(self):
+        total = Decimal("0.00")
+        if self.pk:
+            for item in self.items.all():
+                total += item.price
+        return total
+
 
     class Status(models.TextChoices):
         ORDERED = "O", _("Ordered")
@@ -529,7 +531,7 @@ class OrderItem(
     AuditModel,
 ):
     menu_item = models.ForeignKey(MenuItem, on_delete=models.SET_NULL, null=True)
-    order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True)
+    order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, related_name="items")
     quantity = models.IntegerField(
         default=1,
         validators=[
@@ -558,8 +560,11 @@ class OrderItem(
         return super().save(*args, **kwargs)
 
     @property
-    def total_price(self):
-        return self.unit_price * self.quantity
+    def price(self):
+        item_price = self.unit_price * self.quantity
+        customizations_price = sum(
+        customization.price for customization in self.customizations.all())
+        return item_price + customizations_price
 
 
 class CustomizationGroup(
@@ -617,7 +622,7 @@ class OrderCustomization(
     SlugifiedModel,
     AuditModel,
 ):
-    order_item = models.ForeignKey(OrderItem, on_delete=models.SET_NULL, null=True)
+    order_item = models.ForeignKey(OrderItem, on_delete=models.SET_NULL, null=True, related_name="customizations")
     customization = models.ForeignKey(
         Customization, on_delete=models.SET_NULL, null=True
     )
@@ -640,11 +645,15 @@ class OrderCustomization(
     )
 
     @property
-    def total_price(self):
+    def price(self):
         return self.quantity * self.unit_price
 
     def __str__(self):
         return f"{self.order_item} {self.customization}"
 
     def save(self, *args, **kwargs):
-        return super().save(*args, **kwargs)
+            if self.order_item:
+                order_item=OrderItem.objects.get(pk=self.order_item.pk)
+                if order_item.order.status != "O":
+                    raise ValidationError("You can't update order customizations if the order is not in 'Ordered' status.")
+            return super().save(*args, **kwargs)
