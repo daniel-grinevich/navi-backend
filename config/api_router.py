@@ -26,7 +26,7 @@ from navi_backend.orders.api.views import (
 
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 
-router.register("users", UserViewSet)
+router.register(r"users", UserViewSet, basename="users")
 router.register(r"products", ProductViewSet, basename="products")
 router.register(
     r"orders/(?P<order_pk>\d+)/items/(?P<order_item_pk>\d+)/customizations",

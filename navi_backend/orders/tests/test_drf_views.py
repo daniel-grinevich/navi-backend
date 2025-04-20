@@ -141,6 +141,7 @@ class TestOrderViewSet:
         admin_user,
         user_and_orders,
         order_data,
+        order_nested_data,
         get_response,
         view_name,
         method,
@@ -148,10 +149,24 @@ class TestOrderViewSet:
     ):
         view = OrderViewSet.as_view({method.lower(): view_name})
         user, own_order, other_order = user_and_orders
+        navi_port = NaviPortFactory()
+        price = 0
         if view_name == "create":
+            response = get_response(user, view, method, url, data=order_nested_data)
+            assert response.status_code == status.HTTP_201_CREATED
+            assert Order.objects.filter(user=user.pk).exists()
+            for order in Order.objects.filter(user=user.pk).all():
+                if OrderItem.objects.filter(order=order.pk).exists:
+                    nested_order = order
+            assert OrderItem.objects.filter(order=nested_order.pk).exists()
+            order_item = OrderItem.objects.filter(order=nested_order.pk).first()
+            assert OrderCustomization.objects.filter(order_item=order_item.pk).exists()
             response = get_response(user, view, method, url, data=order_data)
             assert response.status_code == status.HTTP_201_CREATED
             assert Order.objects.filter(user=user.pk).exists()
+            for order_item in nested_order.items.all():
+                price += order_item.price
+            assert nested_order.price == price
 
         if view_name == "delete":
             response = get_response(
@@ -176,7 +191,7 @@ class TestOrderViewSet:
             assert not Order.objects.filter(id=own_order.id).exists()
 
         if view_name == "partial_update":
-            payload = json.dumps({"price": "100"})
+            payload = json.dumps({"navi_port": navi_port.pk})
             response = get_response(
                 user,
                 view,
@@ -199,7 +214,7 @@ class TestOrderViewSet:
             )
             other_order.refresh_from_db()
             assert response.status_code == status.HTTP_200_OK
-            assert other_order.price == 100.00
+            assert other_order.navi_port == navi_port
 
     def test_cancel_order_success(self, get_response, admin_user):
         """Test that an order in 'Ordered' status can be cancelled."""

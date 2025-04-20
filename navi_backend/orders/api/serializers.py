@@ -1,4 +1,6 @@
+from django.db import transaction
 from rest_framework import serializers
+from .mixins import ReadOnlyAuditMixin
 
 from navi_backend.orders.models import (
     Order,
@@ -16,9 +18,52 @@ from navi_backend.orders.models import (
     EspressoMachine,
     MachineType,
 )
+from navi_backend.users.api.serializers import UserSerializer
 
 
-class OrderSerializer(serializers.ModelSerializer):
+class OrderCustomizationSerializer(serializers.ModelSerializer):
+    order_item = serializers.PrimaryKeyRelatedField(read_only=True)
+    unit_price = serializers.DecimalField(
+        read_only=True, max_digits=8, decimal_places=2
+    )
+
+    class Meta:
+        model = OrderCustomization
+        fields = [
+            "order_item",
+            "customization",
+            "quantity",
+            "unit_price",
+        ]
+
+
+class OrderItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
+    customizations = OrderCustomizationSerializer(many=True, required=False)
+    unit_price = serializers.DecimalField(
+        read_only=True, max_digits=8, decimal_places=2
+    )
+
+    class Meta:
+        model = OrderItem
+        fields = [
+            "menu_item",
+            "order",
+            "customizations",
+            "unit_price",
+            "quantity",
+            "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
+            "slug",
+        ]
+
+
+class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
+
+    items = OrderItemSerializer(many=True, required=False)
+    user = UserSerializer(read_only=True)
+
     class Meta:
         model = Order
         fields = [
@@ -31,23 +76,35 @@ class OrderSerializer(serializers.ModelSerializer):
             "updated_at",
             "updated_by",
             "slug",
+            "items",
         ]
 
+    def create(self, validated_data):
+        items_data = validated_data.pop("items", [])
+        user = self.context["request"].user
+        with transaction.atomic():
+            order = Order.objects.create(**validated_data)
+            for item_data in items_data:
+                customizations_data = item_data.pop("customizations", [])
+                menu_item = item_data["menu_item"]
+                order_item = OrderItem.objects.create(
+                    unit_price=menu_item.price,
+                    created_by=user,
+                    updated_by=user,
+                    order=order,
+                    **item_data
+                )
+                for customization_data in customizations_data:
+                    customization = customization_data["customization"]
+                    OrderCustomization.objects.create(
+                        unit_price=customization.price,
+                        created_by=user,
+                        updated_by=user,
+                        order_item=order_item,
+                        **customization_data
+                    )
 
-class OrderItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = OrderItem
-        fields = [
-            "menu_item",
-            "order",
-            "unit_price",
-            "quantity",
-            "created_at",
-            "created_by",
-            "updated_at",
-            "updated_by",
-            "slug",
-        ]
+        return order
 
 
 class MenuItemIngredientSerializer(serializers.ModelSerializer):
@@ -61,23 +118,7 @@ class MenuItemIngredientSerializer(serializers.ModelSerializer):
         ]
 
 
-class OrderCustomizationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = OrderCustomization
-        fields = [
-            "order_item",
-            "customization",
-            "quantity",
-            "unit_price",
-            "slug",
-            "created_at",
-            "created_by",
-            "updated_at",
-            "updated_by",
-        ]
-
-
-class CustomizationSerializer(serializers.ModelSerializer):
+class CustomizationSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     class Meta:
         model = Customization
         fields = [
@@ -94,7 +135,7 @@ class CustomizationSerializer(serializers.ModelSerializer):
         ]
 
 
-class NaviPortSerializer(serializers.ModelSerializer):
+class NaviPortSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     class Meta:
         model = NaviPort
         fields = [
@@ -109,7 +150,7 @@ class NaviPortSerializer(serializers.ModelSerializer):
         ]
 
 
-class PaymentTypeSerializer(serializers.ModelSerializer):
+class PaymentTypeSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     class Meta:
         model = PaymentType
         fields = [
@@ -122,7 +163,7 @@ class PaymentTypeSerializer(serializers.ModelSerializer):
         ]
 
 
-class IngredientSerializer(serializers.ModelSerializer):
+class IngredientSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     class Meta:
         model = Ingredient
         fields = [
@@ -140,7 +181,7 @@ class IngredientSerializer(serializers.ModelSerializer):
         ]
 
 
-class MenuItemSerializer(serializers.ModelSerializer):
+class MenuItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     ingredients = MenuItemIngredientSerializer(
         many=True,
         source="menu_item_ingredients",  # Related name from model
@@ -165,7 +206,7 @@ class MenuItemSerializer(serializers.ModelSerializer):
         ]
 
 
-class RasberryPiSerializer(serializers.ModelSerializer):
+class RasberryPiSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     class Meta:
         model = RasberryPi
         fields = [
@@ -184,7 +225,7 @@ class RasberryPiSerializer(serializers.ModelSerializer):
         ]
 
 
-class EspressoMachineSerializer(serializers.ModelSerializer):
+class EspressoMachineSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     class Meta:
         model = EspressoMachine
         fields = [
@@ -203,7 +244,7 @@ class EspressoMachineSerializer(serializers.ModelSerializer):
         ]
 
 
-class MachineTypeSerializer(serializers.ModelSerializer):
+class MachineTypeSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     class Meta:
         model = MachineType
         fields = [
@@ -219,7 +260,7 @@ class MachineTypeSerializer(serializers.ModelSerializer):
         ]
 
 
-class CustomizationGroupSerializer(serializers.ModelSerializer):
+class CustomizationGroupSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     class Meta:
         model = CustomizationGroup
         fields = [
@@ -236,7 +277,7 @@ class CustomizationGroupSerializer(serializers.ModelSerializer):
         ]
 
 
-class CategorySerializer(serializers.ModelSerializer):
+class CategorySerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = [

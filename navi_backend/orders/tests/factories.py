@@ -98,7 +98,7 @@ class MenuItemFactory(
         min_value=10.00,
         max_value=100.00,
     )
-    image = factory.django.ImageField(color="blue")
+    image = factory.django.ImageField(color="blue", filename="test_menuitem.jpg")
 
 
 class RasberryPiFactory(
@@ -201,7 +201,6 @@ class OrderFactory(
     slug = factory.Sequence(lambda n: "123-555-%04d" % n)
     payment_type = factory.SubFactory(PaymentTypeFactory)
     navi_port = factory.SubFactory(NaviPortFactory)
-    price = factory.LazyFunction(lambda: round(random.uniform(10.00, 100.00), 2))
     status = factory.Faker("random_element", elements=["O"])
 
 
@@ -218,7 +217,14 @@ class OrderItemFactory(
     order = factory.SubFactory(OrderFactory)
     menu_item = factory.SubFactory(MenuItemFactory)
     quantity = factory.LazyFunction(lambda: random.randint(1, 9))
-    unit_price = factory.LazyFunction(lambda: round(random.uniform(10.00, 100.00), 2))
+    unit_price = Faker(
+        "pydecimal",
+        left_digits=3,
+        right_digits=2,
+        positive=True,
+        min_value=10.00,
+        max_value=100.00,
+    )
 
 
 class IngredientFactory(
@@ -247,22 +253,6 @@ class MenuItemIngredientFactory(
     unit = Faker("text", max_nb_chars=10)
 
 
-class CustomizationFactory(
-    AuditFactory,
-    SlugifiedFactory,
-    StatusFactory,
-    UpdateRecordFactory,
-    factory.django.DjangoModelFactory,
-):
-    class Meta:
-        model = Customization
-
-    name = factory.Sequence(lambda n: "Customization %03d" % n)
-    description = factory.Faker("sentence")
-    display_order = factory.Faker("random_int", min=1, max=10)
-    price = factory.LazyFunction(lambda: round(random.uniform(10.00, 100.00), 2))
-
-
 class CustomizationGroupFactory(
     AuditFactory,
     SlugifiedFactory,
@@ -288,6 +278,30 @@ class CustomizationGroupFactory(
         self.category.add(*extracted)
 
 
+class CustomizationFactory(
+    AuditFactory,
+    SlugifiedFactory,
+    StatusFactory,
+    UpdateRecordFactory,
+    factory.django.DjangoModelFactory,
+):
+    class Meta:
+        model = Customization
+
+    name = factory.Sequence(lambda n: "Customization %03d" % n)
+    description = factory.Faker("sentence")
+    display_order = factory.Faker("random_int", min=1, max=10)
+    price = Faker(
+        "pydecimal",
+        left_digits=3,
+        right_digits=2,
+        positive=True,
+        min_value=10.00,
+        max_value=100.00,
+    )
+    group = factory.SubFactory(CustomizationGroupFactory)
+
+
 class OrderCustomizationFactory(
     AuditFactory,
     StatusFactory,
@@ -301,4 +315,11 @@ class OrderCustomizationFactory(
     customization = factory.SubFactory(CustomizationFactory)
     order_item = factory.SubFactory(OrderItemFactory)
     quantity = factory.LazyFunction(lambda: random.randint(1, 9))
-    unit_price = factory.LazyFunction(lambda: round(random.uniform(10.00, 100.00), 2))
+    unit_price = Faker(
+        "pydecimal",
+        left_digits=3,
+        right_digits=2,
+        positive=True,
+        min_value=10.00,
+        max_value=100.00,
+    )

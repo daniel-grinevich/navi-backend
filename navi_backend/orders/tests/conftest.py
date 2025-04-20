@@ -40,12 +40,6 @@ def order_data(db):
             "user": user.pk,
             "payment_type": payment_type.pk,
             "navi_port": navi_port.pk,
-            "price": 7.00,
-            "created_at": datetime,
-            "created_by": user.pk,
-            "updated_at": datetime,
-            "updated_by": user.pk,
-            "slug": "test1",
         }
     )
 
@@ -86,12 +80,6 @@ def order_customization_data(db):
                 "order_item": order_item.pk,
                 "customization": customization.pk,
                 "quantity": 1,
-                "unit_price": 4.00,
-                "created_at": "2012-04-23T18:25:43.511Z",
-                "created_by": user.pk,
-                "updated_at": "2012-04-23T18:25:43.511Z",
-                "updated_by": user.pk,
-                "slug": "test1",
             }
         ),
     )
@@ -112,12 +100,6 @@ def order_item_data(db):
             "menu_item": menu_item.pk,
             "order": order.pk,
             "quantity": 1,
-            "unit_price": 7.00,
-            "created_at": "2012-04-23T18:25:43.511Z",
-            "created_by": user.pk,
-            "updated_at": "2012-04-23T18:25:43.511Z",
-            "updated_by": user.pk,
-            "slug": "test1",
         }
     )
 
@@ -132,12 +114,6 @@ def order_item_data2(db):
             "menu_item": menu_item.pk,
             "order": order.pk,
             "quantity": 1,
-            "unit_price": 7.00,
-            "created_at": "2012-04-23T18:25:43.511Z",
-            "created_by": user.pk,
-            "updated_at": "2012-04-23T18:25:43.511Z",
-            "updated_by": user.pk,
-            "slug": "test2",
         }
     )
 
@@ -174,15 +150,10 @@ def user_and_orders():
 def ingredient_data(admin_user):
     return json.dumps(
         {
-            "slug": "test1",
             "name": "Tomato Sauce",
             "description": "Test",
             "is_allergen": "False",
             "status": "A",
-            "created_at": "2012-04-23T18:25:43.511Z",
-            "updated_at": "2012-04-23T18:25:43.511Z",
-            "created_by": admin_user.pk,
-            "updated_by": admin_user.pk,
         }
     )
 
@@ -197,7 +168,6 @@ def menu_item_data(admin_user):
     )
 
     return {
-        "slug": "test1",
         "name": "Over-Priced Latte",
         "description": "Over-Priced Latte",
         "body": "Over-Priced Latte",
@@ -205,10 +175,6 @@ def menu_item_data(admin_user):
         "category": category.pk,
         "image": image_file,
         "status": "A",
-        "created_at": "2012-04-23T18:25:43.511Z",
-        "updated_at": "2012-04-23T18:25:43.511Z",
-        "created_by": admin_user.pk,
-        "updated_by": admin_user.pk,
     }
 
 
@@ -276,13 +242,8 @@ def navi_port_data(admin_user):
     rasberry_pi = RasberryPiFactory(name="razz")
     return json.dumps(
         {
-            "slug": "test1",
             "name": "Navi_Port_1",
             "status": "A",
-            "created_at": "2012-04-23T18:25:43.511Z",
-            "updated_at": "2012-04-23T18:25:43.511Z",
-            "created_by": admin_user.pk,
-            "updated_by": admin_user.pk,
             "rasberry_pi": rasberry_pi.pk,
             "espresso_machine": espresso_machine.pk,
         }
@@ -298,13 +259,8 @@ def navi_port():
 def payment_type_data(admin_user):
     return json.dumps(
         {
-            "slug": "test1",
             "name": "Payment_Type_1",
             "status": "A",
-            "created_at": "2012-04-23T18:25:43.511Z",
-            "updated_at": "2012-04-23T18:25:43.511Z",
-            "created_by": admin_user.pk,
-            "updated_by": admin_user.pk,
         }
     )
 
@@ -318,17 +274,12 @@ def rasberry_pi(db):
 def rasberry_pi_data(admin_user):
     return json.dumps(
         {
-            "slug": "test1",
             "name": "Rasberry_Pi_1",
             "mac_address": "01:23:45:67:89:AB",
             "ip_address": "192.168.1.1",
             "location": "test",
             "is_connected": True,
             "firmware_version": "v1",
-            "created_at": "2012-04-23T18:25:43.511Z",
-            "updated_at": "2012-04-23T18:25:43.511Z",
-            "created_by": admin_user.pk,
-            "updated_by": admin_user.pk,
         }
     )
 
@@ -348,17 +299,12 @@ def espresso_machine_data(admin_user):
     machine_type = MachineTypeFactory()
     return json.dumps(
         {
-            "slug": "test1",
             "name": "Espresso_Machine_1",
             "machine_type": machine_type.pk,
             "serial_number": "12345",
             "ip_address": "192.168.1.1",
             "port": 1,
             "is_online": True,
-            "created_at": "2012-04-23T18:25:43.511Z",
-            "updated_at": "2012-04-23T18:25:43.511Z",
-            "created_by": admin_user.pk,
-            "updated_by": admin_user.pk,
             "last_maintenance_at": "2012-04-23T18:25:43.511Z",
         }
     )
@@ -375,15 +321,10 @@ def machine_type_data(admin_user):
 
     return json.dumps(
         {
-            "slug": "test1",
             "name": "Machine_Type_1",
             "model_number": "1",
             "maintenance_frequency": 30,
             "supported_drinks": [menu_item.pk],
-            "created_at": "2012-04-23T18:25:43.511Z",
-            "updated_at": "2012-04-23T18:25:43.511Z",
-            "created_by": admin_user.pk,
-            "updated_by": admin_user.pk,
         }
     )
 
@@ -398,16 +339,11 @@ def customization_data(admin_user):
     group = CustomizationGroupFactory()
     return json.dumps(
         {
-            "slug": "test1",
             "name": "Customization_1",
             "description": "Test",
             "price": 10.00,
             "display_order": 1,
             "group": group.pk,
-            "created_at": "2012-04-23T18:25:43.511Z",
-            "updated_at": "2012-04-23T18:25:43.511Z",
-            "created_by": admin_user.pk,
-            "updated_by": admin_user.pk,
         }
     )
 
@@ -422,16 +358,11 @@ def customization_group_data(admin_user):
     category = CategoryFactory()
     return json.dumps(
         {
-            "slug": "test1",
             "name": "Customization_Group_1",
             "description": "Test",
             "category": category.pk,
             "display_order": 1,
             "is_required": True,
-            "created_at": "2012-04-23T18:25:43.511Z",
-            "updated_at": "2012-04-23T18:25:43.511Z",
-            "created_by": admin_user.pk,
-            "updated_by": admin_user.pk,
         }
     )
 
@@ -445,11 +376,34 @@ def category(db):
 def category_data(admin_user):
     return json.dumps(
         {
-            "slug": "test1",
             "name": "Category_1",
-            "created_at": "2012-04-23T18:25:43.511Z",
-            "updated_at": "2012-04-23T18:25:43.511Z",
-            "created_by": admin_user.pk,
-            "updated_by": admin_user.pk,
+        }
+    )
+
+
+@pytest.fixture
+def order_nested_data(db):
+    menu_item = MenuItemFactory()
+    navi_port = NaviPortFactory()
+    payment_type = PaymentTypeFactory()
+    customization = CustomizationFactory()
+    return json.dumps(
+        {
+            "payment_type": payment_type.pk,
+            "navi_port": navi_port.pk,
+            "items": [
+                {
+                    "menu_item": menu_item.pk,
+                    "quantity": 2,
+                    "unit_price": "5.00",
+                    "customizations": [
+                        {
+                            "customization": customization.pk,
+                            "quantity": 1,
+                            "unit_price": "2.00",
+                        }
+                    ],
+                }
+            ],
         }
     )
