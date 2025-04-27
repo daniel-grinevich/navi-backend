@@ -24,8 +24,6 @@ urlpatterns = [
     # User management
     path("users/", include("navi_backend.users.urls", namespace="users")),
     path("accounts/", include("allauth.urls")),
-    # Your stuff: custom urls includes go here
-    path("fakeapi/", include("navi_backend.fakeapi.urls", namespace="fakeapi")),
     # Media files
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
 ]

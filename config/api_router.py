@@ -1,8 +1,6 @@
 from django.conf import settings
 from rest_framework.routers import DefaultRouter, SimpleRouter
 
-# from navi_backend.fakeapi.api.views import OptionSetsViewSet
-from navi_backend.fakeapi.api.views import ProductViewSet
 
 # from navi_backend.fakeapi.api.views import FakeApiViewSet
 from navi_backend.users.api.views import UserViewSet
@@ -27,7 +25,6 @@ from navi_backend.orders.api.views import (
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 
 router.register(r"users", UserViewSet, basename="users")
-router.register(r"products", ProductViewSet, basename="products")
 router.register(
     r"orders/(?P<order_pk>\d+)/items/(?P<order_item_pk>\d+)/customizations",
     OrderCustomizationViewSet,
@@ -57,9 +54,9 @@ router.register(
 )
 router.register(r"machine_types", MachineTypeViewSet, basename="machine-types")
 router.register(r"categories", CategoryViewSet, basename="categories")
-router.register(r"custimizations", CustomizationViewSet, basename="custimizations")
+router.register(r"custimizations", CustomizationViewSet, basename="customizations")
 router.register(
-    r"custimization_groups", CustomizationGroupViewSet, basename="custimization-groups"
+    r"custimization_groups", CustomizationGroupViewSet, basename="customization-groups"
 )
 
 
