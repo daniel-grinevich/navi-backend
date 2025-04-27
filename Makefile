@@ -116,7 +116,7 @@ clean:
 	docker image prune -f
 
 merge_dev:
-	python env_merger/merge_staging_dotenvs_in_dotenv.py
+	python env_merger/merge_staging_dotenvs_in_dotenvs.py
 
 merge_prod:
 	python env_merger/merge_production_dotenvs_in_dotenv.py
