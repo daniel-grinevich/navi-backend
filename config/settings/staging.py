@@ -6,14 +6,12 @@ from .base import env
 
 DEBUG = True
 
-# Read secret key from file
 try:
     with open(env("DJANGO_SECRET_KEY_FILE")) as f:
         SECRET_KEY = f.read().strip()
 except Exception:
     SECRET_KEY = "temporary-build-only-key"
 
-# Only allow host from traefik.
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[""])
 
 
@@ -43,10 +41,8 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Navi Backend API (Staging)",
     "DESCRIPTION": "Staging environment API documentation",
     "VERSION": "1.0.0",
-    # Allow authenticated users to view docs in staging
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAuthenticated"],
     "SCHEMA_PATH_PREFIX": "/api/",
-    # Additional settings for staging
     "SWAGGER_UI_SETTINGS": {
         "deepLinking": True,
         "persistAuthorization": True,
