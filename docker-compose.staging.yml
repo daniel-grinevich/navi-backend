@@ -23,6 +23,7 @@ services:
     env_file:
       - ./.envs/.staging/.django
       - ./.envs/.staging/.postgres
+      - ./.envs/.staging/.stripe
     environment:
       - DJANGO_SECRET_KEY_FILE=/run/secrets/django_secret_key
       - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
@@ -37,6 +38,17 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.django.rule=Host(`django.localhost`)"
+
+  stripe:
+    image: stripe/stripe-cli
+    container_name: stripe
+    command: "listen --api-key $${STRIPE_API_KEY} --device-name $${STRIPE_DEVICE_NAME} --forward-to django:8000/payment/webhook/"
+    env_file:
+      - ./.envs/.staging/.stripe
+    depends_on:
+      - django
+    volumes:
+      - ./stripe-data:/root/.stripe
 
   postgres:
     image: postgres:17

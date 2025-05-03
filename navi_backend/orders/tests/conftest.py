@@ -7,7 +7,6 @@ from .factories import (
     OrderItemFactory,
     OrderFactory,
     MenuItemFactory,
-    PaymentTypeFactory,
     NaviPortFactory,
     IngredientFactory,
     CategoryFactory,
@@ -20,6 +19,7 @@ from .factories import (
     OrderCustomizationFactory,
 )
 from navi_backend.users.tests.factories import UserFactory
+from navi_backend.payments.tests.factories import PaymentFactory
 from rest_framework.test import APIRequestFactory
 from navi_backend.users.models import User
 
@@ -32,15 +32,10 @@ def order(db):
 @pytest.fixture
 def order_data(db):
     user = UserFactory()
-    payment_type = PaymentTypeFactory()
     navi_port = NaviPortFactory()
-    datetime = dateformat.format(timezone.now(), "Y-m-d H:i:s")
+    payment = PaymentFactory()
     return json.dumps(
-        {
-            "user": user.pk,
-            "payment_type": payment_type.pk,
-            "navi_port": navi_port.pk,
-        }
+        {"user": user.pk, "navi_port": navi_port.pk, "payment": payment.pk}
     )
 
 
@@ -256,16 +251,6 @@ def navi_port():
 
 
 @pytest.fixture
-def payment_type_data(admin_user):
-    return json.dumps(
-        {
-            "name": "Payment_Type_1",
-            "status": "A",
-        }
-    )
-
-
-@pytest.fixture
 def rasberry_pi(db):
     return RasberryPiFactory()
 
@@ -282,11 +267,6 @@ def rasberry_pi_data(admin_user):
             "firmware_version": "v1",
         }
     )
-
-
-@pytest.fixture
-def payment_type():
-    return PaymentTypeFactory(name="Payment_2")
 
 
 @pytest.fixture
@@ -385,11 +365,9 @@ def category_data(admin_user):
 def order_nested_data(db):
     menu_item = MenuItemFactory()
     navi_port = NaviPortFactory()
-    payment_type = PaymentTypeFactory()
     customization = CustomizationFactory()
     return json.dumps(
         {
-            "payment_type": payment_type.pk,
             "navi_port": navi_port.pk,
             "items": [
                 {

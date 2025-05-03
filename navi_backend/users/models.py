@@ -1,4 +1,3 @@
-
 from typing import ClassVar
 
 from django.contrib.auth.models import AbstractUser
@@ -23,6 +22,7 @@ class User(AbstractUser):
     last_name = None  # type: ignore[assignment]
     email = EmailField(_("email address"), unique=True)
     username = None  # type: ignore[assignment]
+    stripe_customer_id = CharField(max_length=255, blank=True, null=True, unique=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []

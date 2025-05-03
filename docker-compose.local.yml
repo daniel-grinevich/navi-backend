@@ -17,9 +17,21 @@ services:
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
+      - ./.envs/.local/.stripe
     ports:
       - "8000:8000"
     command: /start
+  
+  stripe:
+    image: stripe/stripe-cli
+    container_name: stripe
+    command: "listen --api-key $${STRIPE_API_KEY} --device-name $${STRIPE_DEVICE_NAME} --forward-to django:8000/payment/webhook/"
+    env_file:
+      - ./.envs/.local/.stripe
+    depends_on:
+      - django
+    volumes:
+      - ./stripe-data:/root/.stripe
 
   postgres:
     build:
