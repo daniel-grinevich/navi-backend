@@ -1,5 +1,7 @@
 from django.db import transaction
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
+import stripe
 from .mixins import ReadOnlyAuditMixin
 
 from navi_backend.orders.models import (
@@ -11,7 +13,6 @@ from navi_backend.orders.models import (
     Category,
     OrderItem,
     NaviPort,
-    PaymentType,
     Ingredient,
     MenuItemIngredient,
     RasberryPi,
@@ -19,6 +20,7 @@ from navi_backend.orders.models import (
     MachineType,
 )
 from navi_backend.users.api.serializers import UserSerializer
+from navi_backend.payments.services import StripePaymentService
 
 
 class OrderCustomizationSerializer(serializers.ModelSerializer):
@@ -68,7 +70,6 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
         model = Order
         fields = [
             "user",
-            "payment_type",
             "navi_port",
             "price",
             "created_at",
@@ -82,27 +83,38 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     def create(self, validated_data):
         items_data = validated_data.pop("items", [])
         user = self.context["request"].user
-        with transaction.atomic():
-            order = Order.objects.create(**validated_data)
-            for item_data in items_data:
-                customizations_data = item_data.pop("customizations", [])
-                menu_item = item_data["menu_item"]
-                order_item = OrderItem.objects.create(
-                    unit_price=menu_item.price,
-                    created_by=user,
-                    updated_by=user,
-                    order=order,
-                    **item_data
-                )
-                for customization_data in customizations_data:
-                    customization = customization_data["customization"]
-                    OrderCustomization.objects.create(
-                        unit_price=customization.price,
+        try:
+            with transaction.atomic():
+                order = Order.objects.create(**validated_data)
+                for item_data in items_data:
+                    customizations_data = item_data.pop("customizations", [])
+                    menu_item = item_data["menu_item"]
+                    order_item = OrderItem.objects.create(
+                        unit_price=menu_item.price,
                         created_by=user,
                         updated_by=user,
-                        order_item=order_item,
-                        **customization_data
+                        order=order,
+                        **item_data,
                     )
+                    for customization_data in customizations_data:
+                        customization = customization_data["customization"]
+                        OrderCustomization.objects.create(
+                            unit_price=customization.price,
+                            created_by=user,
+                            updated_by=user,
+                            order_item=order_item,
+                            **customization_data,
+                        )
+                try:
+                    client_secret, payment = StripePaymentService.create_payment_intent(
+                        order
+                    )
+                    order.payment = payment
+                    order.save(update_fields=["payment"])
+                except stripe.error.StripeError as e:
+                    raise ValidationError({"payment": f"Stripe error: {str(e)}"})
+        except Exception as e:
+            raise ValidationError({"error": str(e)})
 
         return order
 
@@ -147,19 +159,6 @@ class NaviPortSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
             "updated_by",
             "rasberry_pi",
             "espresso_machine",
-        ]
-
-
-class PaymentTypeSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
-    class Meta:
-        model = PaymentType
-        fields = [
-            "name",
-            "slug",
-            "created_at",
-            "created_by",
-            "updated_at",
-            "updated_by",
         ]
 
 

@@ -105,8 +105,10 @@ THIRD_PARTY_APPS = [
 ]
 
 LOCAL_APPS = [
+    "navi_backend.core",
     "navi_backend.users",
     "navi_backend.orders",
+    "navi_backend.payments",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -141,6 +143,11 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
     "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
 ]
+
+# Payment
+STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+STRIPE_PUBLISHABLE_KEY = "pk_test_51RIaOHI8COG1t1ucUXOrLm0QGJHxRnnsZIaSzdlfY9tHZrfBf2l22RFuyz8IZOhcsDN9acC06TYRrsGdYy14DMK700E2q04FHI"
 # https://docs.djangoproject.com/en/dev/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
     {

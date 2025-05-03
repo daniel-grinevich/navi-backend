@@ -10,7 +10,6 @@ from navi_backend.orders.models import (
     Order,
     MenuItem,
     NaviPort,
-    PaymentType,
     OrderItem,
     OrderCustomization,
     MenuItemIngredient,
@@ -29,12 +28,12 @@ from rest_framework.permissions import (
 )
 from .permissions import ReadOnly, IsOwnerOrAdmin
 from .mixins import TrackUserMixin
+from navi_backend.payments.services import StripePaymentService
 
 from .serializers import (
     OrderSerializer,
     MenuItemSerializer,
     NaviPortSerializer,
-    PaymentTypeSerializer,
     OrderItemSerializer,
     MenuItemIngredientSerializer,
     IngredientSerializer,
@@ -234,12 +233,6 @@ class OrderItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
 class NaviPortViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = NaviPort.objects.all()
     serializer_class = NaviPortSerializer
-    permission_classes = [IsAdminUser | ReadOnly]
-
-
-class PaymentTypeViewSet(TrackUserMixin, viewsets.ModelViewSet):
-    queryset = PaymentType.objects.all()
-    serializer_class = PaymentTypeSerializer
     permission_classes = [IsAdminUser | ReadOnly]
 
 

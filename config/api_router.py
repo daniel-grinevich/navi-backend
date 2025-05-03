@@ -1,8 +1,6 @@
 from django.conf import settings
 from rest_framework.routers import DefaultRouter, SimpleRouter
 
-
-# from navi_backend.fakeapi.api.views import FakeApiViewSet
 from navi_backend.users.api.views import UserViewSet
 
 from navi_backend.orders.api.views import (
@@ -10,7 +8,6 @@ from navi_backend.orders.api.views import (
     MenuItemViewSet,
     OrderItemViewSet,
     NaviPortViewSet,
-    PaymentTypeViewSet,
     IngredientViewSet,
     MenuItemIngredientViewSet,
     EspressoMachineViewSet,
@@ -46,7 +43,6 @@ router.register(
     basename="espresso-machines",
 )
 router.register(r"navi_ports", NaviPortViewSet, basename="navi-ports")
-router.register(r"payment_types", PaymentTypeViewSet, basename="payment-types")
 
 router.register(r"ingredients", IngredientViewSet, basename="ingredient")
 router.register(
