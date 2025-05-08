@@ -15,4 +15,6 @@ done
 
 exec celery -A config.celery  \
     --broker="${CELERY_BROKER_URL}" \
-    flower
+    flower \
+    --url-prefix=flower \
+    "$@"
