@@ -98,6 +98,18 @@
                 <a id="log-in-link" class="nav-link" href="{% url 'account_login' %}">{% translate "Sign In" %}</a>
               </li>
             {% endif %}
+            {% if ENVIRONMENT_NAME %}
+            <li>
+              <div style="
+                    background:#F5CD47;
+                    color:#fff;
+                    text-align:center;
+                    padding:2px;
+                  ">
+                {{ ENVIRONMENT_NAME }}
+              </div>
+            </li>
+            {% endif %}
           </ul>
         </div>
       </div>

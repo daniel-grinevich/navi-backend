@@ -213,6 +213,7 @@ TEMPLATES = [
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
                 "navi_backend.users.context_processors.allauth_settings",
+                "navi_backend.core.context_processors.env_banner",
             ],
         },
     },
