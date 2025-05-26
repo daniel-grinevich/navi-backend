@@ -23,7 +23,7 @@ DC_EXEC = $(DC) exec django
 help:
 	@echo "Available commands:"
 	@echo "  make [command]         - Run command with local environment (default)"
-	@echo "  make ENV=dev [command] - Run command with development environment"
+	@echo "  make ENV=stage [command] - Run command with staging environment"
 	@echo "  make ENV=prod [command] - Run command with production environment"
 	@echo ""
 	@echo "Commands:"
@@ -115,10 +115,10 @@ clean:
 	docker container prune -f
 	docker image prune -f
 
-merge_dev:
+merge_stage_env:
 	python env_merger/merge_staging_dotenvs_in_dotenvs.py
 
-merge_prod:
+merge_prod_env:
 	python env_merger/merge_production_dotenvs_in_dotenv.py
 
 nuke:
