@@ -8,6 +8,7 @@ PRODUCTION_DOTENVS_DIR = BASE_DIR / ".envs" / ".staging"
 PRODUCTION_DOTENV_FILES = [
     PRODUCTION_DOTENVS_DIR / ".django",
     PRODUCTION_DOTENVS_DIR / ".postgres",
+    PRODUCTION_DOTENVS_DIR / ".stripe",
 ]
 DOTENV_FILE = BASE_DIR / ".env"
 
