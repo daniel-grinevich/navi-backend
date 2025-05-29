@@ -4,7 +4,7 @@ from .base import INSTALLED_APPS
 from .base import REDIS_URL
 from .base import env
 
-DEBUG = False
+DEBUG = True
 
 try:
     with open(env("DJANGO_SECRET_KEY_FILE")) as f:
@@ -13,13 +13,18 @@ except Exception:
     SECRET_KEY = "temporary-build-only-key"
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")
+
+CORS_ALLOWED_ORIGINS = env.list("DJANGO_CORS_ALLOWED_ORIGINS")
+CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+# enforce secure + cross-site
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
-
+SESSION_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SAMESITE = "None"
 
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
 
