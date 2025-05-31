@@ -3,6 +3,7 @@
 USE_DOCKER=yes
 IPYTHONDIR=/app/.ipython
 DJANGO_SETTINGS_MODULE=config.settings.local
+DJANGO_ADMIN_URL=secret_backdoor/
 # Celery
 # ------------------------------------------------------------------------------
 CELERY_BROKER_URL=redis://redis:6379/0

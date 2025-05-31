@@ -108,6 +108,9 @@ coverage:
 pg_console:
 	$(DC_RUN) exec postgres psql -U MYnQlJTGLdbbMmypXIyQcvLGzFqpuVBD -d navi_backend
 
+seed_random:
+	$(DC_RUN) python manage.py seed_random
+
 opencoverage:
 	open htmlcov/index.html
 
