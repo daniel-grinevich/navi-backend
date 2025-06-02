@@ -50,6 +50,9 @@ env:
 build-d:
 	$(DC) up -d --build
 
+build -d:
+	$(DC) up -d --build
+
 build:
 	$(DC) build
 
