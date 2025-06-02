@@ -16,7 +16,7 @@ class Command(BaseCommand):
     help = "seeds local db with temp data for testing"
 
     def handle(self, *args, **kwargs):
-        # TODO create a transaction that cleans the local db then adds new seed data
+        # TODO create a transaction that cleans the local db then  new seed data
 
         with transaction.atomic():
             espresso_machine = EspressoMachineFactory.create()

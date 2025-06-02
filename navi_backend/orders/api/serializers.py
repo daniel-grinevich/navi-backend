@@ -183,9 +183,11 @@ class IngredientSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
 class MenuItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     ingredients = MenuItemIngredientSerializer(
         many=True,
-        source="menu_item_ingredients",  # Related name from model
+        source="menu_item_ingredients",
         read_only=True,
     )
+
+    category_name = serializers.CharField(source="category.name", read_only=True)
 
     class Meta:
         model = MenuItem
@@ -193,6 +195,7 @@ class MenuItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
             "slug",
             "name",
             "status",
+            "category_name",
             "created_at",
             "updated_at",
             "created_by",
