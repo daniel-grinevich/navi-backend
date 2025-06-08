@@ -1,26 +1,25 @@
+import stripe
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-import stripe
-from .mixins import ReadOnlyAuditMixin
 
-from navi_backend.orders.models import (
-    Order,
-    MenuItem,
-    OrderCustomization,
-    Customization,
-    CustomizationGroup,
-    Category,
-    OrderItem,
-    NaviPort,
-    Ingredient,
-    MenuItemIngredient,
-    RasberryPi,
-    EspressoMachine,
-    MachineType,
-)
-from navi_backend.users.api.serializers import UserSerializer
+from navi_backend.orders.models import Category
+from navi_backend.orders.models import Customization
+from navi_backend.orders.models import CustomizationGroup
+from navi_backend.orders.models import EspressoMachine
+from navi_backend.orders.models import Ingredient
+from navi_backend.orders.models import MachineType
+from navi_backend.orders.models import MenuItem
+from navi_backend.orders.models import MenuItemIngredient
+from navi_backend.orders.models import NaviPort
+from navi_backend.orders.models import Order
+from navi_backend.orders.models import OrderCustomization
+from navi_backend.orders.models import OrderItem
+from navi_backend.orders.models import RasberryPi
 from navi_backend.payments.services import StripePaymentService
+from navi_backend.users.api.serializers import UserSerializer
+
+from .mixins import ReadOnlyAuditMixin
 
 
 class OrderCustomizationSerializer(serializers.ModelSerializer):
@@ -62,7 +61,6 @@ class OrderItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
 
 
 class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
-
     items = OrderItemSerializer(many=True, required=False)
     user = UserSerializer(read_only=True)
 
@@ -112,7 +110,7 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
                     order.payment = payment
                     order.save(update_fields=["payment"])
                 except stripe.error.StripeError as e:
-                    raise ValidationError({"payment": f"Stripe error: {str(e)}"})
+                    raise ValidationError({"payment": f"Stripe error: {e!s}"})
         except Exception as e:
             raise ValidationError({"error": str(e)})
 
@@ -208,11 +206,6 @@ class MenuItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
         ]
 
 
-class MenuItemCustomizationSerializer:
-    class Meta:
-        fields = []
-
-
 class RasberryPiSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     class Meta:
         model = RasberryPi
@@ -268,7 +261,6 @@ class MachineTypeSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
 
 
 class CustomizationGroupSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
-
     customizations = CustomizationSerializer(
         source="customization_set",
         many=True,

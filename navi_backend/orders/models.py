@@ -1,19 +1,22 @@
+from decimal import Decimal
+
+from django.core.cache import cache
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from django.core.cache import cache
-from django.core.validators import MinValueValidator, MaxValueValidator
-from django.core.exceptions import ValidationError
-from navi_backend.core.validators import (
-    validate_image_size,
-    validate_image_extension,
-)
-from imagekit.processors import ResizeToFit
 from imagekit.models import ProcessedImageField
-from decimal import Decimal
-from navi_backend.users.models import User
-from navi_backend.payments.models import Payment
-from navi_backend.core.models import NamedModel, SlugifiedModel, AuditModel
+from imagekit.processors import ResizeToFit
+
+from navi_backend.core.models import AuditModel
+from navi_backend.core.models import NamedModel
+from navi_backend.core.models import SlugifiedModel
+from navi_backend.core.validators import validate_image_extension
+from navi_backend.core.validators import validate_image_size
 from navi_backend.orders.managers import MenuItemManager
+from navi_backend.payments.models import Payment
+from navi_backend.users.models import User
 
 
 # Create your models here.
@@ -22,7 +25,6 @@ class Category(
     NamedModel,
     AuditModel,
 ):
-
     def save(self, *args, **kwargs):
         return super().save(*args, **kwargs)
 
