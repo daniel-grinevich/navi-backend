@@ -20,6 +20,8 @@ class IsOwnerOrAdmin(BasePermission):
         if request.user.is_staff:
             return True
         # Allow access to the owner of the order
+        if view.action in ["update", "partial_update"] and (obj.status != "O"):
+            return False
         return obj.user == request.user
 
     def has_permission(self, request, view):

@@ -68,6 +68,7 @@ target/
 .venv
 venv/
 ENV/
+envs/
 
 # Rope project settings
 .ropeproject
@@ -277,4 +278,3 @@ navi_backend/media/
 .ipython/
 .env
 .envs/*
-!.envs/.local/

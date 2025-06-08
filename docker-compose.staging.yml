@@ -1,0 +1,137 @@
+volumes:
+  staging_postgres_data: {}
+  staging_postgres_data_backups: {}
+  staging_django_media: {} # Do we need this?
+
+secrets:
+  django_secret_key:
+    file: .envs/.staging/.django_secret
+  postgres_password:
+    file: .envs/.staging/.postgres_password
+
+services:
+  django:
+    build:
+      context: .
+      dockerfile: ./compose/staging/django/Dockerfile
+    image: navi_backend_staging_django
+    volumes:
+      - staging_django_media:/app/navi_backend/media
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - ./.envs/.staging/.django
+      - ./.envs/.staging/.postgres
+      - ./.envs/.staging/.stripe
+    environment:
+      - DJANGO_SECRET_KEY_FILE=/run/secrets/django_secret_key
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    ports:
+      - "5001:5000"
+    secrets:
+      - django_secret_key
+      - postgres_password
+    command: /start
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.django.rule=Host(`django.localhost`)"
+
+  stripe:
+    image: stripe/stripe-cli
+    container_name: stripe
+    command: "listen --api-key $${STRIPE_API_KEY} --device-name $${STRIPE_DEVICE_NAME} --forward-to django:8000/payment/webhook/"
+    env_file:
+      - ./.envs/.staging/.stripe
+    depends_on:
+      - django
+    volumes:
+      - ./stripe-data:/root/.stripe
+
+  postgres:
+    image: postgres:17
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+      - staging_postgres_data_backups:/backups
+    env_file:
+      - ./.envs/.staging/.postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+    ports:
+      - "5433:5432"
+    secrets:
+      - postgres_password
+
+  redis:
+    image: redis:7.4.2
+    restart: always
+    ports:
+      - "6380:6379"
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: ./compose/staging/django/Dockerfile
+    image: navi_backend_staging_django_celery
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - staging_django_media:/app/navi_backend/media
+    env_file:
+      - ./.envs/.staging/.django
+      - ./.envs/.staging/.postgres
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    command: /start-celeryworker --concurrency=2
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: ./compose/staging/django/Dockerfile
+    image: navi_backend_staging_django_beat
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - staging_django_media:/app/navi_backend/media
+    env_file:
+      - ./.envs/.staging/.django
+      - ./.envs/.staging/.postgres
+    command: /start-celerybeat
+
+  flower:
+    build:
+      context: .
+      dockerfile: ./compose/staging/django/Dockerfile
+    image: navi_backend_staging_django_flower
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - staging_django_media:/app/navi_backend/media
+    env_file:
+      - ./.envs/.staging/.django
+      - ./.envs/.staging/.postgres
+    ports:
+      - "5557:5555"
+    command: /start-flower
+  
+  traefik:
+    image: docker.io/traefik:3.3.5
+    ports:
+      - "8008:80"
+      - "8081:8080"
+    volumes:
+      - "./compose/staging/traefik/traefik.staging.toml:/etc/traefik/traefik.toml"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+    
