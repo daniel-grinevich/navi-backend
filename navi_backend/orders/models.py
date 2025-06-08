@@ -1,8 +1,5 @@
-import uuid
 from django.db import models
-from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
-from django.utils import timezone
 from django.core.cache import cache
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
@@ -15,12 +12,11 @@ from imagekit.models import ProcessedImageField
 from decimal import Decimal
 from navi_backend.users.models import User
 from navi_backend.payments.models import Payment
-from navi_backend.core.models import NamedModel,SlugifiedModel,AuditModel
+from navi_backend.core.models import NamedModel, SlugifiedModel, AuditModel
 from navi_backend.orders.managers import MenuItemManager
 
+
 # Create your models here.
-
-
 class Category(
     SlugifiedModel,
     NamedModel,
@@ -329,8 +325,11 @@ class Order(
     navi_port = models.ForeignKey(
         NaviPort, on_delete=models.SET_NULL, null=True, blank=True
     )
-    payment= models.OneToOneField(
-        Payment, on_delete=models.CASCADE,null=True,blank=True,
+    payment = models.OneToOneField(
+        Payment,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
     )
 
     @property
@@ -340,7 +339,6 @@ class Order(
             for item in self.items.all():
                 total += item.price
         return total
-
 
     class Status(models.TextChoices):
         ORDERED = "O", _("Ordered")
@@ -373,7 +371,9 @@ class OrderItem(
     AuditModel,
 ):
     menu_item = models.ForeignKey(MenuItem, on_delete=models.SET_NULL, null=True)
-    order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, related_name="items")
+    order = models.ForeignKey(
+        Order, on_delete=models.SET_NULL, null=True, related_name="items"
+    )
     quantity = models.IntegerField(
         default=1,
         validators=[
@@ -398,14 +398,17 @@ class OrderItem(
     def save(self, *args, **kwargs):
         if self.order:
             if self.order.status != "O":
-                raise ValidationError("You can't update order items if the order is not in 'Ordered' status.")
+                raise ValidationError(
+                    "You can't update order items if the order is not in 'Ordered' status."
+                )
         return super().save(*args, **kwargs)
 
     @property
     def price(self):
         item_price = self.unit_price * self.quantity
         customizations_price = sum(
-        customization.price for customization in self.customizations.all())
+            customization.price for customization in self.customizations.all()
+        )
         return item_price + customizations_price
 
 
@@ -464,7 +467,9 @@ class OrderCustomization(
     SlugifiedModel,
     AuditModel,
 ):
-    order_item = models.ForeignKey(OrderItem, on_delete=models.SET_NULL, null=True, related_name="customizations")
+    order_item = models.ForeignKey(
+        OrderItem, on_delete=models.SET_NULL, null=True, related_name="customizations"
+    )
     customization = models.ForeignKey(
         Customization, on_delete=models.SET_NULL, null=True
     )
@@ -494,8 +499,10 @@ class OrderCustomization(
         return f"{self.order_item} {self.customization}"
 
     def save(self, *args, **kwargs):
-            if self.order_item:
-                order_item=OrderItem.objects.get(pk=self.order_item.pk)
-                if order_item.order.status != "O":
-                    raise ValidationError("You can't update order customizations if the order is not in 'Ordered' status.")
-            return super().save(*args, **kwargs)
+        if self.order_item:
+            order_item = OrderItem.objects.get(pk=self.order_item.pk)
+            if order_item.order.status != "O":
+                raise ValidationError(
+                    "You can't update order customizations if the order is not in 'Ordered' status."
+                )
+        return super().save(*args, **kwargs)

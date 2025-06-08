@@ -208,6 +208,11 @@ class MenuItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
         ]
 
 
+class MenuItemCustomizationSerializer:
+    class Meta:
+        fields = []
+
+
 class RasberryPiSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     class Meta:
         model = RasberryPi
@@ -263,6 +268,13 @@ class MachineTypeSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
 
 
 class CustomizationGroupSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
+
+    customizations = CustomizationSerializer(
+        source="customization_set",
+        many=True,
+        read_only=True,
+    )
+
     class Meta:
         model = CustomizationGroup
         fields = [
@@ -276,7 +288,20 @@ class CustomizationGroupSerializer(ReadOnlyAuditMixin, serializers.ModelSerializ
             "updated_at",
             "updated_by",
             "slug",
+            "customizations",
         ]
+
+
+class CategoryCustomizationSerializer(serializers.ModelSerializer):
+    customization_groups = CustomizationGroupSerializer(
+        source="customizationgroup_set",
+        many=True,
+        read_only=True,
+    )
+
+    class Meta:
+        model = Category
+        fields = ["id", "name", "slug", "customization_groups"]
 
 
 class CategorySerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
@@ -290,3 +315,11 @@ class CategorySerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
             "updated_by",
             "slug",
         ]
+
+
+class MenuItemCustomizationSerialier(ReadOnlyAuditMixin, serializers.ModelSerializer):
+    category = CategoryCustomizationSerializer(read_only=True)
+
+    class Meta:
+        model = MenuItem
+        fields = ["name", "slug", "category"]

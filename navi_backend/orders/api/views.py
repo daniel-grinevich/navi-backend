@@ -44,6 +44,7 @@ from .serializers import (
     CustomizationGroupSerializer,
     OrderCustomizationSerializer,
     CategorySerializer,
+    MenuItemCustomizationSerialier,
 )
 
 
@@ -51,6 +52,27 @@ class MenuItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = MenuItem.objects.all()
     serializer_class = MenuItemSerializer
     permission_classes = [IsAdminUser | ReadOnly]
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path=r"(?P<slug>[^/.]+)/category-customizations",
+    )
+    def category_customizations(self, request, slug=None):
+        """
+        GET /menu_items/<slug>/category-customizations/
+        """
+        menu_item = get_object_or_404(MenuItem, slug=slug)
+        if not menu_item.category:
+            return Response(
+                {"detail": "No category for that menu-item."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = MenuItemCustomizationSerialier(
+            menu_item, context={"request": request}
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"])
     def add_ingredient(self, request, pk=None):
