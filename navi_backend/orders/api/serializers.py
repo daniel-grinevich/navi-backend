@@ -314,7 +314,22 @@ class CategorySerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
 
 class MenuItemCustomizationSerialier(ReadOnlyAuditMixin, serializers.ModelSerializer):
     category = CategoryCustomizationSerializer(read_only=True)
+    ingredients = MenuItemIngredientSerializer(
+        many=True,
+        source="menu_item_ingredients",
+        read_only=True,
+    )
 
     class Meta:
         model = MenuItem
-        fields = ["name", "slug", "category"]
+        fields = [
+            "name",
+            "slug",
+            "status",
+            "category",
+            "image",
+            "body",
+            "description",
+            "price",
+            "ingredients",
+        ]
