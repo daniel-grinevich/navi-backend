@@ -208,11 +208,6 @@ class MenuItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
         ]
 
 
-class MenuItemCustomizationSerializer:
-    class Meta:
-        fields = []
-
-
 class RasberryPiSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     class Meta:
         model = RasberryPi
