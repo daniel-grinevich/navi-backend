@@ -421,6 +421,7 @@ class CustomizationGroup(
     description = models.CharField(_("Description"), max_length=255, blank=True)
     display_order = models.PositiveIntegerField(_("Display Order"), default=0)
     is_required = models.BooleanField(_("Required"), default=False)
+    allow_multiple = models.BooleanField(_("allow_multiple"), default=False)
 
     def __str__(self):
         return self.name
