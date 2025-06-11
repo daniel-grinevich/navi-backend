@@ -9,10 +9,13 @@ from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView
 from drf_spectacular.views import SpectacularSwaggerView
 from rest_framework.authtoken.views import obtain_auth_token
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from django.middleware.csrf import get_token
+from django.contrib.auth import authenticate, login
+
 
 from .api_router import router
 
@@ -37,7 +40,29 @@ urlpatterns = [
 @permission_classes([AllowAny])
 @ensure_csrf_cookie
 def get_csrf(request):
-    return Response({"detail": "CSRF cookie set"})
+    token = get_token(request)
+    return Response({"csrfToken": token})
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@ensure_csrf_cookie
+def login_view(request):
+    user = authenticate(
+        request,
+        username=request.data.get("username"),
+        password=request.data.get("password"),
+    )
+
+    if not user:
+        return Response({"detail": "Invalid creds"}, status=400)
+    login(request, user)
+    return Response(
+        {
+            "detail": "ok",
+            "csrfToken": get_token(request),
+        }
+    )
 
 
 # API URLS
@@ -47,6 +72,7 @@ urlpatterns += [
     path(r"api/", include(router.urls)),
     path("api/auth-token/", obtain_auth_token),
     path("api/auth/csrf/", get_csrf),
+    path("api/login/", login_view, name="api_login"),
     path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
     path(
         "api/docs/",
