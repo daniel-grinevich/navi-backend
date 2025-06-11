@@ -278,6 +278,7 @@ class CustomizationGroupSerializer(ReadOnlyAuditMixin, serializers.ModelSerializ
             "description",
             "display_order",
             "is_required",
+            "allow_multiple",
             "created_at",
             "created_by",
             "updated_at",
