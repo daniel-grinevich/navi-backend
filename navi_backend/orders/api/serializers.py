@@ -1,32 +1,34 @@
+import stripe
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-import stripe
-from .mixins import ReadOnlyAuditMixin
 
-from navi_backend.orders.models import (
-    Order,
-    MenuItem,
-    OrderCustomization,
-    Customization,
-    CustomizationGroup,
-    Category,
-    OrderItem,
-    NaviPort,
-    Ingredient,
-    MenuItemIngredient,
-    RasberryPi,
-    EspressoMachine,
-    MachineType,
-)
-from navi_backend.users.api.serializers import UserSerializer
+from navi_backend.orders.models import Category
+from navi_backend.orders.models import Customization
+from navi_backend.orders.models import CustomizationGroup
+from navi_backend.orders.models import EspressoMachine
+from navi_backend.orders.models import Ingredient
+from navi_backend.orders.models import MachineType
+from navi_backend.orders.models import MenuItem
+from navi_backend.orders.models import MenuItemIngredient
+from navi_backend.orders.models import NaviPort
+from navi_backend.orders.models import Order
+from navi_backend.orders.models import OrderCustomization
+from navi_backend.orders.models import OrderItem
+from navi_backend.orders.models import RasberryPi
 from navi_backend.payments.services import StripePaymentService
+from navi_backend.users.api.serializers import UserSerializer
+
+from .mixins import ReadOnlyAuditMixin
 
 
 class OrderCustomizationSerializer(serializers.ModelSerializer):
     order_item = serializers.PrimaryKeyRelatedField(read_only=True)
     unit_price = serializers.DecimalField(
         read_only=True, max_digits=8, decimal_places=2
+    )
+    customization = serializers.SlugRelatedField(
+        slug_field="name", queryset=Customization.objects.all()
     )
 
     class Meta:
@@ -43,6 +45,9 @@ class OrderItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     customizations = OrderCustomizationSerializer(many=True, required=False)
     unit_price = serializers.DecimalField(
         read_only=True, max_digits=8, decimal_places=2
+    )
+    menu_item = serializers.SlugRelatedField(
+        slug_field="name", queryset=MenuItem.objects.all()
     )
 
     class Meta:
@@ -62,7 +67,6 @@ class OrderItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
 
 
 class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
-
     items = OrderItemSerializer(many=True, required=False)
     user = UserSerializer(read_only=True)
 
@@ -81,20 +85,20 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        items_data = validated_data.pop("items", [])
+        menu_items = validated_data.pop("items", [])
         user = self.context["request"].user
         try:
             with transaction.atomic():
                 order = Order.objects.create(**validated_data)
-                for item_data in items_data:
-                    customizations_data = item_data.pop("customizations", [])
-                    menu_item = item_data["menu_item"]
+                for item in menu_items:
+                    customizations_data = item.pop("customizations", [])
+                    menu_item = item["menu_item"]
                     order_item = OrderItem.objects.create(
                         unit_price=menu_item.price,
                         created_by=user,
                         updated_by=user,
                         order=order,
-                        **item_data,
+                        **item,
                     )
                     for customization_data in customizations_data:
                         customization = customization_data["customization"]
@@ -112,9 +116,9 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
                     order.payment = payment
                     order.save(update_fields=["payment"])
                 except stripe.error.StripeError as e:
-                    raise ValidationError({"payment": f"Stripe error: {str(e)}"})
+                    raise ValidationError({"payment": f"Stripe error: {e!s}"}) from e
         except Exception as e:
-            raise ValidationError({"error": str(e)})
+            raise ValidationError({"error": str(e)}) from e
 
         return order
 
@@ -263,7 +267,6 @@ class MachineTypeSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
 
 
 class CustomizationGroupSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
-
     customizations = CustomizationSerializer(
         source="customization_set",
         many=True,
@@ -278,7 +281,6 @@ class CustomizationGroupSerializer(ReadOnlyAuditMixin, serializers.ModelSerializ
             "description",
             "display_order",
             "is_required",
-            "allow_multiple",
             "created_at",
             "created_by",
             "updated_at",
