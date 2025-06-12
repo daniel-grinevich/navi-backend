@@ -73,24 +73,24 @@ if env("USE_DOCKER") == "yes":
 INSTALLED_APPS += ["django_extensions"]
 
 # settings/local.py
-SESSION_COOKIE_DOMAIN = "localhost"
-CSRF_COOKIE_DOMAIN = "localhost"
+# Your stuff...
+# ------------------------------------------------------------------------------
+# Allow cross-site fetches in dev
 SESSION_COOKIE_SAMESITE = None
 CSRF_COOKIE_SAMESITE = None
+
+# OK to be False over plain HTTP localhost
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 
-
-# CORS settings for local frontend dev
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-]
+# Cors origins allow our local dev
 CORS_ALLOW_CREDENTIALS = True
 
-# If using Django session authentication, trust the dev server origin
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
 ]
-
-# Your stuff...
-# ------------------------------------------------------------------------------
