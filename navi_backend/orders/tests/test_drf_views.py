@@ -1447,7 +1447,7 @@ class TestCustomizationViewSet:
 
 
 @pytest.mark.django_db
-class CustimizationGroupViewSet:
+class CustomizationGroupViewSet:
     @pytest.mark.parametrize(
         "view_name, method, url",
         [

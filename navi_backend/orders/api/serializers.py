@@ -92,7 +92,9 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
         try:
             with transaction.atomic():
                 order = Order.objects.create(**validated_data)
-                order.auth_token = self.context["request"].auth or None
+                order.auth_token = (
+                    self.context["request"].headers["Authorization"].split()[1] or None
+                )
                 order.save(update_fields=["auth_token"])
 
                 for item in menu_items:

@@ -50,9 +50,9 @@ router.register(
 )
 router.register(r"machine_types", MachineTypeViewSet, basename="machine-types")
 router.register(r"categories", CategoryViewSet, basename="categories")
-router.register(r"custimizations", CustomizationViewSet, basename="customizations")
+router.register(r"customizations", CustomizationViewSet, basename="customizations")
 router.register(
-    r"custimization_groups", CustomizationGroupViewSet, basename="customization-groups"
+    r"customization_groups", CustomizationGroupViewSet, basename="customization-groups"
 )
 
 
