@@ -145,14 +145,17 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
 
     def get_queryset(self):
-        """
-        Restrict queryset to the user's own orders unless the user is an admin.
-        """
         if self.request.user.is_staff:
-            return Order.objects.all()  # Admins can access all orders
-        return Order.objects.filter(
-            user=self.request.user
-        )  # Users can only see their own orders
+            return Order.objects.all()
+
+        if self.request.auth and self.request.user.groups.filter(name="Guest").exists():
+            return Order.objects.filter(auth_token=self.request.auth)
+
+        user = self.request.user
+        if user and user.is_authenticated:
+            return Order.objects.filter(user=user)
+
+        return Order.objects.none()
 
     @action(detail=True, methods=["put"], name="Cancel Order")
     def cancel_order(self, request, pk=None):

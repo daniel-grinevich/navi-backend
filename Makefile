@@ -53,10 +53,16 @@ build-d:
 build:
 	$(DC) build
 
+build -d:
+	$(DC) up -d --build
+	
 up:
 	$(DC) up
 
 up-d:
+	$(DC) up -d
+
+up -d:
 	$(DC) up -d
 
 down:
