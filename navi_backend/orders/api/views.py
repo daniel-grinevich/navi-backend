@@ -128,6 +128,7 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
         """
         Assign different permissions for actions.
         """
+
         if self.action in [
             "list",
             "retrieve",
@@ -141,15 +142,16 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
         elif self.action in ["destroy", "send_order_to_navi_port"]:
             permission_classes = [IsAdminUser]
         else:
-            permission_classes = [IsAuthenticated]  # Default for other actions
+            permission_classes = [IsAuthenticated]
         return [permission() for permission in permission_classes]
 
     def get_queryset(self):
         if self.request.user.is_staff:
             return Order.objects.all()
 
-        if self.request.auth and self.request.user.groups.filter(name="Guest").exists():
-            return Order.objects.filter(auth_token=self.request.auth)
+        token = self.request.headers["Authorization"].split()[1]
+        if token and self.request.user.groups.filter(name="guest").exists():
+            return Order.objects.filter(auth_token=token)
 
         user = self.request.user
         if user and user.is_authenticated:
