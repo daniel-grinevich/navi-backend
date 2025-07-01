@@ -1,51 +1,44 @@
-from django.shortcuts import get_object_or_404
 from django.http import Http404
-from rest_framework import viewsets, status
+from django.shortcuts import get_object_or_404
+from rest_framework import status
+from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from navi_backend.orders.models import Category
+from navi_backend.orders.models import Customization
+from navi_backend.orders.models import CustomizationGroup
+from navi_backend.orders.models import EspressoMachine
+from navi_backend.orders.models import Ingredient
+from navi_backend.orders.models import MachineType
+from navi_backend.orders.models import MenuItem
+from navi_backend.orders.models import MenuItemIngredient
+from navi_backend.orders.models import NaviPort
+from navi_backend.orders.models import Order
+from navi_backend.orders.models import OrderCustomization
+from navi_backend.orders.models import OrderItem
+from navi_backend.orders.models import RasberryPi
 
-from .utils import getParentPK
-from navi_backend.orders.models import (
-    Order,
-    MenuItem,
-    NaviPort,
-    OrderItem,
-    OrderCustomization,
-    MenuItemIngredient,
-    Ingredient,
-    RasberryPi,
-    MachineType,
-    EspressoMachine,
-    Customization,
-    CustomizationGroup,
-    Category,
-)
-from rest_framework.permissions import (
-    IsAuthenticated,
-    IsAdminUser,
-    IsAuthenticatedOrReadOnly,
-)
-from .permissions import ReadOnly, IsOwnerOrAdmin
 from .mixins import TrackUserMixin
-from navi_backend.payments.services import StripePaymentService
-
-from .serializers import (
-    OrderSerializer,
-    MenuItemSerializer,
-    NaviPortSerializer,
-    OrderItemSerializer,
-    MenuItemIngredientSerializer,
-    IngredientSerializer,
-    EspressoMachineSerializer,
-    MachineTypeSerializer,
-    RasberryPiSerializer,
-    CustomizationSerializer,
-    CustomizationGroupSerializer,
-    OrderCustomizationSerializer,
-    CategorySerializer,
-    MenuItemCustomizationSerialier,
-)
+from .permissions import IsOwnerOrAdmin
+from .permissions import ReadOnly
+from .serializers import CategorySerializer
+from .serializers import CustomizationGroupSerializer
+from .serializers import CustomizationSerializer
+from .serializers import EspressoMachineSerializer
+from .serializers import IngredientSerializer
+from .serializers import MachineTypeSerializer
+from .serializers import MenuItemCustomizationSerialier
+from .serializers import MenuItemIngredientSerializer
+from .serializers import MenuItemSerializer
+from .serializers import NaviPortSerializer
+from .serializers import OrderCustomizationSerializer
+from .serializers import OrderItemSerializer
+from .serializers import OrderSerializer
+from .serializers import RasberryPiSerializer
+from .utils import getParentPK
 
 
 class MenuItemViewSet(TrackUserMixin, viewsets.ModelViewSet):

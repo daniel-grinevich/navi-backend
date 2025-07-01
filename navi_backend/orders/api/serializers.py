@@ -16,7 +16,6 @@ from navi_backend.orders.models import Order
 from navi_backend.orders.models import OrderCustomization
 from navi_backend.orders.models import OrderItem
 from navi_backend.orders.models import RasberryPi
-from navi_backend.payments.services import StripePaymentService
 from navi_backend.users.api.serializers import UserSerializer
 
 from .mixins import ReadOnlyAuditMixin
