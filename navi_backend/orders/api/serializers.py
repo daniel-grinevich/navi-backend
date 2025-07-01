@@ -86,7 +86,8 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        menu_items = validated_data.pop("items", [])
+        order_item_payload = validated_data.pop("items", [])
+        print(f"order_item_payload {order_item_payload}")
         user = self.context["request"].user
 
         try:
@@ -97,15 +98,16 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
                 )
                 order.save(update_fields=["auth_token"])
 
-                for item in menu_items:
-                    customizations_data = item.pop("customizations", [])
-                    menu_item = item["menu_item"]
-                    order_item = OrderItem.objects.create(
+                for order_item in order_item_payload:
+                    customizations_data = order_item.pop("customizations", [])
+                    menu_item = order_item["menu_item"]
+                    created_order_item = OrderItem.objects.create(
                         unit_price=menu_item.price,
+                        quantity=order_item["quantity"],
                         created_by=user,
                         updated_by=user,
                         order=order,
-                        **item,
+                        menu_item=menu_item,
                     )
                     for customization_data in customizations_data:
                         customization = customization_data["customization"]
@@ -113,14 +115,12 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
                             unit_price=customization.price,
                             created_by=user,
                             updated_by=user,
-                            order_item=order_item,
+                            order_item=created_order_item,
                             **customization_data,
                         )
                 try:
-                    client_secret, payment = StripePaymentService.create_payment_intent(
-                        order
-                    )
-                    order.payment = payment
+                    intent = stripe.PaymentIntent.create(order)
+                    order.payment = intent["client_secret"]
                     order.save(update_fields=["payment"])
                 except stripe.error.StripeError as e:
                     raise ValidationError({"payment": f"Stripe error: {e!s}"}) from e

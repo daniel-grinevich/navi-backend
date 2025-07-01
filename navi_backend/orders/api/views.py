@@ -203,6 +203,25 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
         serializer = self.get_serializer(order)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        self.perform_create(serializer)
+        order = serializer.instance
+
+        client_secret = order.payment
+        output_data = OrderSerializer(order, context=self.get_serializer_context()).data
+        headers = self.get_success_headers(output_data)
+        return Response(
+            {
+                "order": output_data,
+                "client_secret": client_secret,
+            },
+            status=status.HTTP_201_CREATED,
+            headers=headers,
+        )
+
     def perform_create(self, serializer):
         """
         Set the `user` field to the currently authenticated user.
