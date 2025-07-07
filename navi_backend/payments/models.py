@@ -1,6 +1,6 @@
 from django.db import models
 
-from navi_backend.core.models import NamedModel, SlugifiedModel, AuditModel
+from navi_backend.core.models import AuditModel
 
 
 class Payment(AuditModel):

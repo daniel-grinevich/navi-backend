@@ -155,7 +155,8 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["put"], name="Cancel Order")
     def cancel_order(self, request, pk=None):
         """Cancels an order if it's in an ordered state ('O')."""
-        order = get_object_or_404(self.get_queryset(), pk=pk)
+        slug = pk
+        order = get_object_or_404(self.get_queryset(), slug=slug)
 
         if order.status != "O":
             return Response(
@@ -203,7 +204,7 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
         self.perform_create(serializer)
         order = serializer.instance
 
-        client_secret = order.payment
+        client_secret = order.payment.stripe_payment_intent_id
         output_data = OrderSerializer(order, context=self.get_serializer_context()).data
         headers = self.get_success_headers(output_data)
         return Response(

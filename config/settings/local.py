@@ -14,7 +14,7 @@ SECRET_KEY = env(
     default="z4pfSFJ7kk7q0lg2dOeRWmnyurCwGt4f0e4hBZMQ5yFby0pPDXEIxUMFcMI1LNw4",
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1"]  # noqa: S104
+ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1", "django"]  # noqa: S104
 
 # ADMIN URL
 ADMIN_URL = env("DJANGO_ADMIN_URL")
@@ -93,4 +93,18 @@ CORS_ALLOWED_ORIGINS = [
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+]
+
+CORS_ALLOW_METHODS = [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+]
+
+CORS_ALLOW_HEADERS = [
+    "authorization",
+    "content-type",
 ]
