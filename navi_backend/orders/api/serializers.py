@@ -1,3 +1,6 @@
+from pathlib import Path
+
+import environ
 import stripe
 from django.db import transaction
 from rest_framework import serializers
@@ -16,10 +19,15 @@ from navi_backend.orders.models import Order
 from navi_backend.orders.models import OrderCustomization
 from navi_backend.orders.models import OrderItem
 from navi_backend.orders.models import RasberryPi
-from navi_backend.payments.services import StripePaymentService
+from navi_backend.payments.models import Payment
 from navi_backend.users.api.serializers import UserSerializer
 
 from .mixins import ReadOnlyAuditMixin
+
+BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
+# navi_backend/
+APPS_DIR = BASE_DIR / "navi_backend"
+env = environ.Env()
 
 
 class OrderCustomizationSerializer(serializers.ModelSerializer):
@@ -83,10 +91,12 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
             "updated_by",
             "slug",
             "items",
+            "status",
         ]
 
     def create(self, validated_data):
-        menu_items = validated_data.pop("items", [])
+        order_item_payload = validated_data.pop("items", [])
+        print(f"order_item_payload {order_item_payload}")
         user = self.context["request"].user
 
         try:
@@ -97,15 +107,16 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
                 )
                 order.save(update_fields=["auth_token"])
 
-                for item in menu_items:
-                    customizations_data = item.pop("customizations", [])
-                    menu_item = item["menu_item"]
-                    order_item = OrderItem.objects.create(
+                for order_item in order_item_payload:
+                    customizations_data = order_item.pop("customizations", [])
+                    menu_item = order_item["menu_item"]
+                    created_order_item = OrderItem.objects.create(
                         unit_price=menu_item.price,
+                        quantity=order_item["quantity"],
                         created_by=user,
                         updated_by=user,
                         order=order,
-                        **item,
+                        menu_item=menu_item,
                     )
                     for customization_data in customizations_data:
                         customization = customization_data["customization"]
@@ -113,17 +124,25 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
                             unit_price=customization.price,
                             created_by=user,
                             updated_by=user,
-                            order_item=order_item,
+                            order_item=created_order_item,
                             **customization_data,
                         )
                 try:
-                    client_secret, payment = StripePaymentService.create_payment_intent(
-                        order
+                    intent = stripe.PaymentIntent.create(
+                        amount=int(order.price * 1000),
+                        currency="usd",
+                        api_key=env("STRIPE_API_KEY"),
+                        payment_method_types=["card"],
+                    )
+                    payment = Payment.objects.create(
+                        stripe_payment_intent_id=intent["client_secret"],
+                        created_by=user,
+                        updated_by=user,
                     )
                     order.payment = payment
                     order.save(update_fields=["payment"])
                 except stripe.error.StripeError as e:
-                    raise ValidationError({"payment": f"Stripe error: {e!s}"}) from e
+                    raise SystemError({"payment": f"Stripe error: {e!s}"}) from e
         except Exception as e:
             raise ValidationError({"error": str(e)}) from e
 

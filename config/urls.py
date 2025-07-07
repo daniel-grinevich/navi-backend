@@ -11,7 +11,6 @@ from drf_spectacular.views import SpectacularSwaggerView
 from knox import views as knox_views
 from navi_backend.users.api.views import LoginView
 
-
 from .api_router import router
 
 urlpatterns = [
