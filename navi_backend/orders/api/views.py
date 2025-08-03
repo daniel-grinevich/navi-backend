@@ -7,111 +7,16 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from navi_backend.orders.models import Category
-from navi_backend.orders.models import Customization
-from navi_backend.orders.models import CustomizationGroup
-from navi_backend.orders.models import EspressoMachine
-from navi_backend.orders.models import Ingredient
-from navi_backend.orders.models import MachineType
-from navi_backend.orders.models import MenuItem
-from navi_backend.orders.models import MenuItemIngredient
-from navi_backend.orders.models import NaviPort
 from navi_backend.orders.models import Order
 from navi_backend.orders.models import OrderCustomization
 from navi_backend.orders.models import OrderItem
-from navi_backend.orders.models import RasberryPi
 
 from .mixins import TrackUserMixin
 from .permissions import IsOwnerOrAdmin
-from .permissions import ReadOnly
-from .serializers import CategorySerializer
-from .serializers import CustomizationGroupSerializer
-from .serializers import CustomizationSerializer
-from .serializers import EspressoMachineSerializer
-from .serializers import IngredientSerializer
-from .serializers import MachineTypeSerializer
-from .serializers import MenuItemCustomizationSerialier
-from .serializers import MenuItemIngredientSerializer
-from .serializers import MenuItemSerializer
-from .serializers import NaviPortSerializer
 from .serializers import OrderCustomizationSerializer
 from .serializers import OrderItemSerializer
 from .serializers import OrderSerializer
-from .serializers import RasberryPiSerializer
-from .utils import getParentPK
-
-
-class MenuItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
-    queryset = MenuItem.objects.all()
-    serializer_class = MenuItemSerializer
-    permission_classes = [IsAdminUser | ReadOnly]
-
-    @action(
-        detail=False,
-        methods=["get"],
-        url_path=r"(?P<slug>[^/.]+)/category-customizations",
-    )
-    def category_customizations(self, request, slug=None):
-        """
-        GET /menu_items/<slug>/category-customizations/
-        """
-        menu_item = get_object_or_404(MenuItem, slug=slug)
-        if not menu_item.category:
-            return Response(
-                {"detail": "No category for that menu-item."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        serializer = MenuItemCustomizationSerialier(
-            menu_item, context={"request": request}
-        )
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    @action(detail=True, methods=["post"])
-    def add_ingredient(self, request, pk=None):
-        """
-        Adds an ingredient to a specific MenuItem.
-        """
-        menu_item = self.get_object()
-
-        ingredient_id = request.data.get("ingredient_id")
-        quantity = request.data.get("quantity")
-        unit = request.data.get("unit")
-
-        if not (ingredient_id and quantity and unit):
-            return Response(
-                {"error": "ingredient_id, quantity, and unit are required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        ingredient = Ingredient.objects.filter(id=ingredient_id).first()
-
-        if not ingredient:
-            return Response(
-                {"error": "Invalid ingredient ID"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        # Create or update the ingredient in the recipe
-        menu_item_ingredient, created = MenuItemIngredient.objects.update_or_create(
-            menu_item=menu_item,
-            ingredient=ingredient,
-            defaults={"quantity": quantity, "unit": unit},
-        )
-
-        return Response(
-            MenuItemIngredientSerializer(menu_item_ingredient).data,
-            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
-        )
-
-    @action(detail=True, methods=["get"])
-    def ingredients(self, request, pk=None):
-        """
-        Retrieve all ingredients for a specific MenuItem.
-        """
-        menu_item = self.get_object()
-        ingredients = menu_item.menu_item_ingredients.select_related("ingredient")
-        return Response(MenuItemIngredientSerializer(ingredients, many=True).data)
+from .utils import get_parent_pk
 
 
 class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
@@ -228,12 +133,11 @@ class OrderItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
     serializer_class = OrderItemSerializer
 
     def get_parent_order(self):
-        order_pk = getParentPK(self.request.path, "orders")
+        order_pk = get_parent_pk(self.request.path, "orders")
         # respect order permissions
         order_viewset = OrderViewSet()
         order_viewset.request = self.request  # Inject request into OrderViewSet
-        order = order_viewset.get_queryset().filter(pk=order_pk).first()
-        return order
+        return order_viewset.get_queryset().filter(pk=order_pk).first()
 
     def get_queryset(self):
         """
@@ -259,9 +163,11 @@ class OrderItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
         if (not order) or (
             not self.request.user.is_staff and order.user != self.request.user
         ):
-            raise Http404("Incorrect user for order item.")
+            msg = "Incorrect user for order item."
+            raise Http404(msg)
         if serializer.validated_data["order"].pk != order.pk:
-            raise Http404("Order in data does not match the order in the url.")
+            msg = "Order in data does not match the order in the url."
+            raise Http404(msg)
         serializer.save(
             order=order,
             unit_price=serializer.validated_data["menu_item"].price,
@@ -270,101 +176,22 @@ class OrderItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
         )
 
 
-class NaviPortViewSet(TrackUserMixin, viewsets.ModelViewSet):
-    queryset = NaviPort.objects.all()
-    serializer_class = NaviPortSerializer
-    permission_classes = [IsAdminUser | ReadOnly]
-
-
-class MenuItemIngredientViewSet(viewsets.ModelViewSet):
-    queryset = MenuItemIngredient.objects.select_related("menu_item", "ingredient")
-    serializer_class = MenuItemIngredientSerializer
-    permission_classes = [IsAdminUser | ReadOnly]
-
-
-class IngredientViewSet(TrackUserMixin, viewsets.ModelViewSet):
-    queryset = Ingredient.objects.all()
-    serializer_class = IngredientSerializer
-    permission_classes = [IsAdminUser | ReadOnly]
-
-
-class RasberryPiViewSet(TrackUserMixin, viewsets.ModelViewSet):
-    serializer_class = RasberryPiSerializer
-    permission_classes = [IsAdminUser]
-
-    def get_queryset(self):
-        navi_port_pk = getParentPK(self.request.path, "navi_ports")
-        navi_port = NaviPort.objects.filter(pk=navi_port_pk).first()
-        if not navi_port:
-            return RasberryPi.objects.none()
-
-        return RasberryPi.objects.filter(navi_port__pk=navi_port_pk)
-
-
-class EspressoMachineViewSet(TrackUserMixin, viewsets.ModelViewSet):
-    serializer_class = EspressoMachineSerializer
-    permission_classes = [IsAdminUser]
-
-    def get_queryset(self):
-        navi_port_pk = getParentPK(self.request.path, "navi_ports")
-        navi_port = NaviPort.objects.filter(pk=navi_port_pk).first()
-        if not navi_port:
-            return EspressoMachine.objects.none()
-
-        return EspressoMachine.objects.filter(navi_port__pk=navi_port_pk)
-
-
-class MachineTypeViewSet(TrackUserMixin, viewsets.ModelViewSet):
-    serializer_class = MachineTypeSerializer
-    permission_classes = [IsAdminUser]
-
-    def get_queryset(self):
-        espresso_machine_pk = getParentPK(self.request.path, "espresso_machines")
-        espresso_machine = EspressoMachine.objects.filter(
-            pk=espresso_machine_pk
-        ).first()
-        if not espresso_machine:
-            return MachineType.objects.none()
-
-        return MachineType.objects.filter(espresso_machine__pk=espresso_machine_pk)
-
-
-class CustomizationViewSet(TrackUserMixin, viewsets.ModelViewSet):
-    queryset = Customization.objects.all()
-    serializer_class = CustomizationSerializer
-    permission_classes = [IsAdminUser | ReadOnly]
-
-
-class CustomizationGroupViewSet(TrackUserMixin, viewsets.ModelViewSet):
-    queryset = CustomizationGroup.objects.all()
-    serializer_class = CustomizationGroupSerializer
-    permission_classes = [IsAdminUser | ReadOnly]
-
-
-class CategoryViewSet(TrackUserMixin, viewsets.ModelViewSet):
-    queryset = Category.objects.all()
-    serializer_class = CategorySerializer
-    permission_classes = [IsAdminUser | ReadOnly]
-
-
 class OrderCustomizationViewSet(TrackUserMixin, viewsets.ModelViewSet):
     serializer_class = OrderCustomizationSerializer
 
     def get_parent_order(self):
-        order_pk = getParentPK(self.request.path, "orders")
+        order_pk = get_parent_pk(self.request.path, "orders")
         # respect order permissions
         order_viewset = OrderViewSet()
         order_viewset.request = self.request  # Inject request into OrderViewSet
-        order = order_viewset.get_queryset().filter(pk=order_pk).first()
-        return order
+        return order_viewset.get_queryset().filter(pk=order_pk).first()
 
     def get_parent_order_item(self):
-        order_item_pk = getParentPK(self.request.path, "items")
+        order_item_pk = get_parent_pk(self.request.path, "items")
         # respect order permissions
         order_item_viewset = OrderItemViewSet()
         order_item_viewset.request = self.request  # Inject request into OrderViewSet
-        order_item = order_item_viewset.get_queryset().filter(pk=order_item_pk).first()
-        return order_item
+        return order_item_viewset.get_queryset().filter(pk=order_item_pk).first()
 
     def get_queryset(self):
         order = self.get_parent_order()
@@ -381,9 +208,11 @@ class OrderCustomizationViewSet(TrackUserMixin, viewsets.ModelViewSet):
         if (not order) or (
             not self.request.user.is_staff and order.user != self.request.user
         ):
-            raise Http404("Incorrect user for order item.")
+            msg = "Incorrect user for order item."
+            raise Http404(msg)
         if not order_item:
-            raise Http404("Incorrect order item for customization.")
+            msg = "Incorrect order item for customization."
+            raise Http404(msg)
         serializer.save(
             order_item=order_item,
             unit_price=serializer.validated_data["customization"].price,

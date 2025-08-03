@@ -59,7 +59,14 @@ target-version = "py312"
 extend-exclude = [
     "*/migrations/*.py",
     "staticfiles/*",
+
 ]
+
+[tool.ruff.per-file-ignores]
+"config/wsgi.py" = ["ERA001"]
+"manage.py" = ["TRY003"]
+"*/apps.py" = ["PLC0415"]
+"*/tests/*" = ["PLR2004"]
 
 [tool.ruff.lint]
 select = [

@@ -1,32 +1,24 @@
-import pytest
 import json
-from django.utils import timezone, dateformat
-from django.core.files.uploadedfile import SimpleUploadedFile
+
+import pytest
 from django.db import transaction
-from .factories import (
-    OrderItemFactory,
-    OrderFactory,
-    MenuItemFactory,
-    NaviPortFactory,
-    IngredientFactory,
-    CategoryFactory,
-    MenuItemIngredientFactory,
-    EspressoMachineFactory,
-    MachineTypeFactory,
-    RasberryPiFactory,
-    CustomizationFactory,
-    CustomizationGroupFactory,
-    OrderCustomizationFactory,
-)
-from navi_backend.users.tests.factories import UserFactory
-from navi_backend.payments.tests.factories import PaymentFactory
 from rest_framework.test import APIRequestFactory
+
+from navi_backend.devices.tests.factories import NaviPortFactory
+from navi_backend.menu.tests.factories import CustomizationFactory
+from navi_backend.menu.tests.factories import MenuItemFactory
+from navi_backend.payments.tests.factories import PaymentFactory
 from navi_backend.users.models import User
+from navi_backend.users.tests.factories import UserFactory
+
+from .factories import OrderCustomizationFactory
+from .factories import OrderFactory
+from .factories import OrderItemFactory
 
 
 @pytest.fixture
 def order(db):
-    return OrderFactory(status="O")
+    return OrderFactory(order_status="O")
 
 
 @pytest.fixture
@@ -87,7 +79,7 @@ def order_item(db):
 
 @pytest.fixture
 def order_item_data(db):
-    user = UserFactory()
+    UserFactory()
     menu_item = MenuItemFactory()
     order = OrderFactory()
     return order, json.dumps(
@@ -101,7 +93,7 @@ def order_item_data(db):
 
 @pytest.fixture
 def order_item_data2(db):
-    user = UserFactory()
+    UserFactory()
     menu_item = MenuItemFactory()
     order = OrderFactory()
     return order, json.dumps(
@@ -124,13 +116,11 @@ def order_and_order_items():
 
 
 @pytest.fixture
-def menu_item(db):
-    return MenuItemFactory(name="Latte")
-
-
-@pytest.fixture
 def admin_user(db):
-    return User.objects.create_superuser(email="admin@email.com", password="adminpass")
+    return User.objects.create_superuser(
+        email="admin@email.com",
+        password="adminpass",  # noqa: S106
+    )
 
 
 @pytest.fixture
@@ -139,38 +129,6 @@ def user_and_orders():
     own_order = OrderFactory(user=user, status="O")
     other_order = OrderFactory(status="O")  # Another user's order
     return user, own_order, other_order
-
-
-@pytest.fixture
-def ingredient_data(admin_user):
-    return json.dumps(
-        {
-            "name": "Tomato Sauce",
-            "description": "Test",
-            "is_allergen": "False",
-            "status": "A",
-        }
-    )
-
-
-@pytest.fixture
-def menu_item_data(admin_user):
-    category = CategoryFactory()
-    image_file = SimpleUploadedFile(
-        "Latte.png",
-        content=open("navi_backend/media/product_images/Latte.png", "rb").read(),
-        content_type="image/png",
-    )
-
-    return {
-        "name": "Over-Priced Latte",
-        "description": "Over-Priced Latte",
-        "body": "Over-Priced Latte",
-        "price": "12.99",
-        "category": category.pk,
-        "image": image_file,
-        "status": "A",
-    }
 
 
 @pytest.fixture
@@ -186,179 +144,24 @@ def api_rf() -> APIRequestFactory:
 
 
 @pytest.fixture
-def get_response(api_rf: APIRequestFactory):
+def get_response(api_rf):
     """Helper to get response from a viewset."""
 
-    def _get_response(
-        user, view, method, url, data=None, pk=None, content_type="application/json"
-    ):
+    def _get_response(user, view, **kwargs):
+        method = kwargs.pop("method")
+        url = kwargs.pop("url")
+        pk = kwargs.pop("pk", None)
+        data = kwargs.pop("data", None)
+        content_type = kwargs.pop("content_type", "application/json")
+
         with transaction.atomic():
             request = api_rf.generic(method, url, data=data, content_type=content_type)
             request.user = user
-            if pk:
+            if pk is not None:
                 return view(request, pk=pk)
             return view(request)
 
     return _get_response
-
-
-@pytest.fixture
-def ingredient():
-    ingredient = IngredientFactory(name="Espresso")
-    return ingredient
-
-
-@pytest.fixture
-def menu_item_ingredient():
-    menu_item = MenuItemFactory(name="Latte")
-    ingredient = IngredientFactory(name="Milk")
-    return MenuItemIngredientFactory(
-        menu_item=menu_item, ingredient=ingredient, quantity="200", unit="g"
-    )
-
-
-@pytest.fixture
-def menu_item_ingredient_data():
-    menu_item = MenuItemFactory(name="Capp")
-    ingredient = IngredientFactory(name="espresso")
-    return json.dumps(
-        {
-            "menu_item": menu_item.pk,
-            "ingredient": ingredient.pk,
-            "quantity": "200",
-            "unit": "g",
-        }
-    )
-
-
-@pytest.fixture
-def navi_port_data(admin_user):
-    espresso_machine = EspressoMachineFactory(name="navi1")
-    rasberry_pi = RasberryPiFactory(name="razz")
-    return json.dumps(
-        {
-            "name": "Navi_Port_1",
-            "status": "A",
-            "rasberry_pi": rasberry_pi.pk,
-            "espresso_machine": espresso_machine.pk,
-        }
-    )
-
-
-@pytest.fixture
-def navi_port():
-    return NaviPortFactory(name="Navi_Port_2")
-
-
-@pytest.fixture
-def rasberry_pi(db):
-    return RasberryPiFactory()
-
-
-@pytest.fixture
-def rasberry_pi_data(admin_user):
-    return json.dumps(
-        {
-            "name": "Rasberry_Pi_1",
-            "mac_address": "01:23:45:67:89:AB",
-            "ip_address": "192.168.1.1",
-            "location": "test",
-            "is_connected": True,
-            "firmware_version": "v1",
-        }
-    )
-
-
-@pytest.fixture
-def espresso_machine(db):
-    return EspressoMachineFactory()
-
-
-@pytest.fixture
-def espresso_machine_data(admin_user):
-    machine_type = MachineTypeFactory()
-    return json.dumps(
-        {
-            "name": "Espresso_Machine_1",
-            "machine_type": machine_type.pk,
-            "serial_number": "12345",
-            "ip_address": "192.168.1.1",
-            "port": 1,
-            "is_online": True,
-            "last_maintenance_at": "2012-04-23T18:25:43.511Z",
-        }
-    )
-
-
-@pytest.fixture
-def machine_type(db):
-    return MachineTypeFactory()
-
-
-@pytest.fixture
-def machine_type_data(admin_user):
-    menu_item = MenuItemFactory()
-
-    return json.dumps(
-        {
-            "name": "Machine_Type_1",
-            "model_number": "1",
-            "maintenance_frequency": 30,
-            "supported_drinks": [menu_item.pk],
-        }
-    )
-
-
-@pytest.fixture
-def customization(db):
-    return CustomizationFactory()
-
-
-@pytest.fixture
-def customization_data(admin_user):
-    group = CustomizationGroupFactory()
-    return json.dumps(
-        {
-            "name": "Customization_1",
-            "description": "Test",
-            "price": 10.00,
-            "display_order": 1,
-            "group": group.pk,
-        }
-    )
-
-
-@pytest.fixture
-def customization_group(db):
-    return CustomizationGroupFactory()
-
-
-@pytest.fixture
-def customization_group_data(admin_user):
-    category = CategoryFactory()
-    return json.dumps(
-        {
-            "name": "Customization_Group_1",
-            "description": "Test",
-            "category": category.pk,
-            "display_order": 1,
-            "is_required": True,
-        }
-    )
-
-
-@pytest.fixture
-def category(db):
-    return CategoryFactory()
-
-
-@pytest.fixture
-def category_data(admin_user):
-    return json.dumps(
-        {
-            "name": "Category_1",
-        }
-    )
 
 
 @pytest.fixture

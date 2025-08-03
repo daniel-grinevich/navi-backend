@@ -1,12 +1,6 @@
-import pytest
 import json
 
-# from .factories import PaymentTypeFactory
-
-
-# @pytest.fixture
-# def payment_type():
-#     return PaymentTypeFactory(name="Payment_2")
+import pytest
 
 
 @pytest.fixture
@@ -17,8 +11,3 @@ def payment_type_data(admin_user):
             "status": "A",
         }
     )
-
-
-# @pytest.fixture
-# def payment_type():
-#     return PaymentTypeFactory(name="Payment_2")

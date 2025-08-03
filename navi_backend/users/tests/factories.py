@@ -13,7 +13,7 @@ class UserFactory(DjangoModelFactory[User]):
     name = Faker("name")
 
     @post_generation
-    def password(self, create: bool, extracted: Sequence[Any], **kwargs):  # noqa: FBT001
+    def password(self, create, extracted: Sequence[Any], *args, **kwargs):
         password = (
             extracted
             if extracted

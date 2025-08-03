@@ -3,6 +3,7 @@
 
 import os
 from pathlib import Path
+
 import environ
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
@@ -51,10 +52,14 @@ DATABASES = {"default": env.db("DATABASE_URL")}
 # If POSTGRES_PASSWORD_FILE is set, read the password from the file
 if "POSTGRES_PASSWORD_FILE" in os.environ:
     try:
-        with open(os.environ["POSTGRES_PASSWORD_FILE"]) as f:
+        from pathlib import Path
+
+        with Path(os.environ["POSTGRES_PASSWORD_FILE"]).open() as f:
             DATABASES["default"]["PASSWORD"] = f.read().strip()
-    except Exception:
-        pass  # Keep the existing password if file reading fails
+    except OSError as e:
+        import logging
+
+        logging.getLogger(__name__).warning("Failed to read password file: %s", e)
 
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
 
@@ -105,10 +110,12 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "navi_backend.core",
-    "navi_backend.users",
-    "navi_backend.orders",
+    "navi_backend.users.apps.UsersConfig",
+    "navi_backend.menu",
     "navi_backend.payments",
-    # Your stuff: custom apps go here
+    "navi_backend.orders",
+    "navi_backend.notifications.apps.NotificationsConfig",
+    "navi_backend.devices",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -217,8 +224,6 @@ TEMPLATES = [
                 "django.template.context_processors.static",
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
-                "navi_backend.users.context_processors.allauth_settings",
-                "navi_backend.core.context_processors.env_banner",
             ],
         },
     },

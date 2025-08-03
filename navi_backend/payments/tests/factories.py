@@ -1,26 +1,12 @@
 import uuid
 from decimal import Decimal
+
 import factory
-from factory import Faker
+
+from navi_backend.core.tests.factories import AuditFactory
+from navi_backend.core.tests.factories import StatusFactory
+from navi_backend.core.tests.factories import UpdateRecordFactory
 from navi_backend.payments.models import Payment
-
-from navi_backend.core.tests.factories import (
-    AuditFactory,
-    SlugifiedFactory,
-    StatusFactory,
-    UpdateRecordFactory,
-)
-
-
-# class PaymentTypeFactory(
-#     AuditFactory,
-#     SlugifiedFactory,
-#     StatusFactory,
-#     UpdateRecordFactory,
-#     factory.django.DjangoModelFactory,
-# ):
-#     class Meta:
-#         model = PaymentType
 
 
 class PaymentFactory(

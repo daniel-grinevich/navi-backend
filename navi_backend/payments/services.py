@@ -1,5 +1,6 @@
 import stripe
 from django.conf import settings
+
 from navi_backend.payments.models import Payment
 
 stripe.api_key = settings.STRIPE_API_KEY
@@ -12,7 +13,6 @@ class StripePaymentService:
         Creates a Stripe PaymentIntent with manual capture for an order.
         """
         user = StripePaymentService.get_or_create_stripe_customer(order.user)
-        print(order.price)
         intent = stripe.PaymentIntent.create(
             amount=int(order.price * 100),  # Stripe expects amount in cents
             currency="usd",
