@@ -50,6 +50,9 @@ jobs:
             requirements/base.txt
             requirements/local.txt
 
+      - name: Create fake Stripe env file #want this to fail if we don't have a file in the environment
+        run: mkdir -p .envs/.local && touch .envs/.local/.stripe
+
       - name: Build the Stack
         run: docker compose -f docker-compose.local.yml build django
 
