@@ -1,8 +1,8 @@
 import re
 
 
-def getParentPK(path, parentTag):
-    pattern = rf"/{re.escape(parentTag)}/(\d+)(?:/|$)"
+def get_parent_pk(path, parent_tag):
+    pattern = rf"/{re.escape(parent_tag)}/(\d+)(?:/|$)"
     match = re.search(pattern, path)
     if match:
         return match.group(1)

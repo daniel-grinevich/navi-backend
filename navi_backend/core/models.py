@@ -1,13 +1,14 @@
 import uuid
+
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
-from django.utils import timezone
-from django.core.exceptions import ValidationError
+
 from navi_backend.users.models import User
 
 
-# Create your models here.
 class NamedModel(models.Model):
     name = models.CharField(
         _("Name"),
@@ -40,7 +41,7 @@ class SlugifiedModel(models.Model):
         if not self.slug:
             try:
                 self.slug = slugify(self.name)
-            except:
+            except (AttributeError, TypeError):
                 self.slug = slugify(str(uuid.uuid4())[:8])
         self.full_clean()
         return super().save(*args, **kwargs)
@@ -90,7 +91,8 @@ class AuditModel(UpdateRecordModel):
     last_modified_user_agent = models.CharField(
         _("last modified user agent"),
         max_length=200,
-        null=True,
+        blank=True,
+        default="",
         editable=False,
     )
 
@@ -107,11 +109,11 @@ class AuditModel(UpdateRecordModel):
         if self.is_deleted:
             raise ValidationError(_("Cannot activate deleted menuitem."))
         self.status = self.Status.ACTIVE
-        self.save(update_fields=["status", "updated_at", "version"])
+        self.save(update_fields=["status", "updated_at"])
 
     def archive(self):
         self.status = self.Status.ARCHIVED
-        self.save(update_fields=["status", "updated_at", "version"])
+        self.save(update_fields=["status", "updated_at"])
 
     def soft_delete(self, user_ip=None, user_agent=None):
         self.is_deleted = True
@@ -127,7 +129,6 @@ class AuditModel(UpdateRecordModel):
                 "last_modified_ip",
                 "last_modified_user_agent",
                 "updated_at",
-                "version",
             ]
         )
 
@@ -142,7 +143,6 @@ class AuditModel(UpdateRecordModel):
                 "is_deleted",
                 "deleted_at",
                 "updated_at",
-                "version",
             ]
         )
 

@@ -1,6 +1,3 @@
-from rest_framework import serializers
-
-
 class TrackUserMixin:
     def perform_create(self, serializer):
         serializer.save(

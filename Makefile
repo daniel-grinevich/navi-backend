@@ -55,7 +55,7 @@ build:
 
 build -d:
 	$(DC) up -d --build
-	
+
 up:
 	$(DC) up
 
@@ -99,6 +99,12 @@ migrate-sites:
 
 superuser:
 	$(DC_RUN) python manage.py createsuperuser
+
+# Linting Commands
+lint:
+	isort .
+	ruff check --fix
+	ruff check --fix
 
 # Testing commands
 test:
