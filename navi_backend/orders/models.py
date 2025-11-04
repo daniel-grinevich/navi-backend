@@ -160,8 +160,7 @@ class OrderCustomization(
             order_item = OrderItem.objects.get(pk=self.order_item.pk)
             if order_item.order.order_status != "O":
                 msg = (
-                    "You can't update order customizations if the order is not in "
-                    "'Ordered' status."
+                    "You cannot update order customizations if the order is not in 'Ordered' status."
                 )
                 raise ValidationError(msg)
         return super().save(*args, **kwargs)

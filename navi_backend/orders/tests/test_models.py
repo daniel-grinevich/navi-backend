@@ -16,7 +16,7 @@ from .factories import OrderItemFactory
 
 User = get_user_model()
 
-
+@pytest.mark.django_db
 class TestOrder:
     def test_create_order(self, order):
         assert order
@@ -69,7 +69,7 @@ class TestOrder:
         expected_total = item1.price + item2.price
         assert order.price == expected_total
 
-
+@pytest.mark.django_db
 class TestOrderItem:
     def test_create_order_item(self, order_item):
         assert order_item
@@ -143,12 +143,11 @@ class TestOrderItem:
     def test_order_item_auto_set_unit_price(self):
         """Test that unit price is set from menu item if not provided"""
         menu_item = MenuItemFactory(price=Decimal("15.99"))
-        order_item = OrderItemFactory.build(menu_item=menu_item, unit_price=None)
-        order_item.save()
+        order_item = OrderItemFactory(menu_item=menu_item, unit_price=None)
 
         assert order_item.unit_price == menu_item.price
 
-
+@pytest.mark.django_db
 class TestOrderCustomization:
     def test_create_order_customization(self, order_customization):
         assert order_customization
@@ -188,18 +187,19 @@ class TestOrderCustomization:
 
     def test_order_customization_validation_order_status(self):
         """Test that updating customizations is only allowed for 'Ordered' status"""
-        order = OrderFactory(order_status="S")  # Sent status
+        order = OrderFactory(order_status="O")  # Sent status
         order_item = OrderItemFactory(order=order)
+        order.order_status="S"
+        order.save()
         order_customization = OrderCustomizationFactory.build(order_item=order_item)
 
         with pytest.raises(ValidationError) as exc_info:
             order_customization.save()
         assert (
-            "You can't update order customizations if the"
-            "order is not in 'Ordered' status" in str(exc_info.value)
+            "You cannot update order customizations if the order is not in 'Ordered' status." in str(exc_info.value)
         )
 
-
+@pytest.mark.django_db
 class TestOrderWorkflow:
     def test_complete_order_creation_workflow(self):
         """Test creating a complete order with items and customizations"""

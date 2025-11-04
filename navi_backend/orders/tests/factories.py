@@ -28,6 +28,7 @@ class OrderFactory(
     navi_port = factory.SubFactory(NaviPortFactory)
     payment = factory.SubFactory(PaymentFactory)
     order_status = factory.Faker("random_element", elements=["O"])
+    cart_token=factory.Sequence(lambda n: f"123-555-{n:04d}")
 
 
 class OrderItemFactory(
