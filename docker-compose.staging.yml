@@ -124,7 +124,7 @@ services:
     ports:
       - "5557:5555"
     command: /start-flower
-  
+
   traefik:
     image: docker.io/traefik:3.3.5
     ports:
@@ -133,4 +133,3 @@ services:
     volumes:
       - "./compose/staging/traefik/traefik.staging.toml:/etc/traefik/traefik.toml"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      

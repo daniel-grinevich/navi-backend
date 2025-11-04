@@ -18,4 +18,3 @@ exec celery -A config.celery  \
     flower \
     --url-prefix=flower \
     "$@"
-

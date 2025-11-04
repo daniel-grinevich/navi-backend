@@ -27,6 +27,7 @@ class TestCategory:
         category = CategoryFactory(name="Beverages")
         assert str(category) == "Beverages"
 
+
 @pytest.mark.django_db
 class TestMenuItem:
     def test_create_menu_item(self, menu_item):
@@ -105,6 +106,7 @@ class TestMenuItem:
         menu_item.toggle_featured()
         assert menu_item.is_featured is False
 
+
 @pytest.mark.django_db
 class TestIngredient:
     def test_create_ingredient(self, ingredient):
@@ -118,6 +120,7 @@ class TestIngredient:
     def test_ingredient_allergen_flag(self):
         ingredient = IngredientFactory(is_allergen=True)
         assert ingredient.is_allergen is True
+
 
 @pytest.mark.django_db
 class TestMenuItemIngredient:
@@ -146,6 +149,7 @@ class TestMenuItemIngredient:
         with pytest.raises(IntegrityError):
             MenuItemIngredientFactory(menu_item=menu_item, ingredient=ingredient)
 
+
 @pytest.mark.django_db
 class TestCustomizationGroup:
     def test_create_customization_group(self, customization_group):
@@ -163,6 +167,7 @@ class TestCustomizationGroup:
         groups = list(CustomizationGroup.objects.all())
         assert groups[0] == group2  # Lower display_order comes first
         assert groups[1] == group1
+
 
 @pytest.mark.django_db
 class TestCustomization:

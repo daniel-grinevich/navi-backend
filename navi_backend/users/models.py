@@ -35,7 +35,6 @@ class User(AbstractUser):
         return reverse("users-detail", kwargs={"pk": self.id})
 
 
-
 class EmailToken(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     token = models.CharField(max_length=255, unique=True)

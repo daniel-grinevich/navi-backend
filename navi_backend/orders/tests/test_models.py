@@ -16,6 +16,7 @@ from .factories import OrderItemFactory
 
 User = get_user_model()
 
+
 @pytest.mark.django_db
 class TestOrder:
     def test_create_order(self, order):
@@ -68,6 +69,7 @@ class TestOrder:
         # Test the price property which should calculate from all items
         expected_total = item1.price + item2.price
         assert order.price == expected_total
+
 
 @pytest.mark.django_db
 class TestOrderItem:
@@ -147,6 +149,7 @@ class TestOrderItem:
 
         assert order_item.unit_price == menu_item.price
 
+
 @pytest.mark.django_db
 class TestOrderCustomization:
     def test_create_order_customization(self, order_customization):
@@ -189,7 +192,7 @@ class TestOrderCustomization:
         """Test that updating customizations is only allowed for 'Ordered' status"""
         order = OrderFactory(order_status="O")  # Sent status
         order_item = OrderItemFactory(order=order)
-        order.order_status="S"
+        order.order_status = "S"
         order.save()
         order_customization = OrderCustomizationFactory.build(order_item=order_item)
 
@@ -199,6 +202,7 @@ class TestOrderCustomization:
             "You cannot update order customizations if the order is not in "
             "'Ordered' status." in str(exc_info.value)
         )
+
 
 @pytest.mark.django_db
 class TestOrderWorkflow:

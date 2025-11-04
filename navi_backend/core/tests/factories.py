@@ -34,6 +34,7 @@ class UpdateRecordFactory(factory.Factory):
     class Meta:
         abstract = True
 
+
 class AuditFactory(factory.Factory):
     """Base factory for AuditModel."""
 

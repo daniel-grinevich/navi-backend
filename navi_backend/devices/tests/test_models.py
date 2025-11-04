@@ -47,6 +47,7 @@ class TestRaspberryPi:
 
         assert pi.last_seen >= original_time
 
+
 @pytest.mark.django_db
 class TestMachineType:
     def test_create_machine_type(self, machine_type):
@@ -73,6 +74,7 @@ class TestMachineType:
     def test_machine_type_maintenance_frequency(self):
         machine_type = MachineTypeFactory(maintenance_frequency=30)
         assert machine_type.maintenance_frequency == 30
+
 
 @pytest.mark.django_db
 class TestEspressoMachine:
@@ -112,6 +114,7 @@ class TestEspressoMachine:
         machine = EspressoMachineFactory(ip_address="192.168.1.100", port=8080)
         assert machine.ip_address == "192.168.1.100"
         assert machine.port == 8080
+
 
 @pytest.mark.django_db
 class TestNaviPort:
