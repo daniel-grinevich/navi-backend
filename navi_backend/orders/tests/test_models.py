@@ -196,7 +196,8 @@ class TestOrderCustomization:
         with pytest.raises(ValidationError) as exc_info:
             order_customization.save()
         assert (
-            "You cannot update order customizations if the order is not in 'Ordered' status." in str(exc_info.value)
+            "You cannot update order customizations if the order is not in "
+            "'Ordered' status." in str(exc_info.value)
         )
 
 @pytest.mark.django_db

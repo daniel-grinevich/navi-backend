@@ -5,9 +5,9 @@ from rest_framework import permissions
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.authtoken.serializers import AuthTokenSerializer
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.decorators import action
 
 from .serializers import AuthSerializer
 from .serializers import UserSerializer

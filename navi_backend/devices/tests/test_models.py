@@ -1,5 +1,4 @@
 import pytest
-from django.db import IntegrityError
 from django.core.exceptions import ValidationError
 
 from navi_backend.menu.tests.factories import MenuItemFactory
@@ -8,6 +7,7 @@ from .factories import EspressoMachineFactory
 from .factories import MachineTypeFactory
 from .factories import NaviPortFactory
 from .factories import RaspberryPiFactory
+
 
 @pytest.mark.django_db
 class TestRaspberryPi:

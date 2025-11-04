@@ -15,6 +15,7 @@ from .factories import IngredientFactory
 from .factories import MenuItemFactory
 from .factories import MenuItemIngredientFactory
 
+
 @pytest.mark.django_db
 class TestCategory:
     def test_create_category(self, category):
