@@ -1,5 +1,6 @@
 import pytest
 from django.db import IntegrityError
+from django.core.exceptions import ValidationError
 
 from navi_backend.menu.tests.factories import MenuItemFactory
 
@@ -8,7 +9,7 @@ from .factories import MachineTypeFactory
 from .factories import NaviPortFactory
 from .factories import RaspberryPiFactory
 
-
+@pytest.mark.django_db
 class TestRaspberryPi:
     def test_create_raspberry_pi(self, raspberry_pi):
         assert raspberry_pi
@@ -24,7 +25,7 @@ class TestRaspberryPi:
         mac = "01:23:45:67:89:AB"
         RaspberryPiFactory(mac_address=mac)
 
-        with pytest.raises(IntegrityError):
+        with pytest.raises(ValidationError):
             RaspberryPiFactory(mac_address=mac)
 
     def test_raspberry_pi_connection_status(self):
@@ -46,7 +47,7 @@ class TestRaspberryPi:
 
         assert pi.last_seen >= original_time
 
-
+@pytest.mark.django_db
 class TestMachineType:
     def test_create_machine_type(self, machine_type):
         assert machine_type
@@ -73,7 +74,7 @@ class TestMachineType:
         machine_type = MachineTypeFactory(maintenance_frequency=30)
         assert machine_type.maintenance_frequency == 30
 
-
+@pytest.mark.django_db
 class TestEspressoMachine:
     def test_create_espresso_machine(self, espresso_machine):
         assert espresso_machine
@@ -89,7 +90,7 @@ class TestEspressoMachine:
         serial = "EM001-2024"
         EspressoMachineFactory(serial_number=serial)
 
-        with pytest.raises(IntegrityError):
+        with pytest.raises(ValidationError):
             EspressoMachineFactory(serial_number=serial)
 
     def test_espresso_machine_online_status(self):
@@ -112,7 +113,7 @@ class TestEspressoMachine:
         assert machine.ip_address == "192.168.1.100"
         assert machine.port == 8080
 
-
+@pytest.mark.django_db
 class TestNaviPort:
     def test_create_navi_port(self, navi_port):
         assert navi_port

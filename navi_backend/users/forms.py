@@ -23,9 +23,6 @@ class UserAdminCreationForm(admin_forms.UserCreationForm):
         model = User
         fields = ("email",)
         field_classes = {"email": EmailField}
-        error_messages = {
-            "email": {"unique": _("This email has already been taken.")},
-        }
 
 
 class UserSignupForm(SignupForm):

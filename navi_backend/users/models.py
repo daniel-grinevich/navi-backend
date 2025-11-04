@@ -33,14 +33,8 @@ class User(AbstractUser):
             str: URL for user detail.
 
         """
-        return reverse("users:detail", kwargs={"pk": self.id})
+        return reverse("users-detail", kwargs={"pk": self.id})
 
-    def clean(self):
-        super().clean()
-
-        model = self._meta.model
-        if model.objects.exclude(pk=self.pk).filter(email__iexact=self.email).exists():
-            raise ValidationError(_("A user with this email already exists."))
 
 
 class EmailToken(models.Model):

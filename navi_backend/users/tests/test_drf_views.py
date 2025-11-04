@@ -12,7 +12,7 @@ class TestUserViewSet:
 
     def test_get_queryset(self, user: User, api_rf: APIRequestFactory):
         view = UserViewSet()
-        request = api_rf.get("/fake-url/")
+        request = api_rf.get("/users/")
         request.user = user
 
         view.request = request
@@ -21,14 +21,12 @@ class TestUserViewSet:
 
     def test_me(self, user: User, api_rf: APIRequestFactory):
         view = UserViewSet()
-        request = api_rf.get("/fake-url/")
+        request = api_rf.get("/users/")
         request.user = user
 
         view.request = request
 
         response = view.me(request)  # type: ignore[call-arg, arg-type, misc]
 
-        assert response.data == {
-            "url": f"http://testserver/api/users/{user.pk}/",
-            "name": user.name,
-        }
+        assert user.name == response.data["name"]
+

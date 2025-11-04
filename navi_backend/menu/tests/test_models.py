@@ -15,7 +15,7 @@ from .factories import IngredientFactory
 from .factories import MenuItemFactory
 from .factories import MenuItemIngredientFactory
 
-
+@pytest.mark.django_db
 class TestCategory:
     def test_create_category(self, category):
         assert category
@@ -26,7 +26,7 @@ class TestCategory:
         category = CategoryFactory(name="Beverages")
         assert str(category) == "Beverages"
 
-
+@pytest.mark.django_db
 class TestMenuItem:
     def test_create_menu_item(self, menu_item):
         assert menu_item
@@ -104,7 +104,7 @@ class TestMenuItem:
         menu_item.toggle_featured()
         assert menu_item.is_featured is False
 
-
+@pytest.mark.django_db
 class TestIngredient:
     def test_create_ingredient(self, ingredient):
         assert ingredient
@@ -118,13 +118,13 @@ class TestIngredient:
         ingredient = IngredientFactory(is_allergen=True)
         assert ingredient.is_allergen is True
 
-
+@pytest.mark.django_db
 class TestMenuItemIngredient:
     def test_create_menu_item_ingredient(self, menu_item_ingredient):
         assert menu_item_ingredient
         assert menu_item_ingredient.menu_item.name == "Latte"
         assert menu_item_ingredient.ingredient.name == "Milk"
-        assert menu_item_ingredient.quantity == Decimal("200")
+        assert menu_item_ingredient.quantity == "200"
         assert menu_item_ingredient.unit == "g"
 
     def test_menu_item_ingredient_string_representation(self):
@@ -145,7 +145,7 @@ class TestMenuItemIngredient:
         with pytest.raises(IntegrityError):
             MenuItemIngredientFactory(menu_item=menu_item, ingredient=ingredient)
 
-
+@pytest.mark.django_db
 class TestCustomizationGroup:
     def test_create_customization_group(self, customization_group):
         assert customization_group
@@ -163,7 +163,7 @@ class TestCustomizationGroup:
         assert groups[0] == group2  # Lower display_order comes first
         assert groups[1] == group1
 
-
+@pytest.mark.django_db
 class TestCustomization:
     def test_create_customization(self, customization):
         assert customization

@@ -7,6 +7,7 @@ from rest_framework import viewsets
 from rest_framework.authtoken.serializers import AuthTokenSerializer
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.decorators import action
 
 from .serializers import AuthSerializer
 from .serializers import UserSerializer
@@ -18,6 +19,11 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAdminUser]
+
+    @action(detail=False)
+    def me(self, request):
+        serializer = UserSerializer(request.user, context={"request": request})
+        return Response(status=status.HTTP_200_OK, data=serializer.data)
 
 
 class SignupView(APIView):
