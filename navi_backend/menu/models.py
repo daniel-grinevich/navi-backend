@@ -81,7 +81,6 @@ class MenuItem(
     )
 
     objects = MenuItemManager()
-    all_objects = MenuItemManager().with_deleted
 
     class Meta:
         verbose_name = _("MenuItem")
