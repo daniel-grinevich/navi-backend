@@ -1,7 +1,6 @@
 volumes:
   navi_backend_local_postgres_data: {}
   navi_backend_local_postgres_data_backups: {}
-  
 
 services:
   django:
@@ -12,14 +11,27 @@ services:
     container_name: navi_backend_local_django
     depends_on:
       - postgres
+      - redis
     volumes:
       - .:/app:z
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
+      - ./.envs/.local/.stripe
     ports:
-      - '8000:8000'
+      - "8000:8000"
     command: /start
+
+  stripe:
+    image: stripe/stripe-cli
+    container_name: stripe
+    command: "listen --api-key $${STRIPE_API_KEY} --device-name $${STRIPE_DEVICE_NAME} --forward-to django:8000/payment/webhook/"
+    env_file:
+      - ./.envs/.local/.stripe
+    depends_on:
+      - django
+    volumes:
+      - ./stripe-data:/root/.stripe
 
   postgres:
     build:
@@ -32,3 +44,54 @@ services:
       - navi_backend_local_postgres_data_backups:/backups
     env_file:
       - ./.envs/.local/.postgres
+
+  redis:
+    image: docker.io/redis:6
+    container_name: navi_backend_local_redis
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: ./compose/local/django/Dockerfile
+    image: navi_backend_local_django_celery
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - .:/app:z
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    command: /start-celeryworker
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: ./compose/local/django/Dockerfile
+    image: navi_backend_local_django_beat
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - .:/app:z
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    command: /start-celerybeat
+
+  flower:
+    build:
+      context: .
+      dockerfile: ./compose/local/django/Dockerfile
+    image: navi_backend_local_django_flower
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - .:/app:z
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    ports:
+      - "5557:5555"
+    command: /start-flower

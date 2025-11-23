@@ -59,7 +59,14 @@ target-version = "py312"
 extend-exclude = [
     "*/migrations/*.py",
     "staticfiles/*",
+
 ]
+
+[tool.ruff.per-file-ignores]
+"config/wsgi.py" = ["ERA001"]
+"manage.py" = ["TRY003"]
+"*/apps.py" = ["PLC0415"]
+"*/tests/*" = ["PLR2004"]
 
 [tool.ruff.lint]
 select = [
@@ -122,6 +129,8 @@ ignore = [
   "S101", # Use of assert detected https://docs.astral.sh/ruff/rules/assert/
   "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
   "SIM102", # sometimes it's better to nest
+  "COM812",
+  "ISC001",
   "UP038", # Checks for uses of isinstance/issubclass that take a tuple
           # of types for comparison.
           # Deactivated because it can make the code slow:

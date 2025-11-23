@@ -32,4 +32,6 @@ class TestUserAdminCreationForm:
         assert not form.is_valid()
         assert len(form.errors) == 1
         assert "email" in form.errors
-        assert form.errors["email"][0] == _("This email has already been taken.")
+        assert form.errors["email"][0] == _(
+            "User with this Email address " "already exists."
+        )
