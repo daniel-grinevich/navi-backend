@@ -1,66 +1,77 @@
 import factory
 from factory import Faker
-from ..models import Order, OrderItem, Category, PaymentType, Port, MenuItem
-from ...users.tests.factories import UserFactory
-import random
-from django.utils import timezone
+
+from navi_backend.core.tests.factories import AuditFactory
+from navi_backend.core.tests.factories import StatusFactory
+from navi_backend.core.tests.factories import UpdateRecordFactory
+from navi_backend.devices.tests.factories import NaviPortFactory
+from navi_backend.menu.tests.factories import CustomizationFactory
+from navi_backend.menu.tests.factories import MenuItemFactory
+from navi_backend.orders.models import Order
+from navi_backend.orders.models import OrderCustomization
+from navi_backend.orders.models import OrderItem
+from navi_backend.payments.tests.factories import PaymentFactory
+from navi_backend.users.tests.factories import UserFactory
 
 
-class CategoryFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Category
-
-    name = Faker("name")
-    slug = factory.Sequence(lambda n: n)
-
-
-class MenuItemFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = MenuItem
-
-    name = Faker("name")
-    category = factory.SubFactory(CategoryFactory)
-    description = Faker("paragraph")
-    price = factory.LazyFunction(lambda: round(random.uniform(10.00, 100.00), 2))
-    image = factory.django.ImageField(color="blue")
-    created_at = timezone.now()
-    slug = factory.Sequence(lambda n: n)
-
-
-class PortFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Port
-
-    name = Faker("name")
-    slug = factory.Sequence(lambda n: n)
-
-
-class PaymentTypeFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = PaymentType
-
-    name = Faker("name")
-    slug = factory.Sequence(lambda n: n)
-
-
-class OrderFactory(factory.django.DjangoModelFactory):
+class OrderFactory(
+    AuditFactory,
+    StatusFactory,
+    UpdateRecordFactory,
+    factory.django.DjangoModelFactory,
+):
     class Meta:
         model = Order
 
     user = factory.SubFactory(UserFactory)
-    payment_type = factory.SubFactory(PaymentTypeFactory)
-    port = factory.SubFactory(PortFactory)
-    totalPrice = factory.LazyFunction(lambda: round(random.uniform(10.00, 100.00), 2))
-    created_at = timezone.now()
-    slug = factory.Sequence(lambda n: n)
+    slug = factory.Sequence(lambda n: f"123-555-{n:04d}")
+    navi_port = factory.SubFactory(NaviPortFactory)
+    payment = factory.SubFactory(PaymentFactory)
+    order_status = factory.Faker("random_element", elements=["O"])
+    cart_token = factory.Sequence(lambda n: f"123-555-{n:04d}")
 
 
-class OrderItemFactory(factory.django.DjangoModelFactory):
+class OrderItemFactory(
+    AuditFactory,
+    StatusFactory,
+    UpdateRecordFactory,
+    factory.django.DjangoModelFactory,
+):
     class Meta:
         model = OrderItem
 
-    name = Faker("name")
+    slug = factory.Sequence(lambda n: f"123-555-{n:04d}")
     order = factory.SubFactory(OrderFactory)
     menu_item = factory.SubFactory(MenuItemFactory)
-    qty = factory.LazyFunction(lambda: random.randint(1, 9))
-    price = factory.LazyFunction(lambda: round(random.uniform(10.00, 100.00), 2))
+    quantity = factory.Faker("random_int", min=1, max=9)
+    unit_price = Faker(
+        "pydecimal",
+        left_digits=3,
+        right_digits=2,
+        positive=True,
+        min_value=10.00,
+        max_value=100.00,
+    )
+
+
+class OrderCustomizationFactory(
+    AuditFactory,
+    StatusFactory,
+    UpdateRecordFactory,
+    factory.django.DjangoModelFactory,
+):
+    class Meta:
+        model = OrderCustomization
+
+    slug = factory.Sequence(lambda n: f"123-555-{n:04d}")
+    customization = factory.SubFactory(CustomizationFactory)
+    order_item = factory.SubFactory(OrderItemFactory)
+    quantity = factory.Faker("random_int", min=1, max=9)
+    unit_price = Faker(
+        "pydecimal",
+        left_digits=3,
+        right_digits=2,
+        positive=True,
+        min_value=10.00,
+        max_value=100.00,
+    )

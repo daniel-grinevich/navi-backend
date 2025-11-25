@@ -1,0 +1,3 @@
+#!/bin/sh
+rm -f './celerybeat.pid'
+exec celery -A config.celery beat -l INFO

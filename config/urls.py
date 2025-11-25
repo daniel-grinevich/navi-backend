@@ -1,39 +1,38 @@
-# ruff: noqa
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import include
 from django.urls import path
 from django.views import defaults as default_views
-from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView
 from drf_spectacular.views import SpectacularSwaggerView
-from rest_framework.authtoken.views import obtain_auth_token
+from knox import views as knox_views
+
+from navi_backend.users.api.views import LoginView
+from navi_backend.users.api.views import SignupView
+
+from .api_router import router
 
 urlpatterns = [
-    path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),
-    path(
-        "about/",
-        TemplateView.as_view(template_name="pages/about.html"),
-        name="about",
-    ),
+    path("", lambda response: JsonResponse({"status": "ok"}), name="ro"),
+    path("health/", lambda response: JsonResponse({"status": "ok"}), name="health"),
     # Django Admin, use {% url 'admin:index' %}
     path(settings.ADMIN_URL, admin.site.urls),
-    # User management
-    path("users/", include("navi_backend.users.urls", namespace="users")),
     path("accounts/", include("allauth.urls")),
-    # Your stuff: custom urls includes go here
-    path("fakeapi/", include("navi_backend.fakeapi.urls", namespace="fakeapi")),
-    # Media files
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
 ]
 
 # API URLS
 urlpatterns += [
     # API base url
-    path("api/", include("config.api_router")),
-    # DRF auth token
-    path("api/auth-token/", obtain_auth_token),
+    path(r"api/", include(router.urls)),
+    # Knox urls
+    path(r"api/signup/", SignupView.as_view(), name="signup"),
+    path(r"api/login/", LoginView.as_view(), name="login"),
+    path(r"api/logout/", knox_views.LogoutView.as_view(), name="logout"),
+    path(r"api/logoutall/", knox_views.LogoutAllView.as_view(), name="logout_all"),
+    # API doc urls
     path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
     path(
         "api/docs/",
@@ -66,4 +65,4 @@ if settings.DEBUG:
     if "debug_toolbar" in settings.INSTALLED_APPS:
         import debug_toolbar
 
-        urlpatterns = [path("__debug__/", include(debug_toolbar.urls))] + urlpatterns
+        urlpatterns = [path("__debug__/", include(debug_toolbar.urls)), *urlpatterns]
