@@ -18,12 +18,13 @@ from navi_backend.menu.models import Ingredient
 from navi_backend.menu.models import MenuItem
 from navi_backend.menu.models import MenuItemIngredient
 from navi_backend.orders.api.mixins import TrackUserMixin
+from navi_backend.core.permissions import ReadOnly
 
 
 class MenuItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = MenuItem.objects.all()
     serializer_class = MenuItemSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser | ReadOnly]
 
     @action(
         detail=False,
@@ -96,16 +97,16 @@ class MenuItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
 class CustomizationViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = Customization.objects.all()
     serializer_class = CustomizationSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser | ReadOnly]
 
 
 class CustomizationGroupViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = CustomizationGroup.objects.all()
     serializer_class = CustomizationGroupSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser | ReadOnly]
 
 
 class CategoryViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser | ReadOnly]

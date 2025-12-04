@@ -66,7 +66,6 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
         model = Order
         fields = [
             "user",
-            "cart_token",
             "navi_port",
             "price",
             "created_at",
@@ -81,14 +80,16 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     def create(self, validated_data):
         order_item_payload = validated_data.pop("items", [])
         user = self.context["request"].user
+        print(user)
 
         try:
             with transaction.atomic():
-                order = Order.objects.create(**validated_data)
-                order.cart_token = (
+                validated_data["cart_token"] = (
                     self.context["request"].headers["Authorization"].split()[1] or None
                 )
-                order.save(update_fields=["cart_token"])
+                print("Token",validated_data["cart_token"])
+                order = Order.objects.create(**validated_data)
+                
 
                 for order_item in order_item_payload:
                     customizations_data = order_item.pop("customizations", [])
