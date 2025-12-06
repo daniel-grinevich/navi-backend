@@ -7,9 +7,9 @@ from django.urls import path
 from django.views import defaults as default_views
 from drf_spectacular.views import SpectacularAPIView
 from drf_spectacular.views import SpectacularSwaggerView
-from knox import views as knox_views
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenRefreshView
 
-from navi_backend.users.api.views import LoginView
 from navi_backend.users.api.views import SignupView
 
 from .api_router import router
@@ -18,6 +18,8 @@ urlpatterns = [
     path("", lambda response: JsonResponse({"status": "ok"}), name="ro"),
     path("health/", lambda response: JsonResponse({"status": "ok"}), name="health"),
     # Django Admin, use {% url 'admin:index' %}
+    path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path(settings.ADMIN_URL, admin.site.urls),
     path("accounts/", include("allauth.urls")),
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
@@ -29,9 +31,6 @@ urlpatterns += [
     path(r"api/", include(router.urls)),
     # Knox urls
     path(r"api/signup/", SignupView.as_view(), name="signup"),
-    path(r"api/login/", LoginView.as_view(), name="login"),
-    path(r"api/logout/", knox_views.LogoutView.as_view(), name="logout"),
-    path(r"api/logoutall/", knox_views.LogoutAllView.as_view(), name="logout_all"),
     # API doc urls
     path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
     path(
@@ -42,8 +41,6 @@ urlpatterns += [
 ]
 
 if settings.DEBUG:
-    # This allows the error pages to be debugged during development, just visit
-    # these url in browser to see how these error pages look like.
     urlpatterns += [
         path(
             "400/",
