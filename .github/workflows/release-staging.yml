@@ -6,6 +6,8 @@
   jobs:
     checkout-and-push:
       runs-on: ubuntu-latest
+      permissions:
+        contents: read
       steps:
         - name: Checkout Repo
           uses: actions/checkout@v5
