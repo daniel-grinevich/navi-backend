@@ -17,8 +17,8 @@
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
 
-        - name: Merge development into staging-release
+        - name: Merge development into release-staging
           run: |
-            git checkout staging-release
+            git checkout release-staging
             git merge origin/development
             git push origin staging-release
