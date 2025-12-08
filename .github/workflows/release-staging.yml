@@ -1,0 +1,24 @@
+  name: Push to release staging
+
+  on:
+    workflow_dispatch:
+
+  jobs:
+    checkout-and-push:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout Repo
+          uses: actions/checkout@v5
+          with:
+            fetch-depth: 0
+
+        - name: Configure Git
+          run: |
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+
+        - name: Merge development into staging-release
+          run: |
+            git checkout staging-release
+            git merge origin/development
+            git push origin staging-release
