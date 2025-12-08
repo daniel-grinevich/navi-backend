@@ -31,7 +31,6 @@ jobs:
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
 
-  # With no caching at all the entire ci process takes 3m to complete!
   pytest:
     runs-on: ubuntu-latest
 
@@ -48,7 +47,7 @@ jobs:
             requirements/base.txt
             requirements/local.txt
 
-      - name: Create fake Stripe env file #want this to fail if we don't have a file in the environment
+      - name: Create fake Stripe env file
         run: mkdir -p .envs/.local && touch .envs/.local/.stripe
 
       - name: Build the Stack

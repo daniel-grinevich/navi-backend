@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
+from navi_backend.core.permissions import ReadOnly
 from navi_backend.menu.api.serializers import CategorySerializer
 from navi_backend.menu.api.serializers import CustomizationGroupSerializer
 from navi_backend.menu.api.serializers import CustomizationSerializer
@@ -18,7 +19,6 @@ from navi_backend.menu.models import Ingredient
 from navi_backend.menu.models import MenuItem
 from navi_backend.menu.models import MenuItemIngredient
 from navi_backend.orders.api.mixins import TrackUserMixin
-from navi_backend.core.permissions import ReadOnly
 
 
 class MenuItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
@@ -72,7 +72,6 @@ class MenuItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Create or update the ingredient in the recipe
         menu_item_ingredient, created = MenuItemIngredient.objects.update_or_create(
             menu_item=menu_item,
             ingredient=ingredient,

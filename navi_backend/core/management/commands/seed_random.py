@@ -1,28 +1,26 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from navi_backend.orders.tests.factories import CategoryFactory
-from navi_backend.orders.tests.factories import CustomizationFactory
-from navi_backend.orders.tests.factories import CustomizationGroupFactory
-from navi_backend.orders.tests.factories import EspressoMachineFactory
-from navi_backend.orders.tests.factories import IngredientFactory
-from navi_backend.orders.tests.factories import MenuItemFactory
-from navi_backend.orders.tests.factories import MenuItemIngredientFactory
-from navi_backend.orders.tests.factories import NaviPortFactory
-from navi_backend.orders.tests.factories import RasberryPiFactory
+from navi_backend.devices.tests.factories import EspressoMachineFactory
+from navi_backend.devices.tests.factories import NaviPortFactory
+from navi_backend.devices.tests.factories import RaspberryPiFactory
+from navi_backend.menu.tests.factories import CategoryFactory
+from navi_backend.menu.tests.factories import CustomizationFactory
+from navi_backend.menu.tests.factories import CustomizationGroupFactory
+from navi_backend.menu.tests.factories import IngredientFactory
+from navi_backend.menu.tests.factories import MenuItemFactory
+from navi_backend.menu.tests.factories import MenuItemIngredientFactory
 
 
 class Command(BaseCommand):
     help = "seeds local db with temp data for testing"
 
     def handle(self, *args, **kwargs):
-        # TODO create a transaction that cleans the local db then  new seed data
-
         with transaction.atomic():
             espresso_machine = EspressoMachineFactory.create()
-            pi = RasberryPiFactory.create()
+            pi = RaspberryPiFactory.create()
 
-            NaviPortFactory.create(espresso_machine=espresso_machine, rasberry_pi=pi)
+            NaviPortFactory.create(espresso_machine=espresso_machine, raspberry_pi=pi)
 
             categories = []
             for _ in range(15):

@@ -33,11 +33,11 @@ router.register(
 router.register(r"orders", OrderViewSet, basename="orders")
 
 # Menu routes
-router.register(r"menu_items", MenuItemViewSet, basename="menu-items")
+router.register(r"menu-items", MenuItemViewSet, basename="menu-items")
 router.register(r"categories", CategoryViewSet, basename="categories")
 router.register(r"customizations", CustomizationViewSet, basename="customizations")
 router.register(
-    r"customization_groups", CustomizationGroupViewSet, basename="customization-groups"
+    r"customization-groups", CustomizationGroupViewSet, basename="customization-groups"
 )
 
 # Device routes
