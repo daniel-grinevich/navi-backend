@@ -1,4 +1,4 @@
-name: Deploy staging to GHCR
+name: Deploy to GHCR
 
 on:
   release:
