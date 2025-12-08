@@ -21,4 +21,4 @@
           run: |
             git checkout release-staging
             git merge origin/development
-            git push origin staging-release
+            git push origin release-staging
