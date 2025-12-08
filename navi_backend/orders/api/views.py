@@ -26,7 +26,6 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
         """
         Assign different permissions for actions.
         """
-
         if self.action in [
             "list",
             "retrieve",
