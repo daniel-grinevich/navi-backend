@@ -48,6 +48,7 @@ class MenuItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     class Meta:
         model = MenuItem
         fields = [
+            "id",
             "slug",
             "name",
             "status",
