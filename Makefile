@@ -18,7 +18,7 @@ DC = docker compose -f $(COMPOSE_FILE)
 DC_RUN = $(DC) run --rm django
 DC_EXEC = $(DC) exec django
 
-.PHONY: help build up down shell logs ps clean test coverage nuke
+.PHONY: help build up down shell logs ps clean test coverage nuke debug debug-wait
 
 help:
 	@echo "Available commands:"
@@ -41,6 +41,8 @@ help:
 	@echo "  testorders    - Test orders app only"
 	@echo "  coverage      - Run test coverage"
 	@echo "  opencoverage  - Open coverage report"
+	@echo "  debug         - Enable VS Code debugging"
+	@echo "  debug-wait    - Enable debugging (wait for debugger to attach)"
 	@echo "  clean         - Remove stopped containers"
 	@echo "  nuke          - ⚠️ Remove ALL Docker resources"
 
@@ -105,6 +107,14 @@ lint:
 	isort .
 	ruff check --fix
 	ruff check --fix
+
+debug:
+	$(DC) stop django
+	DEBUGPY_ENABLED=1 $(DC) up -d django
+
+debug-wait:
+	$(DC) stop django
+	DEBUGPY_ENABLED=1 DEBUGPY_WAIT=1 $(DC) up -d django
 
 # Testing commands
 test:

@@ -40,7 +40,7 @@ class MachineTypeFactory(
     class Meta:
         model = MachineType
 
-    name = factory.Faker("name")
+    name = factory.Sequence(lambda n: f"Machine Type {n:03d}")
     model_number = factory.Faker("bothify", text="MT###")
     maintenance_frequency = factory.Faker("random_int", min=30, max=365)
 
@@ -82,6 +82,22 @@ class NaviPortFactory(
 ):
     espresso_machine = factory.SubFactory(EspressoMachineFactory)
     raspberry_pi = factory.SubFactory(RaspberryPiFactory)
+    latitude = factory.Faker(
+        "pydecimal",
+        left_digits=2,
+        right_digits=6,
+        positive=False,
+        min_value=-90,
+        max_value=90,
+    )
+    longitude = factory.Faker(
+        "pydecimal",
+        left_digits=3,
+        right_digits=6,
+        positive=False,
+        min_value=-180,
+        max_value=180,
+    )
 
     class Meta:
         model = NaviPort

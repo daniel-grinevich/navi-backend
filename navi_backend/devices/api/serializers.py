@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from navi_backend.core.api.serializers import BaseModelSerializer
 from navi_backend.core.api.serializers import ReadOnlyAuditMixin
 from navi_backend.devices.models import EspressoMachine
 from navi_backend.devices.models import MachineType
@@ -7,7 +8,15 @@ from navi_backend.devices.models import NaviPort
 from navi_backend.devices.models import RaspberryPi
 
 
-class NaviPortSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
+class NaviPortSerializer(BaseModelSerializer):
+    show_only_to_admin_fields = [
+        "created_at",
+        "created_by",
+        "updated_at",
+        "updated_by",
+        "raspberry_pi",
+    ]
+
     class Meta:
         model = NaviPort
         fields = [
@@ -19,6 +28,14 @@ class NaviPortSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
             "updated_by",
             "raspberry_pi",
             "espresso_machine",
+            "longitude",
+            "latitude",
+            "address_line_1",
+            "address_line_2",
+            "address_line_3",
+            "city",
+            "state_or_region",
+            "postal_code",
         ]
 
 
@@ -60,7 +77,7 @@ class EspressoMachineSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer)
         ]
 
 
-class MachineTypeSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
+class MachineTypeSerializer(BaseModelSerializer):
     class Meta:
         model = MachineType
         fields = [

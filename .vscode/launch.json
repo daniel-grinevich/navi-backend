@@ -1,0 +1,50 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Django: Remote Attach",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}",
+          "remoteRoot": "/app"
+        }
+      ],
+      "django": true,
+      "justMyCode": false,
+      "presentation": {
+        "hidden": false,
+        "group": "Django",
+        "order": 1
+      }
+    },
+    {
+      "name": "Django: Remote Attach (Wait for Client)",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}",
+          "remoteRoot": "/app"
+        }
+      ],
+      "django": true,
+      "justMyCode": false,
+      "preLaunchTask": "docker-compose-restart-wait",
+      "presentation": {
+        "hidden": false,
+        "group": "Django",
+        "order": 2
+      }
+    }
+  ]
+}
