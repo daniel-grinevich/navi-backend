@@ -20,6 +20,7 @@ class NaviPortSerializer(BaseModelSerializer):
     class Meta:
         model = NaviPort
         fields = [
+            "id",
             "name",
             "slug",
             "created_at",
