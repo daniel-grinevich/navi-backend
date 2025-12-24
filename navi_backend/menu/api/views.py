@@ -104,6 +104,15 @@ class CustomizationGroupViewSet(TrackUserMixin, viewsets.ModelViewSet):
     serializer_class = CustomizationGroupSerializer
     permission_classes = [IsAdminUser | ReadOnly]
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        category_name = self.request.query_params.get("category_name")
+
+        if category_name is None:
+            return qs
+
+        return qs.filter(category__name=category_name)
+
 
 class CategoryViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = Category.objects.all()
