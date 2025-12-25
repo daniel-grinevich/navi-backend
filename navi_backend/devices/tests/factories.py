@@ -80,6 +80,7 @@ class NaviPortFactory(
     UpdateRecordFactory,
     factory.django.DjangoModelFactory,
 ):
+    name = factory.Sequence(lambda n: f"NaviPort-{n:03d}")
     espresso_machine = factory.SubFactory(EspressoMachineFactory)
     raspberry_pi = factory.SubFactory(RaspberryPiFactory)
     latitude = factory.Faker(
@@ -98,6 +99,9 @@ class NaviPortFactory(
         min_value=-180,
         max_value=180,
     )
+    address_line_1 = factory.Faker("street_address")
+    city = factory.Faker("city")
+    postal_code = factory.Faker("postcode")
 
     class Meta:
         model = NaviPort

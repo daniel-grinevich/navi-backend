@@ -71,8 +71,8 @@ class Command(BaseCommand):
                     menu_item = MenuItemFactory.create(category=category)
 
                     rand = random.randint(1, 4)  # noqa: S311
-                    for _ in range(rand):
-                        i = random.choice(ingredients)  # noqa: S311
+                    selected_ingredients = random.sample(ingredients, rand)
+                    for i in selected_ingredients:
                         MenuItemIngredientFactory.create(
                             ingredient=i, menu_item=menu_item
                         )
