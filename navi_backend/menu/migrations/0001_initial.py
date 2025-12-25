@@ -4,133 +4,542 @@ from decimal import Decimal
 
 import django.core.validators
 from django.db import migrations, models
+import uuid
 
 
 class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Category',
+            name="Category",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(db_index=True, help_text='Unique name', max_length=200, unique=True, verbose_name='Name')),
-                ('slug', models.SlugField(help_text='URL-friendly version of name', max_length=200, unique=True, verbose_name='Slug')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('status', models.CharField(choices=[('A', 'Active'), ('I', 'Inactive'), ('D', 'Draft'), ('R', 'Archived')], db_index=True, default='A', help_text='availability status', max_length=1, verbose_name='Status')),
-                ('is_deleted', models.BooleanField(default=False)),
-                ('deleted_at', models.DateTimeField(blank=True, null=True)),
-                ('last_modified_ip', models.GenericIPAddressField(editable=False, null=True, verbose_name='last modified IP')),
-                ('last_modified_user_agent', models.CharField(editable=False, max_length=200, null=True, verbose_name='last modified user agent')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "name",
+                    models.CharField(
+                        db_index=True,
+                        help_text="Unique name",
+                        max_length=200,
+                        unique=True,
+                        verbose_name="Name",
+                    ),
+                ),
+                (
+                    "slug",
+                    models.SlugField(
+                        help_text="URL-friendly version of name",
+                        max_length=200,
+                        unique=True,
+                        verbose_name="Slug",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("A", "Active"),
+                            ("I", "Inactive"),
+                            ("D", "Draft"),
+                            ("R", "Archived"),
+                        ],
+                        db_index=True,
+                        default="A",
+                        help_text="availability status",
+                        max_length=1,
+                        verbose_name="Status",
+                    ),
+                ),
+                ("is_deleted", models.BooleanField(default=False)),
+                ("deleted_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "last_modified_ip",
+                    models.GenericIPAddressField(
+                        editable=False, null=True, verbose_name="last modified IP"
+                    ),
+                ),
+                (
+                    "last_modified_user_agent",
+                    models.CharField(
+                        editable=False,
+                        max_length=200,
+                        null=True,
+                        verbose_name="last modified user agent",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='Customization',
+            name="Customization",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(db_index=True, help_text='Unique name', max_length=200, unique=True, verbose_name='Name')),
-                ('slug', models.SlugField(help_text='URL-friendly version of name', max_length=200, unique=True, verbose_name='Slug')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('status', models.CharField(choices=[('A', 'Active'), ('I', 'Inactive'), ('D', 'Draft'), ('R', 'Archived')], db_index=True, default='A', help_text='availability status', max_length=1, verbose_name='Status')),
-                ('is_deleted', models.BooleanField(default=False)),
-                ('deleted_at', models.DateTimeField(blank=True, null=True)),
-                ('last_modified_ip', models.GenericIPAddressField(editable=False, null=True, verbose_name='last modified IP')),
-                ('last_modified_user_agent', models.CharField(editable=False, max_length=200, null=True, verbose_name='last modified user agent')),
-                ('description', models.CharField(blank=True, max_length=255, verbose_name='Description')),
-                ('display_order', models.PositiveIntegerField(default=0, verbose_name='Display Order')),
-                ('price', models.DecimalField(decimal_places=2, help_text='Price of customization in dollars (between $99999-$0.01)', max_digits=8, validators=[django.core.validators.MaxValueValidator(Decimal('99999.990000000005238689482212066650390625')), django.core.validators.MinValueValidator(Decimal('0.01000000000000000020816681711721685132943093776702880859375'))], verbose_name='Price')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "name",
+                    models.CharField(
+                        db_index=True,
+                        help_text="Unique name",
+                        max_length=200,
+                        unique=True,
+                        verbose_name="Name",
+                    ),
+                ),
+                (
+                    "slug",
+                    models.SlugField(
+                        help_text="URL-friendly version of name",
+                        max_length=200,
+                        unique=True,
+                        verbose_name="Slug",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("A", "Active"),
+                            ("I", "Inactive"),
+                            ("D", "Draft"),
+                            ("R", "Archived"),
+                        ],
+                        db_index=True,
+                        default="A",
+                        help_text="availability status",
+                        max_length=1,
+                        verbose_name="Status",
+                    ),
+                ),
+                ("is_deleted", models.BooleanField(default=False)),
+                ("deleted_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "last_modified_ip",
+                    models.GenericIPAddressField(
+                        editable=False, null=True, verbose_name="last modified IP"
+                    ),
+                ),
+                (
+                    "last_modified_user_agent",
+                    models.CharField(
+                        editable=False,
+                        max_length=200,
+                        null=True,
+                        verbose_name="last modified user agent",
+                    ),
+                ),
+                (
+                    "description",
+                    models.CharField(
+                        blank=True, max_length=255, verbose_name="Description"
+                    ),
+                ),
+                (
+                    "display_order",
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="Display Order"
+                    ),
+                ),
+                (
+                    "price",
+                    models.DecimalField(
+                        decimal_places=2,
+                        help_text="Price of customization in dollars (between $99999-$0.01)",
+                        max_digits=8,
+                        validators=[
+                            django.core.validators.MaxValueValidator(
+                                Decimal("99999.990000000005238689482212066650390625")
+                            ),
+                            django.core.validators.MinValueValidator(
+                                Decimal(
+                                    "0.01000000000000000020816681711721685132943093776702880859375"
+                                )
+                            ),
+                        ],
+                        verbose_name="Price",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Customization',
-                'ordering': ['display_order', 'name'],
+                "verbose_name": "Customization",
+                "ordering": ["display_order", "name"],
             },
         ),
         migrations.CreateModel(
-            name='CustomizationGroup',
+            name="CustomizationGroup",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(db_index=True, help_text='Unique name', max_length=200, unique=True, verbose_name='Name')),
-                ('slug', models.SlugField(help_text='URL-friendly version of name', max_length=200, unique=True, verbose_name='Slug')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('status', models.CharField(choices=[('A', 'Active'), ('I', 'Inactive'), ('D', 'Draft'), ('R', 'Archived')], db_index=True, default='A', help_text='availability status', max_length=1, verbose_name='Status')),
-                ('is_deleted', models.BooleanField(default=False)),
-                ('deleted_at', models.DateTimeField(blank=True, null=True)),
-                ('last_modified_ip', models.GenericIPAddressField(editable=False, null=True, verbose_name='last modified IP')),
-                ('last_modified_user_agent', models.CharField(editable=False, max_length=200, null=True, verbose_name='last modified user agent')),
-                ('description', models.CharField(blank=True, max_length=255, verbose_name='Description')),
-                ('display_order', models.PositiveIntegerField(default=0, verbose_name='Display Order')),
-                ('is_required', models.BooleanField(default=False, verbose_name='Required')),
-                ('allow_multiple', models.BooleanField(default=False, verbose_name='allow_multiple')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "name",
+                    models.CharField(
+                        db_index=True,
+                        help_text="Unique name",
+                        max_length=200,
+                        unique=True,
+                        verbose_name="Name",
+                    ),
+                ),
+                (
+                    "slug",
+                    models.SlugField(
+                        help_text="URL-friendly version of name",
+                        max_length=200,
+                        unique=True,
+                        verbose_name="Slug",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("A", "Active"),
+                            ("I", "Inactive"),
+                            ("D", "Draft"),
+                            ("R", "Archived"),
+                        ],
+                        db_index=True,
+                        default="A",
+                        help_text="availability status",
+                        max_length=1,
+                        verbose_name="Status",
+                    ),
+                ),
+                ("is_deleted", models.BooleanField(default=False)),
+                ("deleted_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "last_modified_ip",
+                    models.GenericIPAddressField(
+                        editable=False, null=True, verbose_name="last modified IP"
+                    ),
+                ),
+                (
+                    "last_modified_user_agent",
+                    models.CharField(
+                        editable=False,
+                        max_length=200,
+                        null=True,
+                        verbose_name="last modified user agent",
+                    ),
+                ),
+                (
+                    "description",
+                    models.CharField(
+                        blank=True, max_length=255, verbose_name="Description"
+                    ),
+                ),
+                (
+                    "display_order",
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="Display Order"
+                    ),
+                ),
+                (
+                    "is_required",
+                    models.BooleanField(default=False, verbose_name="Required"),
+                ),
+                (
+                    "allow_multiple",
+                    models.BooleanField(default=False, verbose_name="allow_multiple"),
+                ),
             ],
             options={
-                'verbose_name': 'Customization Group',
-                'ordering': ['display_order', 'name'],
+                "verbose_name": "Customization Group",
+                "ordering": ["display_order", "name"],
             },
         ),
         migrations.CreateModel(
-            name='Ingredient',
+            name="Ingredient",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(db_index=True, help_text='Unique name', max_length=200, unique=True, verbose_name='Name')),
-                ('slug', models.SlugField(help_text='URL-friendly version of name', max_length=200, unique=True, verbose_name='Slug')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('status', models.CharField(choices=[('A', 'Active'), ('I', 'Inactive'), ('D', 'Draft'), ('R', 'Archived')], db_index=True, default='A', help_text='availability status', max_length=1, verbose_name='Status')),
-                ('is_deleted', models.BooleanField(default=False)),
-                ('deleted_at', models.DateTimeField(blank=True, null=True)),
-                ('last_modified_ip', models.GenericIPAddressField(editable=False, null=True, verbose_name='last modified IP')),
-                ('last_modified_user_agent', models.CharField(editable=False, max_length=200, null=True, verbose_name='last modified user agent')),
-                ('description', models.TextField(blank=True)),
-                ('is_allergen', models.BooleanField(default=False, help_text='Check if this ingredient is a common allergen', verbose_name='Allergen')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "name",
+                    models.CharField(
+                        db_index=True,
+                        help_text="Unique name",
+                        max_length=200,
+                        unique=True,
+                        verbose_name="Name",
+                    ),
+                ),
+                (
+                    "slug",
+                    models.SlugField(
+                        help_text="URL-friendly version of name",
+                        max_length=200,
+                        unique=True,
+                        verbose_name="Slug",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("A", "Active"),
+                            ("I", "Inactive"),
+                            ("D", "Draft"),
+                            ("R", "Archived"),
+                        ],
+                        db_index=True,
+                        default="A",
+                        help_text="availability status",
+                        max_length=1,
+                        verbose_name="Status",
+                    ),
+                ),
+                ("is_deleted", models.BooleanField(default=False)),
+                ("deleted_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "last_modified_ip",
+                    models.GenericIPAddressField(
+                        editable=False, null=True, verbose_name="last modified IP"
+                    ),
+                ),
+                (
+                    "last_modified_user_agent",
+                    models.CharField(
+                        editable=False,
+                        max_length=200,
+                        null=True,
+                        verbose_name="last modified user agent",
+                    ),
+                ),
+                ("description", models.TextField(blank=True)),
+                (
+                    "is_allergen",
+                    models.BooleanField(
+                        default=False,
+                        help_text="Check if this ingredient is a common allergen",
+                        verbose_name="Allergen",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='MenuItem',
+            name="MenuItem",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(db_index=True, help_text='Unique name', max_length=200, unique=True, verbose_name='Name')),
-                ('slug', models.SlugField(help_text='URL-friendly version of name', max_length=200, unique=True, verbose_name='Slug')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('status', models.CharField(choices=[('A', 'Active'), ('I', 'Inactive'), ('D', 'Draft'), ('R', 'Archived')], db_index=True, default='A', help_text='availability status', max_length=1, verbose_name='Status')),
-                ('is_deleted', models.BooleanField(default=False)),
-                ('deleted_at', models.DateTimeField(blank=True, null=True)),
-                ('last_modified_ip', models.GenericIPAddressField(editable=False, null=True, verbose_name='last modified IP')),
-                ('last_modified_user_agent', models.CharField(editable=False, max_length=200, null=True, verbose_name='last modified user agent')),
-                ('price', models.DecimalField(decimal_places=2, help_text='Price of option in dollars (between $99999-$0.01)', max_digits=8, validators=[django.core.validators.MaxValueValidator(Decimal('99999.990000000005238689482212066650390625')), django.core.validators.MinValueValidator(Decimal('0.01000000000000000020816681711721685132943093776702880859375'))], verbose_name='Price')),
-                ('description', models.CharField(help_text='Short description of menuitem', max_length=100, verbose_name='Description')),
-                ('body', models.TextField(help_text='Detailed menuitem description', verbose_name='Body')),
-                ('view_count', models.PositiveIntegerField(default=0, editable=False, help_text='View count for product', verbose_name='View count')),
-                ('selected_count', models.PositiveIntegerField(default=0, editable=False, help_text='Count of how many times this menu item was chosen', verbose_name='Selected count')),
-                ('is_featured', models.BooleanField(db_index=True, default=False, verbose_name='featured')),
-                ('version', models.PositiveIntegerField(default=1, editable=False, help_text='Internal version tracking', verbose_name='Version')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "name",
+                    models.CharField(
+                        db_index=True,
+                        help_text="Unique name",
+                        max_length=200,
+                        unique=True,
+                        verbose_name="Name",
+                    ),
+                ),
+                (
+                    "slug",
+                    models.SlugField(
+                        help_text="URL-friendly version of name",
+                        max_length=200,
+                        unique=True,
+                        verbose_name="Slug",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("A", "Active"),
+                            ("I", "Inactive"),
+                            ("D", "Draft"),
+                            ("R", "Archived"),
+                        ],
+                        db_index=True,
+                        default="A",
+                        help_text="availability status",
+                        max_length=1,
+                        verbose_name="Status",
+                    ),
+                ),
+                ("is_deleted", models.BooleanField(default=False)),
+                ("deleted_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "last_modified_ip",
+                    models.GenericIPAddressField(
+                        editable=False, null=True, verbose_name="last modified IP"
+                    ),
+                ),
+                (
+                    "last_modified_user_agent",
+                    models.CharField(
+                        editable=False,
+                        max_length=200,
+                        null=True,
+                        verbose_name="last modified user agent",
+                    ),
+                ),
+                (
+                    "price",
+                    models.DecimalField(
+                        decimal_places=2,
+                        help_text="Price of option in dollars (between $99999-$0.01)",
+                        max_digits=8,
+                        validators=[
+                            django.core.validators.MaxValueValidator(
+                                Decimal("99999.990000000005238689482212066650390625")
+                            ),
+                            django.core.validators.MinValueValidator(
+                                Decimal(
+                                    "0.01000000000000000020816681711721685132943093776702880859375"
+                                )
+                            ),
+                        ],
+                        verbose_name="Price",
+                    ),
+                ),
+                (
+                    "description",
+                    models.CharField(
+                        help_text="Short description of menuitem",
+                        max_length=100,
+                        verbose_name="Description",
+                    ),
+                ),
+                (
+                    "body",
+                    models.TextField(
+                        help_text="Detailed menuitem description", verbose_name="Body"
+                    ),
+                ),
+                (
+                    "view_count",
+                    models.PositiveIntegerField(
+                        default=0,
+                        editable=False,
+                        help_text="View count for product",
+                        verbose_name="View count",
+                    ),
+                ),
+                (
+                    "selected_count",
+                    models.PositiveIntegerField(
+                        default=0,
+                        editable=False,
+                        help_text="Count of how many times this menu item was chosen",
+                        verbose_name="Selected count",
+                    ),
+                ),
+                (
+                    "is_featured",
+                    models.BooleanField(
+                        db_index=True, default=False, verbose_name="featured"
+                    ),
+                ),
+                (
+                    "version",
+                    models.PositiveIntegerField(
+                        default=1,
+                        editable=False,
+                        help_text="Internal version tracking",
+                        verbose_name="Version",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'MenuItem',
-                'verbose_name_plural': 'MenuItems',
-                'ordering': ['name'],
-                'permissions': [('can_change_status', 'Can change menuitem status'), ('can_feature_product', 'Can mark menuitem as featured'), ('can_view_deleted', 'Can view deleted menuitems')],
+                "verbose_name": "MenuItem",
+                "verbose_name_plural": "MenuItems",
+                "ordering": ["name"],
+                "permissions": [
+                    ("can_change_status", "Can change menuitem status"),
+                    ("can_feature_product", "Can mark menuitem as featured"),
+                    ("can_view_deleted", "Can view deleted menuitems"),
+                ],
             },
         ),
         migrations.CreateModel(
-            name='MenuItemIngredient',
+            name="MenuItemIngredient",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('quantity', models.DecimalField(decimal_places=2, help_text='Amount of ingredient required (e.g., grams, ounces)', max_digits=7, validators=[django.core.validators.MinValueValidator(Decimal('0.01000000000000000020816681711721685132943093776702880859375'))], verbose_name='Amount')),
-                ('unit', models.CharField(help_text='Unit of measurement (e.g., g, oz, ml)', max_length=50, verbose_name='Unit')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "quantity",
+                    models.DecimalField(
+                        decimal_places=2,
+                        help_text="Amount of ingredient required (e.g., grams, ounces)",
+                        max_digits=7,
+                        validators=[
+                            django.core.validators.MinValueValidator(
+                                Decimal(
+                                    "0.01000000000000000020816681711721685132943093776702880859375"
+                                )
+                            )
+                        ],
+                        verbose_name="Amount",
+                    ),
+                ),
+                (
+                    "unit",
+                    models.CharField(
+                        help_text="Unit of measurement (e.g., g, oz, ml)",
+                        max_length=50,
+                        verbose_name="Unit",
+                    ),
+                ),
             ],
         ),
     ]

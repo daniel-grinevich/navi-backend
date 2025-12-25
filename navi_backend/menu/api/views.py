@@ -26,6 +26,15 @@ class MenuItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
     serializer_class = MenuItemSerializer
     permission_classes = [IsAdminUser | ReadOnly]
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        status = self.request.query_params.get("status")
+
+        if status is None:
+            return qs
+
+        return qs.filter(status=status)
+
     @action(
         detail=False,
         methods=["get"],

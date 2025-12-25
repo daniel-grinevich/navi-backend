@@ -77,6 +77,7 @@ class CustomizationGroupSerializer(ReadOnlyAuditMixin, serializers.ModelSerializ
         model = CustomizationGroup
         fields = [
             "id",
+            "slug",
             "name",
             "category",
             "description",
@@ -86,7 +87,8 @@ class CustomizationGroupSerializer(ReadOnlyAuditMixin, serializers.ModelSerializ
             "created_by",
             "updated_at",
             "updated_by",
-            "slug",
+            "minimum_allowed",
+            "maximum_allowed",
             "customizations",
         ]
 

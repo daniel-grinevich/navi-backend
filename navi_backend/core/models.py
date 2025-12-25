@@ -10,6 +10,13 @@ from navi_backend.core.helpers.geo_cache import send_geo_request
 from navi_backend.users.models import User
 
 
+class UUIDModel(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    class Meta:
+        abstract = True
+
+
 class AddressModel(models.Model):
     address_line_1 = models.CharField(
         _("Address line 1"), max_length=255, blank=True, unique=False
