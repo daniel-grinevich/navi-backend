@@ -6,4 +6,17 @@ set -o nounset
 
 
 python manage.py migrate
-exec python manage.py runserver_plus 0.0.0.0:8000
+
+# Start debugpy server for VS Code remote debugging
+# It will wait for VS Code to attach if DEBUGPY_WAIT is set
+if [ "${DEBUGPY_ENABLED:-0}" = "1" ]; then
+    echo "Starting with debugpy enabled on port 5678"
+    if [ "${DEBUGPY_WAIT:-0}" = "1" ]; then
+        echo "Waiting for debugger to attach..."
+        exec python -m debugpy --listen 0.0.0.0:5678 --wait-for-client manage.py runserver 0.0.0.0:8000 --nothreading
+    else
+        exec python -m debugpy --listen 0.0.0.0:5678 manage.py runserver 0.0.0.0:8000 --nothreading
+    fi
+else
+    exec python manage.py runserver_plus 0.0.0.0:8000
+fi

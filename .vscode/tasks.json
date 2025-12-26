@@ -1,0 +1,75 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "docker-compose-up",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.local.yml up -d",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "docker-compose-restart",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.local.yml restart django",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "docker-compose-logs",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.local.yml logs -f django",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "docker-compose-down",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.local.yml down",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Enable Debugging",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.local.yml stop django && DEBUGPY_ENABLED=1 docker compose -f docker-compose.local.yml up -d django",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Enable Debugging (Wait Mode)",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.local.yml stop django && DEBUGPY_ENABLED=1 DEBUGPY_WAIT=1 docker compose -f docker-compose.local.yml up -d django",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Disable Debugging",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.local.yml restart django",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    }
+  ]
+}

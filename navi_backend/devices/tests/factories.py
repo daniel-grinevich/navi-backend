@@ -21,7 +21,7 @@ class RaspberryPiFactory(
     class Meta:
         model = RaspberryPi
 
-    name = factory.Sequence(lambda n: f"Pi {n:03d}")
+    name = factory.Sequence(lambda n: f"pi-server-{n:03d}")
     mac_address = factory.Faker("mac_address")
     ip_address = factory.Faker("ipv4")
     location = factory.Faker("address")
@@ -40,7 +40,7 @@ class MachineTypeFactory(
     class Meta:
         model = MachineType
 
-    name = factory.Sequence(lambda n: f"Type {n:03d}")
+    name = factory.Sequence(lambda n: f"Machine Type {n:03d}")
     model_number = factory.Faker("bothify", text="MT###")
     maintenance_frequency = factory.Faker("random_int", min=30, max=365)
 
@@ -64,11 +64,11 @@ class EspressoMachineFactory(
     class Meta:
         model = EspressoMachine
 
-    name = factory.Sequence(lambda n: f"Machine {n:03d}")
+    name = factory.Iterator(["EversysV1", "EversysV2", "Jura"])
     serial_number = factory.Faker("bothify", text="EM###-####")
     machine_type = factory.SubFactory(MachineTypeFactory)
     ip_address = factory.Faker("ipv4")
-    port = factory.Faker("random_int", min=8000, max=9000)
+    port = factory.Faker("random_int", min=3000, max=9000)
     is_online = factory.Faker("boolean")
     last_maintenance_at = factory.LazyFunction(timezone.now)
 
@@ -80,8 +80,28 @@ class NaviPortFactory(
     UpdateRecordFactory,
     factory.django.DjangoModelFactory,
 ):
+    name = factory.Sequence(lambda n: f"NaviPort-{n:03d}")
     espresso_machine = factory.SubFactory(EspressoMachineFactory)
     raspberry_pi = factory.SubFactory(RaspberryPiFactory)
+    latitude = factory.Faker(
+        "pydecimal",
+        left_digits=2,
+        right_digits=6,
+        positive=False,
+        min_value=-90,
+        max_value=90,
+    )
+    longitude = factory.Faker(
+        "pydecimal",
+        left_digits=3,
+        right_digits=6,
+        positive=False,
+        min_value=-180,
+        max_value=180,
+    )
+    address_line_1 = factory.Faker("street_address")
+    city = factory.Faker("city")
+    postal_code = factory.Faker("postcode")
 
     class Meta:
         model = NaviPort

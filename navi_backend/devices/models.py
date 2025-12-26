@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from navi_backend.core.models import AddressModel
 from navi_backend.core.models import AuditModel
 from navi_backend.core.models import NamedModel
 from navi_backend.core.models import SlugifiedModel
@@ -53,11 +54,7 @@ class EspressoMachine(
     last_maintenance_at = models.DateTimeField(blank=True, null=True)
 
 
-class NaviPort(
-    SlugifiedModel,
-    NamedModel,
-    AuditModel,
-):
+class NaviPort(SlugifiedModel, NamedModel, AuditModel, AddressModel):
     espresso_machine = models.ForeignKey(
         EspressoMachine,
         verbose_name=_("Espresso Machine"),
@@ -76,6 +73,8 @@ class NaviPort(
         blank=True,
         help_text=_("Raspberry Pi attached to this NaviPort"),
     )
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True)
 
     def save(self, *args, **kwargs):
         return super().save(*args, **kwargs)

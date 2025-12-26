@@ -10,10 +10,12 @@ from django.utils.translation import gettext_lazy as _
 from navi_backend.core.models import AuditModel
 from navi_backend.core.models import NamedModel
 from navi_backend.core.models import SlugifiedModel
+from navi_backend.core.models import UUIDModel
 from navi_backend.menu.managers import MenuItemManager
 
 
 class Category(
+    UUIDModel,
     SlugifiedModel,
     NamedModel,
     AuditModel,
@@ -23,6 +25,7 @@ class Category(
 
 
 class MenuItem(
+    UUIDModel,
     SlugifiedModel,
     NamedModel,
     AuditModel,
@@ -148,6 +151,7 @@ class MenuItem(
 
 
 class CustomizationGroup(
+    UUIDModel,
     SlugifiedModel,
     NamedModel,
     AuditModel,
@@ -157,9 +161,24 @@ class CustomizationGroup(
     display_order = models.PositiveIntegerField(_("Display Order"), default=0)
     is_required = models.BooleanField(_("Required"), default=False)
     allow_multiple = models.BooleanField(_("allow_multiple"), default=False)
+    minimum_allowed = models.PositiveIntegerField(
+        _("minimum allowed"), blank=True, null=True
+    )
+    maximum_allowed = models.PositiveIntegerField(
+        _("maximum allowed"), blank=True, null=True
+    )
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        if (
+            self.minimum_allowed is not None
+            and self.maximum_allowed is not None
+            and self.minimum_allowed >= self.maximum_allowed
+        ):
+            error_message = _("Max allowed must be greater than min allowed.")
+            raise ValidationError({"maximum_allowed": error_message})
 
     def save(self, *args, **kwargs):
         return super().save(*args, **kwargs)
@@ -170,6 +189,7 @@ class CustomizationGroup(
 
 
 class Customization(
+    UUIDModel,
     SlugifiedModel,
     NamedModel,
     AuditModel,
@@ -199,7 +219,7 @@ class Customization(
         verbose_name = _("Customization")
 
 
-class Ingredient(NamedModel, SlugifiedModel, AuditModel):
+class Ingredient(UUIDModel, NamedModel, SlugifiedModel, AuditModel):
     """Individual ingredient details."""
 
     description = models.TextField(blank=True)
@@ -213,7 +233,7 @@ class Ingredient(NamedModel, SlugifiedModel, AuditModel):
         return self.name
 
 
-class MenuItemIngredient(models.Model):
+class MenuItemIngredient(UUIDModel):
     """Through model to track ingredient quantities for menu items."""
 
     menu_item = models.ForeignKey(

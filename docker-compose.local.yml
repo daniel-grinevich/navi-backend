@@ -20,6 +20,10 @@ services:
       - ./.envs/.local/.stripe
     ports:
       - "8000:8000"
+      - "5678:5678"  # debugpy port
+    environment:
+      - DEBUGPY_ENABLED=${DEBUGPY_ENABLED:-0}  # Set to 1 to enable debugging
+      - DEBUGPY_WAIT=${DEBUGPY_WAIT:-0}        # Set to 1 to wait for debugger before starting
     command: /start
 
   stripe:

@@ -6,7 +6,75 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
+from navi_backend.core.helpers.geo_cache import send_geo_request
 from navi_backend.users.models import User
+
+
+class UUIDModel(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    class Meta:
+        abstract = True
+
+
+class AddressModel(models.Model):
+    address_line_1 = models.CharField(
+        _("Address line 1"), max_length=255, blank=True, unique=False
+    )
+    address_line_2 = models.CharField(
+        _("Address line 2"), max_length=255, blank=True, unique=False
+    )
+    address_line_3 = models.CharField(
+        _("Address line 3"), max_length=255, blank=True, unique=False
+    )
+    city = models.CharField(_("City"), max_length=255, unique=False, blank=True)
+    state_or_region = models.CharField(
+        _("State or region"), max_length=255, blank=True, unique=False
+    )
+    postal_code = models.CharField(
+        _("Postal code"), max_length=255, blank=True, unique=False
+    )
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        if not self.latitude or not self.longitude:
+            err = "longitude and latitude must be defined for address model"
+            raise NotImplementedError(err)
+
+        if self.address_line_1 and self.city and self.postal_code:
+            super().save(*args, **kwargs)
+            return
+
+        response = send_geo_request(self.latitude, self.longitude)
+        address_info = response.get("address", {})
+
+        if not address_info:
+            err = "address_info is empty."
+            raise ValueError(err)
+
+        road = address_info.get("road", "")
+        address_parts = road.split(",") if road else []
+
+        for index, part in enumerate(address_parts):
+            str_part = part.strip()
+
+            if index == 0:
+                house_number = address_info.get("house_number", "")
+                self.address_line_1 = f"{house_number} {str_part}".strip()
+            elif index == 1:
+                self.address_line_2 = str_part
+            elif not self.address_line_3:
+                self.address_line_3 = str_part
+            else:
+                self.address_line_3 += f", {str_part}"
+
+        self.city = address_info.get("city", "")
+        self.state_or_region = address_info.get("state", "")
+        self.postal_code = address_info.get("postcode", "")
+
+        super().save(*args, **kwargs)
 
 
 class NamedModel(models.Model):

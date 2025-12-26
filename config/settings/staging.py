@@ -71,13 +71,15 @@ SPECTACULAR_SETTINGS = {
 
 ADMIN_URL = env("DJANGO_ADMIN_URL")
 
-INSTALLED_APPS += ["anymail"]
-
-EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
-ANYMAIL = {
-    "MAILGUN_API_KEY": env("MAILGUN_API_KEY"),
-    "MAILGUN_SENDER_DOMAIN": env("MAILGUN_DOMAIN"),
-    "MAILGUN_API_URL": env("MAILGUN_API_URL", default="https://api.mailgun.net/v3"),
-}
+if env.bool("USE_MAILGUN", default=False):
+    INSTALLED_APPS += ["anymail"]
+    EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
+    ANYMAIL = {
+        "MAILGUN_API_KEY": env("MAILGUN_API_KEY"),
+        "MAILGUN_SENDER_DOMAIN": env("MAILGUN_DOMAIN"),
+        "MAILGUN_API_URL": env("MAILGUN_API_URL", default="https://api.mailgun.net/v3"),
+    }
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 ENVIRONMENT_NAME = "Staging"
