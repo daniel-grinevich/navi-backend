@@ -4,6 +4,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+
+celerybeat-schedule
+
 # C extensions
 *.so
 
