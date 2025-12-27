@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.urls import reverse
@@ -20,6 +22,8 @@ class User(AbstractUser):
         max_length=255, blank=True, null=True, unique=True
     )
     email_confirmed = models.BooleanField(default=False)
+    is_guest = models.BooleanField(default=False, null=False, blank=False)
+
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
@@ -33,6 +37,12 @@ class User(AbstractUser):
 
         """
         return reverse("users-detail", kwargs={"pk": self.id})
+
+    def save(self, *args, **kwargs):
+        if self.is_guest and not self.password:
+            self.password = str(uuid.uuid4)
+
+        super().save(*args, **kwargs)
 
 
 class EmailToken(models.Model):

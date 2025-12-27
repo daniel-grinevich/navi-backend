@@ -5,39 +5,16 @@ from django.http import JsonResponse
 from django.urls import include
 from django.urls import path
 from django.views import defaults as default_views
-from drf_spectacular.views import SpectacularAPIView
-from drf_spectacular.views import SpectacularSwaggerView
-from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework_simplejwt.views import TokenRefreshView
-
-from navi_backend.users.api.views import SignupView
-
-from .api_router import router
 
 urlpatterns = [
     path("", lambda response: JsonResponse({"status": "ok"}), name="ro"),
     path("health/", lambda response: JsonResponse({"status": "ok"}), name="health"),
-    # Django Admin, use {% url 'admin:index' %}
-    path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    # Django Admin
     path(settings.ADMIN_URL, admin.site.urls),
     path("accounts/", include("allauth.urls")),
+    # API routes
+    path("api/", include("config.api_router")),
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
-]
-
-# API URLS
-urlpatterns += [
-    # API base url
-    path(r"api/", include(router.urls)),
-    # Knox urls
-    path(r"api/signup/", SignupView.as_view(), name="signup"),
-    # API doc urls
-    path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
-    path(
-        "api/docs/",
-        SpectacularSwaggerView.as_view(url_name="api-schema"),
-        name="api-docs",
-    ),
 ]
 
 if settings.DEBUG:
