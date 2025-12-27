@@ -129,6 +129,7 @@ class MenuItemCustomizationSerializer(ReadOnlyAuditMixin, serializers.ModelSeria
     class Meta:
         model = MenuItem
         fields = [
+            "id",
             "name",
             "slug",
             "status",

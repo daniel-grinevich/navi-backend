@@ -7,7 +7,9 @@ User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=8)
+    password = serializers.CharField(
+        write_only=True, min_length=8, required=False, allow_null=True
+    )
     email = serializers.EmailField(
         validators=[UniqueValidator(queryset=User.objects.all())]
     )
@@ -21,8 +23,21 @@ class UserSerializer(serializers.ModelSerializer):
             "password",
             "stripe_customer_id",
             "date_joined",
+            "is_guest",
         ]
         read_only_fields = ["id", "stripe_customer_id", "date_joined"]
+
+    def validate(self, attrs):
+        is_guest = attrs.get("is_guest", False)
+        password = attrs.get("password")
+
+        # Non-guest users must have a password
+        if not is_guest and not password:
+            raise serializers.ValidationError(
+                {"password": "This field is required for non-guest users."}
+            )
+
+        return attrs
 
     def create(self, validated_data):
         return User.objects.create_user(**validated_data)
