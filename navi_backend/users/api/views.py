@@ -16,7 +16,11 @@ User = get_user_model()
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAdminUser]
+
+    def get_permissions(self):
+        if self.action == "me":
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAdminUser()]
 
     @action(detail=False)
     def me(self, request):

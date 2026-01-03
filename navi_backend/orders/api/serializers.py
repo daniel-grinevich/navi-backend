@@ -19,8 +19,8 @@ class OrderCustomizationSerializer(serializers.ModelSerializer):
     unit_price = serializers.DecimalField(
         read_only=True, max_digits=8, decimal_places=2
     )
-    customization = serializers.SlugRelatedField(
-        slug_field="name", queryset=Customization.objects.all()
+    customization = serializers.PrimaryKeyRelatedField(
+        queryset=Customization.objects.all()
     )
 
     class Meta:
@@ -38,9 +38,7 @@ class OrderItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     unit_price = serializers.DecimalField(
         read_only=True, max_digits=8, decimal_places=2
     )
-    menu_item = serializers.SlugRelatedField(
-        slug_field="name", queryset=MenuItem.objects.all()
-    )
+    menu_item = serializers.PrimaryKeyRelatedField(queryset=MenuItem.objects.all())
 
     class Meta:
         model = OrderItem
@@ -65,6 +63,7 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
+            "id",
             "user",
             "navi_port",
             "price",

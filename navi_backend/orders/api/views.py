@@ -45,7 +45,6 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         if self.request.user.is_staff:
             return Order.objects.all()
-
         token = self.request.headers["Authorization"].split()[1]
         if token and self.request.user.groups.filter(name="guest").exists():
             return Order.objects.filter(auth_token=token)
