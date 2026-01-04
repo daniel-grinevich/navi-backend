@@ -73,7 +73,7 @@ class OrderSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
             "updated_by",
             "slug",
             "items",
-            "order_status",
+            "status",
         ]
 
     def create(self, validated_data):

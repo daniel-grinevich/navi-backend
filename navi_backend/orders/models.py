@@ -37,7 +37,7 @@ class Order(
         blank=True,
     )
     cart_token = models.CharField(max_length=255, blank=False, null=False)
-    order_status = models.CharField(
+    status = models.CharField(
         _("Order Status"),
         max_length=1,
         choices=Status.choices,
