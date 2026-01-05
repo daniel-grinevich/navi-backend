@@ -98,7 +98,7 @@ class OrderItem(
         if not self.order:
             msg = "Can't save an order item without a parent order."
             raise ValidationError(msg)
-        if self.order.order_status != "O":
+        if self.order.status != "O":
             msg = (
                 "You can't update order items if the order is not in "
                 "'Ordered' status."
@@ -158,7 +158,7 @@ class OrderCustomization(
     def save(self, *args, **kwargs):
         if self.order_item:
             order_item = OrderItem.objects.get(pk=self.order_item.pk)
-            if order_item.order.order_status != "O":
+            if order_item.order.status != "O":
                 msg = (
                     "You cannot update order customizations if the order is not in "
                     "'Ordered' status."
