@@ -7,6 +7,7 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializers import UserSerializer
 
@@ -16,7 +17,11 @@ User = get_user_model()
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAdminUser]
+
+    def get_permissions(self):
+        if self.action == "me":
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAdminUser()]
 
     @action(detail=False)
     def me(self, request):
@@ -41,25 +46,31 @@ class CreateGuestView(APIView):
     serializer_class = UserSerializer
 
     def post(self, request):
-        guest_user = request.data["guestUser"]
+        guest_email = request.data.get("guestUser")
 
-        if not guest_user or not isinstance(guest_user, str):
+        if not guest_email or not isinstance(guest_email, str):
             return Response(
                 status=status.HTTP_400_BAD_REQUEST,
                 data="Guest email needs to be passed in as type string",
             )
 
-        fake_password = uuid.uuid4()
-        request_data = {
-            "email": guest_user,
-            "password": str(fake_password),
-            "is_guest": True,
-        }
+        user, created = User.objects.get_or_create(
+            email=guest_email,
+            defaults={
+                "is_guest": True,
+            },
+        )
+        if created:
+            user.set_password(uuid.uuid4().hex)
+            user.save()
 
-        serializer = UserSerializer(data=request_data)
+        refresh = RefreshToken.for_user(user)
 
-        if serializer.is_valid():
-            serializer.save()
-
-            return Response(status=status.HTTP_201_CREATED, data=serializer.data)
-        return Response(status=status.HTTP_400_BAD_REQUEST, data=serializer.errors)
+        return Response(
+            status=status.HTTP_201_CREATED,
+            data={
+                "user": UserSerializer(user).data,
+                "accessToken": str(refresh.access_token),
+                "refreshToken": str(refresh),
+            },
+        )

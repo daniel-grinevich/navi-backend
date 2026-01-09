@@ -46,10 +46,6 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
         if self.request.user.is_staff:
             return Order.objects.all()
 
-        token = self.request.headers["Authorization"].split()[1]
-        if token and self.request.user.groups.filter(name="guest").exists():
-            return Order.objects.filter(auth_token=token)
-
         user = self.request.user
         if user and user.is_authenticated:
             return Order.objects.filter(user=user)
@@ -102,9 +98,9 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
+        print(request.data)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         self.perform_create(serializer)
         order = serializer.instance
 
