@@ -31,7 +31,6 @@ class UserSerializer(serializers.ModelSerializer):
         is_guest = attrs.get("is_guest", False)
         password = attrs.get("password")
 
-        # Non-guest users must have a password
         if not is_guest and not password:
             raise serializers.ValidationError(
                 {"password": "This field is required for non-guest users."}

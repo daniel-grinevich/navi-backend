@@ -49,7 +49,7 @@ class CreateGuestView(APIView):
                 data="Guest email needs to be passed in as type string",
             )
 
-        fake_password = uuid.uuid4
+        fake_password = uuid.uuid4()
         request_data = {
             "email": guest_user,
             "password": str(fake_password),
@@ -60,5 +60,6 @@ class CreateGuestView(APIView):
 
         if serializer.is_valid():
             serializer.save()
+
             return Response(status=status.HTTP_201_CREATED, data=serializer.data)
         return Response(status=status.HTTP_400_BAD_REQUEST, data=serializer.errors)
