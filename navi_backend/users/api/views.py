@@ -21,12 +21,27 @@ class UserViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action == "me":
             return [permissions.IsAuthenticated()]
+        if self.action == "by_email":
+            return [permissions.AllowAny()]
         return [permissions.IsAdminUser()]
 
     @action(detail=False)
     def me(self, request):
         serializer = UserSerializer(request.user, context={"request": request})
         return Response(status=status.HTTP_200_OK, data=serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="by-email")
+    def by_email(self, request):
+        email = request.query_params.get("email")
+        if not email:
+            return Response({"error": "Email required"}, status=400)
+
+        user = User.objects.filter(email=email).first()
+        if not user:
+            return Response({"error": "User not found"}, status=404)
+
+        serializer = UserSerializer(user, context={"request": request})
+        return Response(serializer.data)
 
 
 class SignupView(APIView):

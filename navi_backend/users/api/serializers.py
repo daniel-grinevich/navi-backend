@@ -3,16 +3,27 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
+from navi_backend.core.api.serializers import BaseModelSerializer
+
 User = get_user_model()
 
 
-class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(BaseModelSerializer):
     password = serializers.CharField(
         write_only=True, min_length=8, required=False, allow_null=True
     )
     email = serializers.EmailField(
         validators=[UniqueValidator(queryset=User.objects.all())]
     )
+
+    show_only_to_admin_fields = [
+        "name",
+        "created_at",
+        "password",
+        "stripe_customer_id",
+        "date_joined",
+        "is_guest",
+    ]
 
     class Meta:
         model = User
@@ -31,7 +42,6 @@ class UserSerializer(serializers.ModelSerializer):
         is_guest = attrs.get("is_guest", False)
         password = attrs.get("password")
 
-        # Non-guest users must have a password
         if not is_guest and not password:
             raise serializers.ValidationError(
                 {"password": "This field is required for non-guest users."}
