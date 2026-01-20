@@ -99,3 +99,31 @@ services:
     ports:
       - "5557:5555"
     command: /start-flower
+
+  mailpit:
+    image: axllent/mailpit
+    container_name: mailpit
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+
+  # mailserver:
+  #   image: docker.io/mailserver/docker-mailserver
+  #   container_name: mailserver
+  #   hostname: mail.navitascoffee.com
+  #   env_file: ./.envs/.local/.django
+  #   ports:
+  #     - "25:25"
+  #     - "587:587"
+  #   volumes:
+  #     - ./docker-data/dms/mail-data/:/var/mail/
+  #     - ./docker-data/dms/mail-state/:/var/mail-state/
+  #     - ./docker-data/dms/mail-logs/:/var/log/mail/
+  #     - ./docker-data/dms/config/:/tmp/docker-mailserver/
+  #     - /etc/localtime:/etc/localtime:ro
+  #   restart: always
+  #   stop_grace_period: 1m
+  #   healthcheck:
+  #     test: "ss --listening --ipv4 --tcp | grep --silent ':smtp' || exit 1"
+  #     timeout: 3s
+  #     retries: 0

@@ -38,7 +38,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
         user = User.objects.filter(email=email).first()
         if not user:
-            return Response({"error": "User not found"}, status=404)
+            return Response({"error": "User not found"}, status=200)
 
         serializer = UserSerializer(user, context={"request": request})
         return Response(serializer.data)

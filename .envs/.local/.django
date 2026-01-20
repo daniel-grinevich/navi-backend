@@ -8,3 +8,8 @@ DJANGO_ADMIN_URL=secret_backdoor/
 # ------------------------------------------------------------------------------
 CELERY_BROKER_URL=redis://redis:6379/0
 CELERY_RESULT_BACKEND=redis://redis:6379/0
+# Mail
+# ------------------------------------------------------------------------------
+EMAIL_HOST=mailpit
+EMAIL_PORT=1025
+DJANGO_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
