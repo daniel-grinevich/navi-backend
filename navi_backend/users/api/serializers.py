@@ -1,7 +1,6 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from rest_framework.validators import UniqueValidator
 
 from navi_backend.core.api.serializers import BaseModelSerializer
 
@@ -12,9 +11,7 @@ class UserSerializer(BaseModelSerializer):
     password = serializers.CharField(
         write_only=True, min_length=8, required=False, allow_null=True
     )
-    email = serializers.EmailField(
-        validators=[UniqueValidator(queryset=User.objects.all())]
-    )
+    email = serializers.EmailField()  # manually handle unique validation
     is_admin = serializers.SerializerMethodField()
 
     show_only_to_admin_fields = [
@@ -23,7 +20,6 @@ class UserSerializer(BaseModelSerializer):
         "password",
         "stripe_customer_id",
         "date_joined",
-        "is_guest",
     ]
 
     class Meta:
@@ -55,6 +51,24 @@ class UserSerializer(BaseModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        email = validated_data["email"].lower()
+
+        user = User.objects.filter(email=email).first()
+
+        if user:
+            if not user.is_guest:
+                raise serializers.ValidationError(
+                    {"email": "An account with this email already exists."}
+                )
+
+            # Upgrade guest user
+            user.email = email
+            user.is_guest = False
+            user.set_password(validated_data["password"])
+            user.save()
+
+            return user
+
         return User.objects.create_user(**validated_data)
 
     def update(self, instance, validated_data):
