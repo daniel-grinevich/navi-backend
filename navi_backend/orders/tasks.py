@@ -24,7 +24,12 @@ def create_order_invoice(self, order_id):
         .get(id=order_id)
     )
 
-    invoice, _ = Invoice.objects.get_or_create(order=order)
+    invoice, _ = Invoice.objects.get_or_create(
+        order=order,
+        defaults={"created_by": order.created_by, "updated_by": order.updated_by},
+    )
+
+    logging.info(f"Created Invoice #{invoice.id}")  # NOQA: G004
 
     html = render_to_string(
         "invoices/order_pdf.html",

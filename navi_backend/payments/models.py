@@ -1,6 +1,7 @@
 from django.db import models
 
 from navi_backend.core.models import AuditModel
+from navi_backend.core.models import UpdateRecordModel
 from navi_backend.core.models import UUIDModel
 
 
@@ -21,7 +22,7 @@ class Payment(UUIDModel, AuditModel):
         return f"Payment {self.stripe_payment_intent_id} - {self.status}"
 
 
-class Invoice(UUIDModel, AuditModel):
+class Invoice(UUIDModel, AuditModel, UpdateRecordModel):
     order = models.OneToOneField(
         "orders.Order", on_delete=models.PROTECT, related_name="invoice"
     )
@@ -30,8 +31,8 @@ class Invoice(UUIDModel, AuditModel):
 
     def save(self, *args, **kwargs):
         if not self.reference_number:
-            latest = int(self.__class__.last_reference_number().reference_number) + 1
-            self.reference_number = latest if latest else 1
+            last = self.__class__.last_reference_number()
+            self.reference_number = last.reference_number + 1 if last else 1
 
         super().save(*args, **kwargs)
 
