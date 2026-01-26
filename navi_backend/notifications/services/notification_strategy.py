@@ -1,9 +1,11 @@
 import logging
 from abc import ABC
 from abc import abstractmethod
+from dataclasses import dataclass
 
 from django.conf import settings
 from django.core.mail import EmailMessage
+from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 
 from navi_backend.notifications.models import EmailLog
@@ -11,6 +13,12 @@ from navi_backend.notifications.models import NotificationKind
 from navi_backend.notifications.models import TextLog
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PDFAttachment:
+    filename: str
+    pdf_bytes: bytes
 
 
 class NotificationService(ABC):
@@ -63,6 +71,7 @@ class EmailNotificationService(NotificationService):
         context=None,
         from_email=None,
         reply_to=None,
+        attachment=None,
         **kwargs,
     ):
         super().__init__(recipient, **kwargs)
@@ -72,24 +81,53 @@ class EmailNotificationService(NotificationService):
         self.context = context or {}
         self.from_email = from_email or getattr(settings, "DEFAULT_FROM_EMAIL", None)
         self.reply_to = reply_to
+        self.attachment = attachment
 
     def _deliver(self):
         html_content = None
         if self.template:
             html_content = render_to_string(self.template, self.context)
 
-        email = EmailMessage(
-            subject=self.subject,
-            body=self.body or html_content or "",
-            from_email=self.from_email,
-            to=[self.recipient] if isinstance(self.recipient, str) else self.recipient,
-            reply_to=[self.reply_to] if self.reply_to else None,
-        )
+        email = self.create_email_object(self.attachment, html_content)
 
         if html_content:
             email.content_subtype = "html"
 
+        if self.attachment:
+            email.attach(
+                self.attachment.filename,
+                self.attachment.pdf_bytes,
+                "application/pdf",
+            )
+
         email.send(fail_silently=False)
+
+    def create_email_object(self, has_attachment, html_content):
+        if has_attachment:
+            email = EmailMultiAlternatives(
+                subject=self.subject,
+                body=self.body or html_content or "",
+                from_email=self.from_email,
+                to=(
+                    [self.recipient]
+                    if isinstance(self.recipient, str)
+                    else self.recipient
+                ),
+                reply_to=[self.reply_to] if self.reply_to else None,
+            )
+        else:
+            email = EmailMessage(
+                subject=self.subject,
+                body=self.body or html_content or "",
+                from_email=self.from_email,
+                to=(
+                    [self.recipient]
+                    if isinstance(self.recipient, str)
+                    else self.recipient
+                ),
+                reply_to=[self.reply_to] if self.reply_to else None,
+            )
+        return email
 
     def _log(self):
         recipient_email = (

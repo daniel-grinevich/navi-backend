@@ -5,10 +5,12 @@ from navi_backend.core.models import AddressModel
 from navi_backend.core.models import AuditModel
 from navi_backend.core.models import NamedModel
 from navi_backend.core.models import SlugifiedModel
+from navi_backend.core.models import UUIDModel
 from navi_backend.menu.models import MenuItem
 
 
 class RaspberryPi(
+    UUIDModel,
     SlugifiedModel,
     NamedModel,
     AuditModel,
@@ -22,6 +24,7 @@ class RaspberryPi(
 
 
 class MachineType(
+    UUIDModel,
     SlugifiedModel,
     NamedModel,
     AuditModel,
@@ -34,6 +37,7 @@ class MachineType(
 
 
 class EspressoMachine(
+    UUIDModel,
     SlugifiedModel,
     NamedModel,
     AuditModel,
@@ -54,7 +58,7 @@ class EspressoMachine(
     last_maintenance_at = models.DateTimeField(blank=True, null=True)
 
 
-class NaviPort(SlugifiedModel, NamedModel, AuditModel, AddressModel):
+class NaviPort(UUIDModel, SlugifiedModel, NamedModel, AuditModel, AddressModel):
     espresso_machine = models.ForeignKey(
         EspressoMachine,
         verbose_name=_("Espresso Machine"),

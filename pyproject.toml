@@ -131,6 +131,7 @@ ignore = [
   "SIM102", # sometimes it's better to nest
   "COM812",
   "ISC001",
+  "TRY301", # Abstract `raise` to an inner function
   "UP038", # Checks for uses of isinstance/issubclass that take a tuple
           # of types for comparison.
           # Deactivated because it can make the code slow:

@@ -6,17 +6,29 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('orders', '0003_alter_order_last_modified_user_agent_and_more'),
+        ("orders", "0003_alter_order_last_modified_user_agent_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='order',
-            name='order_status',
+            model_name="order",
+            name="order_status",
         ),
         migrations.AlterField(
-            model_name='order',
-            name='status',
-            field=models.CharField(choices=[('O', 'Ordered'), ('S', 'Sent'), ('D', 'Completed'), ('C', 'Cancelled')], db_index=True, default='O', help_text='Order status', max_length=1, verbose_name='Order Status'),
+            model_name="order",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("O", "Ordered"),
+                    ("S", "Sent"),
+                    ("D", "Completed"),
+                    ("C", "Cancelled"),
+                ],
+                db_index=True,
+                default="O",
+                help_text="Order status",
+                max_length=1,
+                verbose_name="Order Status",
+            ),
         ),
     ]

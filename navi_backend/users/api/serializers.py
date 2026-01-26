@@ -15,6 +15,7 @@ class UserSerializer(BaseModelSerializer):
     email = serializers.EmailField(
         validators=[UniqueValidator(queryset=User.objects.all())]
     )
+    is_admin = serializers.SerializerMethodField()
 
     show_only_to_admin_fields = [
         "name",
@@ -35,8 +36,12 @@ class UserSerializer(BaseModelSerializer):
             "stripe_customer_id",
             "date_joined",
             "is_guest",
+            "is_admin",
         ]
         read_only_fields = ["id", "stripe_customer_id", "date_joined"]
+
+    def get_is_admin(self, obj):
+        return obj.is_staff or obj.is_superuser
 
     def validate(self, attrs):
         is_guest = attrs.get("is_guest", False)
