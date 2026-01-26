@@ -38,7 +38,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
         user = User.objects.filter(email=email).first()
         if not user:
-            return Response({"error": "User not found"}, status=404)
+            return Response({"error": "User not found"}, status=200)
 
         serializer = UserSerializer(user, context={"request": request})
         return Response(serializer.data)
@@ -53,7 +53,6 @@ class SignupView(APIView):
         if serializer.is_valid():
             serializer.save()
             return Response(status=status.HTTP_201_CREATED, data=serializer.data)
-        print(serializer.errors)
         return Response(status=status.HTTP_400_BAD_REQUEST, data=serializer.errors)
 
 

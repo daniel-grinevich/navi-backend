@@ -4,71 +4,272 @@ from decimal import Decimal
 
 import django.core.validators
 from django.db import migrations, models
+import uuid
 
 
 class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Order',
+            name="Order",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('slug', models.SlugField(help_text='URL-friendly version of name', max_length=200, unique=True, verbose_name='Slug')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('status', models.CharField(choices=[('A', 'Active'), ('I', 'Inactive'), ('D', 'Draft'), ('R', 'Archived')], db_index=True, default='A', help_text='availability status', max_length=1, verbose_name='Status')),
-                ('is_deleted', models.BooleanField(default=False)),
-                ('deleted_at', models.DateTimeField(blank=True, null=True)),
-                ('last_modified_ip', models.GenericIPAddressField(editable=False, null=True, verbose_name='last modified IP')),
-                ('last_modified_user_agent', models.CharField(editable=False, max_length=200, null=True, verbose_name='last modified user agent')),
-                ('cart_token', models.CharField(max_length=255)),
-                ('order_status', models.CharField(choices=[('O', 'Ordered'), ('S', 'Sent'), ('D', 'Completed'), ('C', 'Cancelled')], db_index=True, default='O', help_text='Order status', max_length=1, verbose_name='Order Status')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "slug",
+                    models.SlugField(
+                        help_text="URL-friendly version of name",
+                        max_length=200,
+                        unique=True,
+                        verbose_name="Slug",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("A", "Active"),
+                            ("I", "Inactive"),
+                            ("D", "Draft"),
+                            ("R", "Archived"),
+                        ],
+                        db_index=True,
+                        default="A",
+                        help_text="availability status",
+                        max_length=1,
+                        verbose_name="Status",
+                    ),
+                ),
+                ("is_deleted", models.BooleanField(default=False)),
+                ("deleted_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "last_modified_ip",
+                    models.GenericIPAddressField(
+                        editable=False, null=True, verbose_name="last modified IP"
+                    ),
+                ),
+                (
+                    "last_modified_user_agent",
+                    models.CharField(
+                        editable=False,
+                        max_length=200,
+                        null=True,
+                        verbose_name="last modified user agent",
+                    ),
+                ),
+                ("cart_token", models.CharField(max_length=255)),
+                (
+                    "order_status",
+                    models.CharField(
+                        choices=[
+                            ("O", "Ordered"),
+                            ("S", "Sent"),
+                            ("D", "Completed"),
+                            ("C", "Cancelled"),
+                        ],
+                        db_index=True,
+                        default="O",
+                        help_text="Order status",
+                        max_length=1,
+                        verbose_name="Order Status",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='OrderCustomization',
+            name="OrderCustomization",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('slug', models.SlugField(help_text='URL-friendly version of name', max_length=200, unique=True, verbose_name='Slug')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('status', models.CharField(choices=[('A', 'Active'), ('I', 'Inactive'), ('D', 'Draft'), ('R', 'Archived')], db_index=True, default='A', help_text='availability status', max_length=1, verbose_name='Status')),
-                ('is_deleted', models.BooleanField(default=False)),
-                ('deleted_at', models.DateTimeField(blank=True, null=True)),
-                ('last_modified_ip', models.GenericIPAddressField(editable=False, null=True, verbose_name='last modified IP')),
-                ('last_modified_user_agent', models.CharField(editable=False, max_length=200, null=True, verbose_name='last modified user agent')),
-                ('quantity', models.IntegerField(default=1, validators=[django.core.validators.MaxValueValidator(100), django.core.validators.MinValueValidator(1)])),
-                ('unit_price', models.DecimalField(decimal_places=2, help_text='Price per unit in dollars (between $99999-$0.01)', max_digits=8, validators=[django.core.validators.MaxValueValidator(Decimal('99999.990000000005238689482212066650390625')), django.core.validators.MinValueValidator(Decimal('0.01000000000000000020816681711721685132943093776702880859375'))], verbose_name='Unit Price')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "slug",
+                    models.SlugField(
+                        help_text="URL-friendly version of name",
+                        max_length=200,
+                        unique=True,
+                        verbose_name="Slug",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("A", "Active"),
+                            ("I", "Inactive"),
+                            ("D", "Draft"),
+                            ("R", "Archived"),
+                        ],
+                        db_index=True,
+                        default="A",
+                        help_text="availability status",
+                        max_length=1,
+                        verbose_name="Status",
+                    ),
+                ),
+                ("is_deleted", models.BooleanField(default=False)),
+                ("deleted_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "last_modified_ip",
+                    models.GenericIPAddressField(
+                        editable=False, null=True, verbose_name="last modified IP"
+                    ),
+                ),
+                (
+                    "last_modified_user_agent",
+                    models.CharField(
+                        editable=False,
+                        max_length=200,
+                        null=True,
+                        verbose_name="last modified user agent",
+                    ),
+                ),
+                (
+                    "quantity",
+                    models.IntegerField(
+                        default=1,
+                        validators=[
+                            django.core.validators.MaxValueValidator(100),
+                            django.core.validators.MinValueValidator(1),
+                        ],
+                    ),
+                ),
+                (
+                    "unit_price",
+                    models.DecimalField(
+                        decimal_places=2,
+                        help_text="Price per unit in dollars (between $99999-$0.01)",
+                        max_digits=8,
+                        validators=[
+                            django.core.validators.MaxValueValidator(
+                                Decimal("99999.990000000005238689482212066650390625")
+                            ),
+                            django.core.validators.MinValueValidator(
+                                Decimal(
+                                    "0.01000000000000000020816681711721685132943093776702880859375"
+                                )
+                            ),
+                        ],
+                        verbose_name="Unit Price",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='OrderItem',
+            name="OrderItem",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('slug', models.SlugField(help_text='URL-friendly version of name', max_length=200, unique=True, verbose_name='Slug')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('status', models.CharField(choices=[('A', 'Active'), ('I', 'Inactive'), ('D', 'Draft'), ('R', 'Archived')], db_index=True, default='A', help_text='availability status', max_length=1, verbose_name='Status')),
-                ('is_deleted', models.BooleanField(default=False)),
-                ('deleted_at', models.DateTimeField(blank=True, null=True)),
-                ('last_modified_ip', models.GenericIPAddressField(editable=False, null=True, verbose_name='last modified IP')),
-                ('last_modified_user_agent', models.CharField(editable=False, max_length=200, null=True, verbose_name='last modified user agent')),
-                ('quantity', models.IntegerField(default=1, validators=[django.core.validators.MaxValueValidator(100), django.core.validators.MinValueValidator(1)])),
-                ('unit_price', models.DecimalField(decimal_places=2, help_text='Price per unit in dollars (between $99999-$0.01)', max_digits=8, validators=[django.core.validators.MaxValueValidator(Decimal('99999.990000000005238689482212066650390625')), django.core.validators.MinValueValidator(Decimal('0.01000000000000000020816681711721685132943093776702880859375'))], verbose_name='Unit Price')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "slug",
+                    models.SlugField(
+                        help_text="URL-friendly version of name",
+                        max_length=200,
+                        unique=True,
+                        verbose_name="Slug",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("A", "Active"),
+                            ("I", "Inactive"),
+                            ("D", "Draft"),
+                            ("R", "Archived"),
+                        ],
+                        db_index=True,
+                        default="A",
+                        help_text="availability status",
+                        max_length=1,
+                        verbose_name="Status",
+                    ),
+                ),
+                ("is_deleted", models.BooleanField(default=False)),
+                ("deleted_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "last_modified_ip",
+                    models.GenericIPAddressField(
+                        editable=False, null=True, verbose_name="last modified IP"
+                    ),
+                ),
+                (
+                    "last_modified_user_agent",
+                    models.CharField(
+                        editable=False,
+                        max_length=200,
+                        null=True,
+                        verbose_name="last modified user agent",
+                    ),
+                ),
+                (
+                    "quantity",
+                    models.IntegerField(
+                        default=1,
+                        validators=[
+                            django.core.validators.MaxValueValidator(100),
+                            django.core.validators.MinValueValidator(1),
+                        ],
+                    ),
+                ),
+                (
+                    "unit_price",
+                    models.DecimalField(
+                        decimal_places=2,
+                        help_text="Price per unit in dollars (between $99999-$0.01)",
+                        max_digits=8,
+                        validators=[
+                            django.core.validators.MaxValueValidator(
+                                Decimal("99999.990000000005238689482212066650390625")
+                            ),
+                            django.core.validators.MinValueValidator(
+                                Decimal(
+                                    "0.01000000000000000020816681711721685132943093776702880859375"
+                                )
+                            ),
+                        ],
+                        verbose_name="Unit Price",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
     ]

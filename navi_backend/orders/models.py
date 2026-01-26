@@ -8,6 +8,7 @@ from django.utils.translation import gettext_lazy as _
 
 from navi_backend.core.models import AuditModel
 from navi_backend.core.models import SlugifiedModel
+from navi_backend.core.models import UUIDModel
 from navi_backend.devices.models import NaviPort
 from navi_backend.menu.models import Customization
 from navi_backend.menu.models import MenuItem
@@ -18,11 +19,12 @@ from navi_backend.users.models import User
 class Status(models.TextChoices):
     ORDERED = "O", _("Ordered")
     SENT = "S", _("Sent")
-    COMPLETED = "D", _("Completed")
+    DONE = "D", _("Done")
     CANCELLED = "C", _("Cancelled")
 
 
 class Order(
+    UUIDModel,
     SlugifiedModel,
     AuditModel,
 ):
@@ -66,6 +68,7 @@ class Order(
 
 
 class OrderItem(
+    UUIDModel,
     SlugifiedModel,
     AuditModel,
 ):
@@ -121,6 +124,7 @@ class OrderItem(
 
 
 class OrderCustomization(
+    UUIDModel,
     SlugifiedModel,
     AuditModel,
 ):

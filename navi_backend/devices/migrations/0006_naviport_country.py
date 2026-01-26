@@ -6,13 +6,19 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('devices', '0005_naviport_address_line_1_naviport_address_line_2_and_more'),
+        ("devices", "0005_naviport_address_line_1_naviport_address_line_2_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='naviport',
-            name='country',
-            field=models.CharField(blank=True, default='US', help_text='ISO 3166-1 alpha-2 country code', max_length=2, verbose_name='Country'),
+            model_name="naviport",
+            name="country",
+            field=models.CharField(
+                blank=True,
+                default="US",
+                help_text="ISO 3166-1 alpha-2 country code",
+                max_length=2,
+                verbose_name="Country",
+            ),
         ),
     ]

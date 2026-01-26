@@ -111,3 +111,24 @@ CORS_ALLOW_HEADERS = [
     "authorization",
     "content-type",
 ]
+
+# STORAGES (MinIO - S3-compatible object storage for local dev)
+# ------------------------------------------------------------------------------
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        "OPTIONS": {
+            "access_key": env("MINIO_ACCESS_KEY"),
+            "secret_key": env("MINIO_SECRET_KEY"),
+            "bucket_name": env("MINIO_BUCKET_NAME", default="navi-local-media"),
+            "endpoint_url": env("MINIO_ENDPOINT_URL", default="http://minio:9000"),
+            "custom_domain": None,
+            "default_acl": None,
+            "file_overwrite": False,
+            "querystring_auth": False,
+        },
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}

@@ -41,7 +41,6 @@ class StripePaymentService:
         """
         intent = stripe.PaymentIntent.capture(payment_intent_id)
 
-        # Update your Payment record
         try:
             payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
             payment.amount_received = (
@@ -49,14 +48,7 @@ class StripePaymentService:
             )  # Convert back to dollars
             payment.status = intent.status
             payment.save()
-
-            # Update the related order too, if needed
-            order = payment.order
-            order.status = "D"
-            order.save()
-
         except Payment.DoesNotExist:
-            # You might want to log this
             pass
 
         return intent
@@ -72,14 +64,7 @@ class StripePaymentService:
             payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
             payment.status = intent.status
             payment.save()
-
-            # Update the related order too, if needed
-            order = payment.order
-            order.status = "cancelled"
-            order.save()
-
         except Payment.DoesNotExist:
-            # Log this if needed
             pass
 
         return intent

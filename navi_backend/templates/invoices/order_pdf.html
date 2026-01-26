@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Invoice #{{ invoice.format_reference_number }}</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 2cm;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-size: 12px;
+        line-height: 1.5;
+        color: #333;
+      }
+
+      .invoice-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 40px;
+        padding-bottom: 20px;
+        border-bottom: 2px solid #333;
+      }
+
+      .company-info h1 {
+        font-size: 28px;
+        font-weight: bold;
+        color: #2c3e50;
+        margin-bottom: 5px;
+      }
+
+      .company-info p {
+        color: #666;
+        font-size: 11px;
+      }
+
+      .invoice-meta {
+        text-align: right;
+      }
+
+      .invoice-meta h2 {
+        font-size: 24px;
+        color: #2c3e50;
+        margin-bottom: 10px;
+      }
+
+      .invoice-meta table {
+        margin-left: auto;
+      }
+
+      .invoice-meta td {
+        padding: 2px 0;
+      }
+
+      .invoice-meta td:first-child {
+        text-align: right;
+        padding-right: 10px;
+        color: #666;
+      }
+
+      .invoice-meta td:last-child {
+        font-weight: bold;
+      }
+
+      .billing-section {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 30px;
+      }
+
+      .billing-box {
+        width: 45%;
+      }
+
+      .billing-box h3 {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #666;
+        margin-bottom: 8px;
+        letter-spacing: 1px;
+      }
+
+      .billing-box p {
+        margin-bottom: 3px;
+      }
+
+      .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 30px;
+      }
+
+      .items-table thead {
+        background-color: #2c3e50;
+        color: white;
+      }
+
+      .items-table th {
+        padding: 12px 10px;
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .items-table th:last-child,
+      .items-table td:last-child {
+        text-align: right;
+      }
+
+      .items-table th:nth-child(2),
+      .items-table td:nth-child(2) {
+        text-align: center;
+      }
+
+      .items-table th:nth-child(3),
+      .items-table td:nth-child(3) {
+        text-align: right;
+      }
+
+      .items-table tbody tr {
+        border-bottom: 1px solid #eee;
+      }
+
+      .items-table tbody tr:nth-child(even) {
+        background-color: #f9f9f9;
+      }
+
+      .items-table td {
+        padding: 12px 10px;
+        vertical-align: top;
+      }
+
+      .item-name {
+        font-weight: bold;
+      }
+
+      .item-customizations {
+        font-size: 10px;
+        color: #666;
+        margin-top: 4px;
+        padding-left: 10px;
+      }
+
+      .item-customization {
+        margin-top: 2px;
+      }
+
+      .totals-section {
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .totals-table {
+        width: 250px;
+      }
+
+      .totals-table tr td {
+        padding: 8px 0;
+      }
+
+      .totals-table tr td:first-child {
+        text-align: right;
+        padding-right: 20px;
+        color: #666;
+      }
+
+      .totals-table tr td:last-child {
+        text-align: right;
+        font-weight: bold;
+      }
+
+      .totals-table .total-row {
+        border-top: 2px solid #333;
+      }
+
+      .totals-table .total-row td {
+        padding-top: 12px;
+        font-size: 16px;
+      }
+
+      .totals-table .total-row td:last-child {
+        color: #2c3e50;
+      }
+
+      .payment-info {
+        margin-top: 40px;
+        padding: 15px;
+        background-color: #f5f5f5;
+        border-radius: 4px;
+      }
+
+      .payment-info h3 {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #666;
+        margin-bottom: 8px;
+        letter-spacing: 1px;
+      }
+
+      .payment-info p {
+        margin-bottom: 3px;
+      }
+
+      .status-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 3px;
+        font-size: 10px;
+        text-transform: uppercase;
+        font-weight: bold;
+      }
+
+      .status-succeeded {
+        background-color: #d4edda;
+        color: #155724;
+      }
+
+      .status-pending {
+        background-color: #fff3cd;
+        color: #856404;
+      }
+
+      .status-failed {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+
+      .footer {
+        margin-top: 50px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+        text-align: center;
+        color: #999;
+        font-size: 10px;
+      }
+
+      .footer p {
+        margin-bottom: 3px;
+      }
+
+      .empty-items {
+        text-align: center;
+        color: #999;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="invoice-header">
+      <div class="company-info">
+        <h1>Navi Coffee</h1>
+        <p>Your perfect cup, delivered</p>
+      </div>
+      <div class="invoice-meta">
+        <h2>INVOICE</h2>
+        <table>
+          <tr>
+            <td>Invoice #:</td>
+            <td>{{ invoice.format_reference_number }}</td>
+          </tr>
+          <tr>
+            <td>Date:</td>
+            <td>{{ order.created_at|date:"M d, Y" }}</td>
+          </tr>
+          <tr>
+            <td>Order ID:</td>
+            <td>{{ order.slug|truncatechars:12 }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    <div class="billing-section">
+      <div class="billing-box">
+        <h3>Bill To</h3>
+        {% if order.user %}
+          <p>
+            <strong>{{ order.user.get_full_name|default:order.user.email }}</strong>
+          </p>
+          <p>{{ order.user.email }}</p>
+        {% else %}
+          <p>
+            <strong>Guest Customer</strong>
+          </p>
+        {% endif %}
+      </div>
+      <div class="billing-box">
+        <h3>Location</h3>
+        {% if order.navi_port %}
+          <p>
+            <strong>{{ order.navi_port.name }}</strong>
+          </p>
+          {% if order.navi_port.country %}<p>{{ order.navi_port.country }}</p>{% endif %}
+        {% else %}
+          <p>N/A</p>
+        {% endif %}
+      </div>
+    </div>
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Qty</th>
+          <th>Unit Price</th>
+          <th>Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in order.items.all %}
+          <tr>
+            <td>
+              <div class="item-name">{{ item.menu_item.name }}</div>
+              {% if item.customizations.exists %}
+                <div class="item-customizations">
+                  {% for customization in item.customizations.all %}
+                    <div class="item-customization">
+                      + {{ customization.customization.name }}
+                      {% if customization.quantity > 1 %}(x{{ customization.quantity }}){% endif %}
+                      {% if customization.price %}[${{ customization.price }}]{% endif %}
+                    </div>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </td>
+            <td>{{ item.quantity }}</td>
+            <td>${{ item.unit_price }}</td>
+            <td>${{ item.price }}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4" class="empty-items">No items</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="totals-section">
+      <table class="totals-table">
+        <tr>
+          <td>Subtotal:</td>
+          <td>${{ order.price }}</td>
+        </tr>
+        <tr>
+          <td>Tax:</td>
+          <td>$0.00</td>
+        </tr>
+        <tr class="total-row">
+          <td>Total:</td>
+          <td>${{ order.price }}</td>
+        </tr>
+      </table>
+    </div>
+    {% if order.payment %}
+      <div class="payment-info">
+        <h3>Payment Information</h3>
+        <p>
+          <strong>Status:</strong>
+          <span class="status-badge {% if order.payment.status == 'succeeded' %}status-succeeded{% elif order.payment.status == 'failed' %}status-failed{% else %}status-pending{% endif %}">
+            {{ order.payment.get_status_display }}
+          </span>
+        </p>
+        <p>
+          <strong>Amount Received:</strong> ${{ order.payment.amount_received }}
+        </p>
+        <p>
+          <strong>Currency:</strong> {{ order.payment.currency|upper }}
+        </p>
+        <p>
+          <strong>Payment ID:</strong> {{ order.payment.stripe_payment_intent_id|truncatechars:20 }}
+        </p>
+      </div>
+    {% endif %}
+    <div class="footer">
+      <p>Thank you for your order!</p>
+      <p>Questions? Contact us at support@navicoffee.com</p>
+    </div>
+  </body>
+</html>
