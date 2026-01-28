@@ -3,4 +3,4 @@
 set -o errexit
 set -o nounset
 
-exec celery -A config.celery worker -l debug
+exec celery -A config.celery worker -l debug -Q celery,invoice,email

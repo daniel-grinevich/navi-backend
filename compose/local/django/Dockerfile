@@ -1,5 +1,5 @@
 # --- Builder stage ---
-FROM docker.io/python:3.13-slim-bookworm AS python
+FROM docker.io/python:3.14-slim-bookworm AS python
 
 FROM python AS builder
 ARG BUILD_ENVIRONMENT=local
@@ -29,9 +29,15 @@ ENV PYTHONDONTWRITEBYTECODE=1
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
   libpq5 \
+  libpango-1.0-0 \
+  libpangocairo-1.0-0 \
+  libgdk-pixbuf2.0-0 \
+  libffi-dev \
+  shared-mime-info \
+  fonts-liberation \
   && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /usr/local/lib/python3.13/site-packages/ /usr/local/lib/python3.13/site-packages/
+COPY --from=builder /usr/local/lib/python3.14/site-packages/ /usr/local/lib/python3.14/site-packages/
 COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
 # Scripts + app code

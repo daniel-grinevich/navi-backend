@@ -8,6 +8,7 @@ from django.utils.translation import gettext_lazy as _
 
 from navi_backend.core.models import AuditModel
 from navi_backend.core.models import SlugifiedModel
+from navi_backend.core.models import UUIDModel
 from navi_backend.devices.models import NaviPort
 from navi_backend.menu.models import Customization
 from navi_backend.menu.models import MenuItem
@@ -18,11 +19,12 @@ from navi_backend.users.models import User
 class Status(models.TextChoices):
     ORDERED = "O", _("Ordered")
     SENT = "S", _("Sent")
-    COMPLETED = "D", _("Completed")
+    DONE = "D", _("Done")
     CANCELLED = "C", _("Cancelled")
 
 
 class Order(
+    UUIDModel,
     SlugifiedModel,
     AuditModel,
 ):
@@ -37,7 +39,7 @@ class Order(
         blank=True,
     )
     cart_token = models.CharField(max_length=255, blank=False, null=False)
-    order_status = models.CharField(
+    status = models.CharField(
         _("Order Status"),
         max_length=1,
         choices=Status.choices,
@@ -66,6 +68,7 @@ class Order(
 
 
 class OrderItem(
+    UUIDModel,
     SlugifiedModel,
     AuditModel,
 ):
@@ -98,7 +101,7 @@ class OrderItem(
         if not self.order:
             msg = "Can't save an order item without a parent order."
             raise ValidationError(msg)
-        if self.order.order_status != "O":
+        if self.order.status != "O":
             msg = (
                 "You can't update order items if the order is not in "
                 "'Ordered' status."
@@ -121,6 +124,7 @@ class OrderItem(
 
 
 class OrderCustomization(
+    UUIDModel,
     SlugifiedModel,
     AuditModel,
 ):
@@ -158,7 +162,7 @@ class OrderCustomization(
     def save(self, *args, **kwargs):
         if self.order_item:
             order_item = OrderItem.objects.get(pk=self.order_item.pk)
-            if order_item.order.order_status != "O":
+            if order_item.order.status != "O":
                 msg = (
                     "You cannot update order customizations if the order is not in "
                     "'Ordered' status."

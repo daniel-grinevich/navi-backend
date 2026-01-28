@@ -1,12 +1,14 @@
 from django.db import models
 
+from navi_backend.core.models import UUIDModel
+
 
 class NotificationKind(models.TextChoices):
     EMAIL = "email", "Email"
     SMS = "sms", "SMS"
 
 
-class NotificationLog(models.Model):
+class NotificationLog(UUIDModel):
     reason = models.CharField(max_length=50, blank=True)
     sent_at = models.DateTimeField(auto_now_add=True)
     error = models.TextField(blank=True)
@@ -37,7 +39,7 @@ class TextLog(NotificationLog):
         return f"Text to {self.recipient} - {self.kind}"
 
 
-class EmailTemplate(models.Model):
+class EmailTemplate(UUIDModel):
     subject = models.CharField(max_length=255)
     body = models.TextField()
     link = models.URLField()

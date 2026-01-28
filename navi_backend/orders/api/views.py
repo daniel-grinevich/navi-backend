@@ -7,9 +7,12 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from navi_backend.devices.models import NaviPort
 from navi_backend.orders.models import Order
 from navi_backend.orders.models import OrderCustomization
 from navi_backend.orders.models import OrderItem
+from navi_backend.orders.tasks import create_order_invoice
+from navi_backend.payments.services import StripePaymentService
 
 from .mixins import TrackUserMixin
 from .permissions import IsOwnerOrAdmin
@@ -23,9 +26,6 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
     serializer_class = OrderSerializer
 
     def get_permissions(self):
-        """
-        Assign different permissions for actions.
-        """
         if self.action in [
             "list",
             "retrieve",
@@ -36,7 +36,7 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
             permission_classes = [IsAuthenticated, IsOwnerOrAdmin]
         elif self.action == "create":
             permission_classes = [IsAuthenticated]
-        elif self.action in ["destroy", "send_order_to_navi_port"]:
+        elif self.action in ["destroy", "dispatch_order"]:
             permission_classes = [IsAdminUser]
         else:
             permission_classes = [IsAuthenticated]
@@ -46,10 +46,6 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
         if self.request.user.is_staff:
             return Order.objects.all()
 
-        token = self.request.headers["Authorization"].split()[1]
-        if token and self.request.user.groups.filter(name="guest").exists():
-            return Order.objects.filter(auth_token=token)
-
         user = self.request.user
         if user and user.is_authenticated:
             return Order.objects.filter(user=user)
@@ -58,7 +54,6 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["put"], name="Cancel Order")
     def cancel_order(self, request, pk=None):
-        """Cancels an order if it's in an ordered state ('O')."""
         slug = pk
         order = get_object_or_404(self.get_queryset(), slug=slug)
 
@@ -67,6 +62,10 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
                 {"detail": "Order could not be cancelled."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+
+        if order.payment and order.payment.stripe_payment_intent_id:
+            StripePaymentService.cancel_payment(order.payment.stripe_payment_intent_id)
+
         order.status = "C"
         order.save()
         return Response(
@@ -74,41 +73,60 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
-    @action(detail=True, methods=["get"], name="Retrieve and Mark Order as Sent")
-    def send_order_to_navi_port(self, request, pk=None):
-        """
-        GET: Return order details and update status to 'sent' ('S').
-        """
-        order = get_object_or_404(self.get_queryset(), pk=pk)
+    @action(detail=True, methods=["post"], url_path="dispatch")
+    def dispatch_order(self, request, pk=None):
+        order = get_object_or_404(self.get_queryset(), id=pk)
 
-        if order.status == "S":
+        if order.status != "O":
             return Response(
-                {"detail": "Order is already sent."},
-                status=status.HTTP_200_OK,
+                {"detail": "Order must be in 'ordered' status to dispatch."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if order.status != "O":  # 'O' = Open
+        if not order.payment:
             return Response(
-                {"detail": "Order cannot be sent."},
-                status=status.HTTP_403_FORBIDDEN,
+                {"detail": "Order has no payment associated."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Update status to "Sent"
+        if order.payment.status != "requires_capture":
+            return Response(
+                {"detail": "Payment is not ready for capture."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        navi_port_id = request.data.get("naviportId")
+        if not navi_port_id:
+            return Response(
+                {"detail": "navi_port_slug is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        navi_port = NaviPort.objects.filter(id=navi_port_id).first()
+        if not navi_port:
+            return Response(
+                {"detail": "NaviPort not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        StripePaymentService.capture_payment(order.payment.stripe_payment_intent_id)
+
+        order.navi_port = navi_port
         order.status = "S"
-        order.save()
+        order.save(update_fields=["navi_port", "status"])
 
-        # Return updated order details
+        create_order_invoice.apply_async(args=[order.id], queue="invoice")
+
         serializer = self.get_serializer(order)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         self.perform_create(serializer)
         order = serializer.instance
 
-        client_secret = order.payment.stripe_payment_intent_id
+        client_secret = order._stripe_client_secret  # noqa: SLF001
         output_data = OrderSerializer(order, context=self.get_serializer_context()).data
         headers = self.get_success_headers(output_data)
         return Response(
@@ -121,9 +139,6 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
-        """
-        Set the `user` field to the currently authenticated user.
-        """
         serializer.validated_data["user"] = self.request.user
         super().perform_create(serializer)
 
@@ -133,9 +148,8 @@ class OrderItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
 
     def get_parent_order(self):
         order_pk = get_parent_pk(self.request.path, "orders")
-        # respect order permissions
         order_viewset = OrderViewSet()
-        order_viewset.request = self.request  # Inject request into OrderViewSet
+        order_viewset.request = self.request
         return order_viewset.get_queryset().filter(pk=order_pk).first()
 
     def get_queryset(self):

@@ -34,6 +34,13 @@ class AddressModel(models.Model):
     postal_code = models.CharField(
         _("Postal code"), max_length=255, blank=True, unique=False
     )
+    country = models.CharField(
+        _("Country"),
+        max_length=2,
+        blank=True,
+        default="US",
+        help_text="ISO 3166-1 alpha-2 country code",
+    )
 
     class Meta:
         abstract = True
@@ -73,6 +80,8 @@ class AddressModel(models.Model):
         self.city = address_info.get("city", "")
         self.state_or_region = address_info.get("state", "")
         self.postal_code = address_info.get("postcode", "")
+        if not self.country:
+            self.country = address_info.get("country_code", "US").upper()
 
         super().save(*args, **kwargs)
 
