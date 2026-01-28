@@ -11,7 +11,7 @@ class UserSerializer(BaseModelSerializer):
     password = serializers.CharField(
         write_only=True, min_length=8, required=False, allow_null=True
     )
-    email = serializers.EmailField()  # manually handle unique validation
+    email = serializers.EmailField()
     is_admin = serializers.SerializerMethodField()
 
     show_only_to_admin_fields = [
