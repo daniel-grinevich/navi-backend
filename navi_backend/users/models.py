@@ -40,7 +40,7 @@ class User(AbstractUser):
 
     def save(self, *args, **kwargs):
         if self.is_guest and not self.password:
-            self.password = str(uuid.uuid4)
+            self.password = str(uuid.uuid4())
 
         super().save(*args, **kwargs)
 
