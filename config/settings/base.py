@@ -153,7 +153,8 @@ PASSWORD_HASHERS = [
 # Payment
 STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-STRIPE_PUBLISHABLE_KEY = "pk_test_51RIaOHI8COG1t1ucUXOrLm0QGJHxRnnsZIaSzdlfY9tHZrfBf2l22RFuyz8IZOhcsDN9acC06TYRrsGdYy14DMK700E2q04FHI"
+
+STRIPE_PUBLISHABLE_KEY = env("STRIPE_PUBLISHABLE_KEY", default="")
 # https://docs.djangoproject.com/en/dev/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
     {
