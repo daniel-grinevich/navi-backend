@@ -178,11 +178,9 @@ class AuditModel(UpdateRecordModel):
 
     @property
     def is_active(self):
-        """Check if menuitem is active."""
         return self.status == self.Status.ACTIVE and not self.is_deleted
 
     def activate(self):
-        """Activate the product."""
         if self.is_deleted:
             raise ValidationError(_("Cannot activate deleted menuitem."))
         self.status = self.Status.ACTIVE
@@ -210,7 +208,6 @@ class AuditModel(UpdateRecordModel):
         )
 
     def restore(self):
-        """Restore a soft-deleted product."""
         if not self.is_deleted:
             raise ValidationError(_("Cannot restore non-deleted menuitem."))
         self.is_deleted = False

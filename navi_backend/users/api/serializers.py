@@ -2,7 +2,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from navi_backend.core.api.serializers import BaseModelSerializer
+from navi_backend.core.api import BaseModelSerializer
 
 User = get_user_model()
 

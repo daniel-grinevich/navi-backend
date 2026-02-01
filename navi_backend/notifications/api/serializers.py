@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from navi_backend.core.api.serializers import BaseModelSerializer
+from navi_backend.core.api import BaseModelSerializer
 from navi_backend.notifications.models import EmailLog
 from navi_backend.notifications.models import EmailTemplate
 from navi_backend.notifications.models import TextLog

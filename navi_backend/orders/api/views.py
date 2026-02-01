@@ -7,50 +7,31 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from navi_backend.core.api import BaseModelViewSet
+from navi_backend.core.api.mixins import UserScopedQuerySetMixin
+from navi_backend.core.permissions import IsOwner
+from navi_backend.core.utils.decorators import permit_params
 from navi_backend.devices.models import NaviPort
-from navi_backend.orders.models import Order
 from navi_backend.orders.models import OrderCustomization
 from navi_backend.orders.models import OrderItem
 from navi_backend.orders.tasks import create_order_invoice
 from navi_backend.payments.services import StripePaymentService
 
 from .mixins import TrackUserMixin
-from .permissions import IsOwnerOrAdmin
 from .serializers import OrderCustomizationSerializer
 from .serializers import OrderItemSerializer
 from .serializers import OrderSerializer
 from .utils import get_parent_pk
 
 
-class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
+class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
     serializer_class = OrderSerializer
-
-    def get_permissions(self):
-        if self.action in [
-            "list",
-            "retrieve",
-            "update",
-            "partial_update",
-            "cancel_order",
-        ]:
-            permission_classes = [IsAuthenticated, IsOwnerOrAdmin]
-        elif self.action == "create":
-            permission_classes = [IsAuthenticated]
-        elif self.action in ["destroy", "dispatch_order"]:
-            permission_classes = [IsAdminUser]
-        else:
-            permission_classes = [IsAuthenticated]
-        return [permission() for permission in permission_classes]
-
-    def get_queryset(self):
-        if self.request.user.is_staff:
-            return Order.objects.all()
-
-        user = self.request.user
-        if user and user.is_authenticated:
-            return Order.objects.filter(user=user)
-
-        return Order.objects.none()
+    action_permissions = {
+        "default": [IsOwner, IsAuthenticated],
+        "create": [IsAuthenticated],
+        "destroy": [IsAdminUser],
+        "dispatch_order": [IsAdminUser],
+    }
 
     @action(detail=True, methods=["put"], name="Cancel Order")
     def cancel_order(self, request, pk=None):
@@ -74,6 +55,7 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
         )
 
     @action(detail=True, methods=["post"], url_path="dispatch")
+    @permit_params(params=())
     def dispatch_order(self, request, pk=None):
         order = get_object_or_404(self.get_queryset(), id=pk)
 

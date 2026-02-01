@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from navi_backend.core.api.serializers import ReadOnlyAuditMixin
+from navi_backend.core.api.mixins import ReadOnlyAuditMixin
 from navi_backend.payments.models import Payment
 
 

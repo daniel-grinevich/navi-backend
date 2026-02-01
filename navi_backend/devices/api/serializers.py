@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
-from navi_backend.core.api.serializers import BaseModelSerializer
-from navi_backend.core.api.serializers import ReadOnlyAuditMixin
+from navi_backend.core.api import BaseModelSerializer
+from navi_backend.core.api.mixins import ReadOnlyAuditMixin
 from navi_backend.devices.models import EspressoMachine
 from navi_backend.devices.models import MachineType
 from navi_backend.devices.models import NaviPort
