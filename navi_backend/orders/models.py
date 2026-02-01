@@ -59,6 +59,22 @@ class Order(
                 total += item.price
         return total
 
+    def is_dispatchable(self):
+        if self.status != "O":
+            msg = "Order must be in 'ordered' status to dispatch."
+            raise ValidationError(msg)
+        if not self.payment:
+            msg = "Order has no payment associated."
+            raise ValidationError(msg)
+        if self.payment.status != "requires_capture":
+            msg = "Payment is not ready for capture."
+            raise ValidationError(msg)
+
+    def is_cancelable(self):
+        if self.status != "O":
+            msg = "Order must be in 'ordered' status to cancel."
+            raise ValidationError(msg)
+
     def clean(self):
         if self.price and self.price < 0:
             raise ValidationError({"price": _("Price cannot be negative.")})
@@ -108,7 +124,6 @@ class OrderItem(
             )
             raise ValidationError(msg)
 
-        # Set unit price from menu item if not already set
         if not self.unit_price:
             self.unit_price = self.menu_item.price
 

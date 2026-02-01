@@ -3,6 +3,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAdminUser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -10,7 +11,7 @@ from rest_framework.response import Response
 from navi_backend.core.api import BaseModelViewSet
 from navi_backend.core.api.mixins import UserScopedQuerySetMixin
 from navi_backend.core.permissions import IsOwner
-from navi_backend.core.utils.decorators import permit_params
+from navi_backend.core.utils.decorators import require_body_params
 from navi_backend.devices.models import NaviPort
 from navi_backend.orders.models import OrderCustomization
 from navi_backend.orders.models import OrderItem
@@ -38,11 +39,10 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
         slug = pk
         order = get_object_or_404(self.get_queryset(), slug=slug)
 
-        if order.status != "O":
-            return Response(
-                {"detail": "Order could not be cancelled."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        try:
+            order.is_cancelable()
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=400)
 
         if order.payment and order.payment.stripe_payment_intent_id:
             StripePaymentService.cancel_payment(order.payment.stripe_payment_intent_id)
@@ -55,41 +55,16 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
         )
 
     @action(detail=True, methods=["post"], url_path="dispatch")
-    @permit_params(params=())
+    @require_body_params("naviportId")
     def dispatch_order(self, request, pk=None):
         order = get_object_or_404(self.get_queryset(), id=pk)
 
-        if order.status != "O":
-            return Response(
-                {"detail": "Order must be in 'ordered' status to dispatch."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        try:
+            order.is_dispatchable()
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=400)
 
-        if not order.payment:
-            return Response(
-                {"detail": "Order has no payment associated."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if order.payment.status != "requires_capture":
-            return Response(
-                {"detail": "Payment is not ready for capture."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        navi_port_id = request.data.get("naviportId")
-        if not navi_port_id:
-            return Response(
-                {"detail": "navi_port_slug is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        navi_port = NaviPort.objects.filter(id=navi_port_id).first()
-        if not navi_port:
-            return Response(
-                {"detail": "NaviPort not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        navi_port = get_object_or_404(NaviPort, id=request.data["naviportId"])
 
         StripePaymentService.capture_payment(order.payment.stripe_payment_intent_id)
 
@@ -125,32 +100,19 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
         super().perform_create(serializer)
 
 
-class OrderItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
+class OrderItemViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
     serializer_class = OrderItemSerializer
-
-    def get_parent_order(self):
-        order_pk = get_parent_pk(self.request.path, "orders")
-        order_viewset = OrderViewSet()
-        order_viewset.request = self.request
-        return order_viewset.get_queryset().filter(pk=order_pk).first()
+    user_field = "order__user"
+    action_permissions = {
+        "default": [IsOwner, IsAuthenticated],
+        "create": [IsAuthenticated],
+        "destroy": [IsAdminUser],
+        "dispatch_order": [IsAdminUser],
+    }
 
     def get_queryset(self):
-        """
-        Restrict query to order items belonging to a specific order.
-        - Admins can access all orders.
-        - Regular users can only access their own order items.
-        """
-        order = self.get_parent_order()
-
-        if not order:
-            return (
-                OrderItem.objects.none()
-            )  # Return empty queryset if order doesn't exist
-
-        if self.request.user.is_staff or order.user == self.request.user:
-            return OrderItem.objects.filter(order_id=order.pk)
-
-        return OrderItem.objects.none()  # Unauthorized users get an empty queryset
+        self.queryset = OrderItem.objects.filter(order_id=self.kwargs.get("order_pk"))
+        return super().get_queryset()
 
     def perform_create(self, serializer):
         order = self.get_parent_order()

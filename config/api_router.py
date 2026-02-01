@@ -30,12 +30,12 @@ router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 
 # Order routes
 router.register(
-    r"orders/(?P<order_pk>\d+)/items/(?P<order_item_pk>\d+)/customizations",
+    r"orders/(?P<order_pk>[0-9a-f-]+)/items/(?P<order_item_pk>[0-9a-f-]+)/customizations",
     OrderCustomizationViewSet,
     basename="order-items-customization",
 )
 router.register(
-    r"orders/(?P<order_pk>\d+)/items", OrderItemViewSet, basename="order-items"
+    r"orders/(?P<order_pk>[0-9a-f-]+)/items", OrderItemViewSet, basename="order-items"
 )
 router.register(r"orders", OrderViewSet, basename="orders")
 
