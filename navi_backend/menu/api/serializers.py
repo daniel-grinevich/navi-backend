@@ -66,7 +66,7 @@ class MenuItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
         ]
 
 
-class CustomizationGroupSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
+class CustomizationGroupSerializer(BaseModelSerializer):
     customizations = CustomizationSerializer(
         source="customization_set",
         many=True,

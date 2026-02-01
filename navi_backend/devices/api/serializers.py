@@ -9,13 +9,13 @@ from navi_backend.devices.models import RaspberryPi
 
 
 class NaviPortSerializer(BaseModelSerializer):
-    show_only_to_admin_fields = [
+    show_only_to_admin_fields = (
         "created_at",
         "created_by",
         "updated_at",
         "updated_by",
         "raspberry_pi",
-    ]
+    )
 
     class Meta:
         model = NaviPort

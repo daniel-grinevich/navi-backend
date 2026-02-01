@@ -14,13 +14,13 @@ class UserSerializer(BaseModelSerializer):
     email = serializers.EmailField()
     is_admin = serializers.SerializerMethodField()
 
-    show_only_to_admin_fields = [
+    show_only_to_admin_fields = (
         "name",
         "created_at",
         "password",
         "stripe_customer_id",
         "date_joined",
-    ]
+    )
 
     class Meta:
         model = User
