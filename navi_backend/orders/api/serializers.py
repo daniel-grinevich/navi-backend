@@ -71,11 +71,11 @@ class OrderSerializer(BaseModelSerializer):
             "price",
             "slug",
             "items",
-            "status",
+            "order_status",
         ]
 
         field_sets = {
-            "partial_update": ["navi_port", "items", "status"],
+            "partial_update": ["navi_port", "items", "order_status"],
         }
 
     def create(self, validated_data):

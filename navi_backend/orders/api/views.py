@@ -22,7 +22,6 @@ from .mixins import TrackUserMixin
 from .serializers import OrderCustomizationSerializer
 from .serializers import OrderItemSerializer
 from .serializers import OrderSerializer
-from .utils import get_parent_pk
 
 
 class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
@@ -47,7 +46,7 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
         if order.payment and order.payment.stripe_payment_intent_id:
             StripePaymentService.cancel_payment(order.payment.stripe_payment_intent_id)
 
-        order.status = "C"
+        order.order_status = "C"
         order.save()
         return Response(
             {"detail": "Order cancelled successfully."},
@@ -69,8 +68,8 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
         StripePaymentService.capture_payment(order.payment.stripe_payment_intent_id)
 
         order.navi_port = navi_port
-        order.status = "S"
-        order.save(update_fields=["navi_port", "status"])
+        order.order_status = "S"
+        order.save(update_fields=["navi_port", "order_status"])
 
         create_order_invoice.apply_async(args=[order.id], queue="invoice")
 
@@ -114,6 +113,12 @@ class OrderItemViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
         self.queryset = OrderItem.objects.filter(order_id=self.kwargs.get("order_pk"))
         return super().get_queryset()
 
+    def get_parent_order(self):
+        order_pk = self.kwargs.get("order_pk")
+        order_viewset = OrderViewSet()
+        order_viewset.request = self.request
+        return order_viewset.get_queryset().filter(pk=order_pk).first()
+
     def perform_create(self, serializer):
         order = self.get_parent_order()
 
@@ -137,17 +142,16 @@ class OrderCustomizationViewSet(TrackUserMixin, viewsets.ModelViewSet):
     serializer_class = OrderCustomizationSerializer
 
     def get_parent_order(self):
-        order_pk = get_parent_pk(self.request.path, "orders")
-        # respect order permissions
+        order_pk = self.kwargs.get("order_pk")
         order_viewset = OrderViewSet()
-        order_viewset.request = self.request  # Inject request into OrderViewSet
+        order_viewset.request = self.request
         return order_viewset.get_queryset().filter(pk=order_pk).first()
 
     def get_parent_order_item(self):
-        order_item_pk = get_parent_pk(self.request.path, "items")
-        # respect order permissions
+        order_item_pk = self.kwargs.get("order_item_pk")
         order_item_viewset = OrderItemViewSet()
-        order_item_viewset.request = self.request  # Inject request into OrderViewSet
+        order_item_viewset.request = self.request
+        order_item_viewset.kwargs = self.kwargs
         return order_item_viewset.get_queryset().filter(pk=order_item_pk).first()
 
     def get_queryset(self):

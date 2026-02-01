@@ -5,7 +5,7 @@ class CanUpdateOrder(BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.user.is_staff:
             return True
-        if view.action in ["update", "partial_update"] and (obj.status != "O"):
+        if view.action in ["update", "partial_update"] and (obj.order_status != "O"):
             return False
         return obj.user == request.user
 

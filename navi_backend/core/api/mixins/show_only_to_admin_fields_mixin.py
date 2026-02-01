@@ -4,9 +4,21 @@ class ShowOnlyToAdminFieldsMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        default_fields = (
+            "status",
+            "is_deleted",
+            "deleted_at",
+            "last_modified_ip",
+            "last_modified_user_agent",
+        )
+
         request = self.context.get("request")
         request_user = getattr(request, "user", None)
 
         if not (request_user and request_user.is_staff):
             for field in self.show_only_to_admin_fields:
                 self.fields.pop(field, None)
+
+        if request_user and request_user.is_staff:
+            for field in default_fields:
+                self.fields.append(field)

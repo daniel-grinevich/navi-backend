@@ -150,7 +150,7 @@ class AuditModel(UpdateRecordModel):
         ARCHIVED = "R", _("Archived")
 
     status = models.CharField(
-        _("Status"),
+        _("status"),
         max_length=1,
         choices=Status.choices,
         default=Status.ACTIVE,

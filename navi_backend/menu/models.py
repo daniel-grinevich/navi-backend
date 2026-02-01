@@ -89,16 +89,6 @@ class MenuItem(
         verbose_name = _("MenuItem")
         verbose_name_plural = _("MenuItems")
         ordering = ["name"]
-        indexes = [
-            models.Index(fields=["name"]),
-            models.Index(fields=["price"]),
-            models.Index(fields=["status"]),
-            models.Index(fields=["created_at"]),
-            models.Index(fields=["-view_count"]),
-            models.Index(fields=["-selected_count"]),
-            models.Index(fields=["is_deleted"]),
-            models.Index(fields=["is_featured", "status"]),
-        ]
         permissions = [
             ("can_change_status", "Can change menuitem status"),
             ("can_feature_product", "Can mark menuitem as featured"),

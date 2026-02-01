@@ -1,6 +1,4 @@
-def permit_params(params=(), **kwargs):
-    kwargs.get("request")
-
+def requires_model_permissions():
     def decorator(func):
         return func
 
