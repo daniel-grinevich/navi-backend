@@ -26,15 +26,16 @@ class BaseService:
         raise RuntimeError(error)
 
     def run(self):
+        success = True
         ctx = {}
         with self.execute() as methods:
             for method in methods:
                 try:
                     ctx = method(ctx)
                 except Exception as error:
+                    success = False
                     self.log_service_error(error, method)
                     raise
 
-        success = True
         self.result = self.return_result(success, ctx)
         return self.result
