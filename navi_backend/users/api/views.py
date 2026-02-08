@@ -1,6 +1,7 @@
 import uuid
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
 from rest_framework import permissions
 from rest_framework import status
 from rest_framework import viewsets
@@ -38,7 +39,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
         user = User.objects.filter(email=email).first()
         if not user:
-            return Response({"error": "User not found"}, status=200)
+            return Response({"error": "User not found"}, status=404)
 
         serializer = UserSerializer(user, context={"request": request})
         return Response(serializer.data)
@@ -76,7 +77,7 @@ class CreateGuestView(APIView):
             },
         )
         if created:
-            user.set_password(uuid.uuid4().hex)
+            user.make_password(None)
             user.save()
 
         refresh = RefreshToken.for_user(user)

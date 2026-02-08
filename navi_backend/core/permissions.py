@@ -14,19 +14,23 @@ class ActionBasedPermission(BasePermission):
 
     def has_permission(self, request, view):
         action = getattr(view, "action", None)
-        action_permissions = getattr(view, "action_permissions", None)
+        action_permissions = getattr(view, "action_permissions", {})
+        action_permissions = getattr(
+            view, "action_permissions", action_permissions.get("default", [])
+        )
 
         if request.user and request.user.is_staff:
             return True
 
-        if action_permissions and action in action_permissions:
-            perms = action_permissions[action]
-            return all(p().has_permission(request, view) for p in perms)
+        permissions = action_permissions.get(
+            action,
+            action_permissions.get("default", []),
+        )
 
-        if not request.user or not request.user.is_authenticated:
+        if not permissions:
             return False
 
-        return False
+        return all(p().has_permission(request, view) for p in permissions)
 
 
 class IsOwner(BasePermission):
