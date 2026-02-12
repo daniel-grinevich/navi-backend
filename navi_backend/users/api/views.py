@@ -1,48 +1,55 @@
-import uuid
-
+from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.hashers import make_password
+from django.middleware.csrf import get_token
+from django.middleware.csrf import rotate_token
 from rest_framework import permissions
 from rest_framework import status
-from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.serializers import TokenBlacklistSerializer
+from rest_framework_simplejwt.tokens import Token
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenRefreshView
+
+from navi_backend.core.api import BaseModelViewSet
+from navi_backend.core.api.mixins import UserScopedQuerySetMixin
+from navi_backend.core.permissions import IsOwner
+from navi_backend.users.jwt import delete_token_cookies
+from navi_backend.users.jwt import set_token_cookies
 
 from .serializers import UserSerializer
 
 User = get_user_model()
 
 
-class UserViewSet(viewsets.ModelViewSet):
+class UserViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
-    def get_permissions(self):
-        if self.action == "me":
-            return [permissions.IsAuthenticated()]
-        if self.action == "by_email":
-            return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+    action_permissions = {
+        "default": [IsOwner, IsAuthenticated],
+    }
+
+    def get_queryset(self):
+        self.queryset = User.objects.filter(name=self.kwargs.get("access_token"))
+        return super().get_queryset()
 
     @action(detail=False)
     def me(self, request):
         serializer = UserSerializer(request.user, context={"request": request})
-        return Response(status=status.HTTP_200_OK, data=serializer.data)
+        user_data = serializer.data
 
-    @action(detail=False, methods=["get"], url_path="by-email")
-    def by_email(self, request):
-        email = request.query_params.get("email")
-        if not email:
-            return Response({"error": "Email required"}, status=400)
+        refresh_token = user_data.pop("refresh_token")
 
-        user = User.objects.filter(email=email).first()
-        if not user:
-            return Response({"error": "User not found"}, status=404)
+        response = Response(status=status.HTTP_200_OK, data=user_data)
+        set_token_cookies(response, refresh_token=refresh_token)
 
-        serializer = UserSerializer(user, context={"request": request})
-        return Response(serializer.data)
+        return response
 
 
 class SignupView(APIView):
@@ -55,6 +62,84 @@ class SignupView(APIView):
             serializer.save()
             return Response(status=status.HTTP_201_CREATED, data=serializer.data)
         return Response(status=status.HTTP_400_BAD_REQUEST, data=serializer.errors)
+
+
+class LoginView(TokenObtainPairView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        access_token = response.data["access"]
+        refresh_token = response.data["refresh"]
+        response.data = {}
+
+        set_token_cookies(response, str(access_token), str(refresh_token))
+        rotate_token(request)
+
+        return response
+
+
+class RefreshTokenAPIView(TokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        try:
+            serializer = self.get_serializer(
+                data={"refresh": self.get_refresh_token_from_cookie()}
+            )
+            serializer.is_valid(raise_exception=True)
+        except TokenError as e:
+            raise InvalidToken(e.args[0]) from e
+
+        response = Response({}, status=status.HTTP_200_OK)
+
+        # Set auth cookies
+        access_token = serializer.validated_data.get("access")
+        refresh_token = serializer.validated_data.get("refresh")
+        set_token_cookies(response, access_token, refresh_token)
+
+        return response
+
+    def get_refresh_token_from_cookie(self):
+        refresh = self.request.COOKIES.get(settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"])
+        if not refresh:
+            raise PermissionDenied
+
+        return refresh
+
+
+class LogoutAPIView(APIView):
+    serializer_class = TokenBlacklistSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        serializer = self.serializer_class(
+            data={"refresh": self.get_refresh_token_from_cookie()}
+        )
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as e:
+            raise InvalidToken(e.args[0]) from e
+
+        response = Response({}, status=status.HTTP_200_OK)
+
+        delete_token_cookies(response)
+
+        return response
+
+    def get_refresh_token_from_cookie(self) -> Token:
+        refresh = self.request.COOKIES.get(settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"])
+        if not refresh:
+            raise PermissionDenied
+
+        return refresh
+
+
+class CSRFAPIView(APIView):
+    permission_classes = ()
+    authentication_classes = ()
+
+    def get(self, request):
+        return Response({"token": get_token(request)})
 
 
 class CreateGuestView(APIView):
@@ -76,17 +161,17 @@ class CreateGuestView(APIView):
                 "is_guest": True,
             },
         )
-        if created:
-            user.make_password(None)
-            user.save()
+        if not created:
+            pass
 
-        refresh = RefreshToken.for_user(user)
+        user.make_password(None)
+        user.save()
 
         return Response(
             status=status.HTTP_201_CREATED,
             data={
                 "user": UserSerializer(user).data,
-                "accessToken": str(refresh.access_token),
-                "refreshToken": str(refresh),
+                "accessToken": "tesst",
+                "refreshToken": "test",
             },
         )

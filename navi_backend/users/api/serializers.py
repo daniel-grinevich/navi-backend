@@ -1,6 +1,6 @@
-from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import PasswordField
 
 from navi_backend.core.api import BaseModelSerializer
 
@@ -81,23 +81,6 @@ class UserSerializer(BaseModelSerializer):
         return instance
 
 
-class AuthSerializer(serializers.Serializer):
+class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    password = serializers.CharField(
-        style={"input_type": "password"}, trim_whitespace=False
-    )
-
-    def validate(self, attrs):
-        email = attrs.get("email")
-        password = attrs.get("password")
-
-        user = authenticate(
-            request=self.context.get("request"), username=email, password=password
-        )
-
-        if not user:
-            msg = "Unable to authenticate with provided credentials"
-            raise serializers.ValidationError(msg, code="authentication")
-
-        attrs["user"] = user
-        return attrs
+    password = PasswordField()
