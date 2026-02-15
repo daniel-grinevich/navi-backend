@@ -100,6 +100,7 @@ CORS_ALLOW_METHODS = [
 CORS_ALLOW_HEADERS = [
     "authorization",
     "content-type",
+    "X-CSRFToken",
 ]
 
 # STORAGES (MinIO - S3-compatible object storage for local dev)
