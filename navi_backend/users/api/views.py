@@ -36,20 +36,13 @@ class UserViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
     }
 
     def get_queryset(self):
-        self.queryset = User.objects.filter(name=self.kwargs.get("access_token"))
+        self.queryset = User.objects.filter(id=self.request.user.id)
         return super().get_queryset()
 
     @action(detail=False)
     def me(self, request):
-        serializer = UserSerializer(request.user, context={"request": request})
-        user_data = serializer.data
-
-        refresh_token = user_data.pop("refresh_token")
-
-        response = Response(status=status.HTTP_200_OK, data=user_data)
-        set_token_cookies(response, refresh_token=refresh_token)
-
-        return response
+        serializer = self.get_serializer(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class SignupView(APIView):

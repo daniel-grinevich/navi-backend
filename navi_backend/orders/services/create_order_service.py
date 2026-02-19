@@ -35,7 +35,9 @@ class CreateOrderService(BaseService):
         ctx["tracking_user"] = validated_data.get("created_by") or request_user
 
         auth_parts = request_context["request"].headers.get("Authorization", "").split()
-        validated_data["cart_token"] = auth_parts[1] if len(auth_parts) > 1 else None
+        validated_data["cart_token"] = (
+            auth_parts[1] if len(auth_parts) > 1 else "FakeToken"
+        )
 
         ctx["validated_data"] = validated_data
         return ctx
