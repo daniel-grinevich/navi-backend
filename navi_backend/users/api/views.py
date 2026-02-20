@@ -101,7 +101,7 @@ class RefreshTokenAPIView(TokenRefreshView):
 
 class LogoutAPIView(APIView):
     serializer_class = TokenBlacklistSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = self.serializer_class(

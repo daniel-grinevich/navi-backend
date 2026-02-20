@@ -46,16 +46,15 @@ def set_token_cookies(
 
 
 def delete_token_cookies(response: Response) -> None:
-    # Delete Access token
     response.delete_cookie(
-        settings.SIMPLE_JWT["AUTH_COOKIE_ACCESS"],
+        key=settings.SIMPLE_JWT["AUTH_COOKIE_ACCESS"],
+        path="/",
         domain=settings.SIMPLE_JWT["AUTH_COOKIE_DOMAIN"],
         samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
     )
-    # Delete Refresh token
     response.delete_cookie(
-        settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"],
-        path=settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH_PATH"],
+        key=settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"],
+        path="/",
         domain=settings.SIMPLE_JWT["AUTH_COOKIE_DOMAIN"],
         samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
     )
