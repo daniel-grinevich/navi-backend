@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.middleware.csrf import get_token
@@ -12,6 +14,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenBlacklistSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.tokens import Token
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -139,7 +142,7 @@ class CreateGuestView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = UserSerializer
 
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         guest_email = request.data.get("guestUser")
 
         if not guest_email or not isinstance(guest_email, str):
@@ -154,17 +157,25 @@ class CreateGuestView(APIView):
                 "is_guest": True,
             },
         )
-        if not created:
-            pass
+        if not created and not user.is_guest:
+            return Response(status=status.HTTP_200_OK, data={"redirect": "login"})
 
-        user.make_password(None)
+        user.set_password(uuid.v4())
+
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+
+        response = super().post(request, *args, **kwargs)
+        access_token = response.data["access"]
+        refresh_token = response.data["refresh"]
+        response.data = {}
+
+        set_token_cookies(response, str(access_token), str(refresh_token))
+        rotate_token(request)
+
+        user.set_password(uuid.v4())
         user.save()
 
-        return Response(
-            status=status.HTTP_201_CREATED,
-            data={
-                "user": UserSerializer(user).data,
-                "accessToken": "tesst",
-                "refreshToken": "test",
-            },
-        )
+        response.status_code = status.HTTP_201_CREATED
+
+        return response
