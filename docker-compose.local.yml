@@ -59,7 +59,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
-    image: navi_backend_local_django_celery
+    image: navi_backend_local_django
     depends_on:
       - postgres
       - redis
@@ -75,7 +75,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
-    image: navi_backend_local_django_beat
+    image: navi_backend_local_django
     depends_on:
       - postgres
       - redis
@@ -90,7 +90,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
-    image: navi_backend_local_django_flower
+    image: navi_backend_local_django
     depends_on:
       - postgres
       - redis
