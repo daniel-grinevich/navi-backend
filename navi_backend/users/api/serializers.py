@@ -34,7 +34,7 @@ class UserSerializer(BaseModelSerializer):
             "is_guest",
             "is_admin",
         ]
-        read_only_fields = ["id", "stripe_customer_id", "date_joined"]
+        read_only_fields = ["id", "stripe_customer_id", "date_joined", "is_guest"]
 
     def get_is_admin(self, obj):
         return obj.is_staff or obj.is_superuser

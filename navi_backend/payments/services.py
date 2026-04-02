@@ -70,6 +70,45 @@ class StripePaymentService:
         return intent
 
     @staticmethod
+    def handle_webhook_event(event):
+        """
+        Process a verified Stripe webhook event and update local state.
+        """
+        event_type = event["type"]
+        payment_intent = event["data"]["object"]
+        payment_intent_id = payment_intent["id"]
+
+        try:
+            payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
+        except Payment.DoesNotExist:
+            return
+
+        if event_type == "payment_intent.succeeded":
+            payment.status = "succeeded"
+            payment.amount_received = payment_intent["amount_received"] / 100
+            payment.save(update_fields=["status", "amount_received"])
+
+        elif event_type == "payment_intent.payment_failed":
+            payment.status = "failed"
+            payment.save(update_fields=["status"])
+
+            from navi_backend.orders.models import Order
+
+            Order.objects.filter(payment=payment, order_status="O").update(
+                order_status="C"
+            )
+
+        elif event_type == "payment_intent.canceled":
+            payment.status = "canceled"
+            payment.save(update_fields=["status"])
+
+            from navi_backend.orders.models import Order
+
+            Order.objects.filter(payment=payment, order_status="O").update(
+                order_status="C"
+            )
+
+    @staticmethod
     def get_or_create_stripe_customer(user):
         if user.stripe_customer_id:
             return user.stripe_customer_id

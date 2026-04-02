@@ -39,7 +39,13 @@ class UserViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
     }
 
     def get_queryset(self):
-        self.queryset = User.objects.filter(id=self.request.user.id)
+        request_user_id = getattr(self.request.user, "id", None)
+
+        if request_user_id is None:
+            error_txt = "No request user id set."
+            raise ValueError(error_txt)
+
+        self.queryset = User.objects.filter(id=request_user_id)
         return super().get_queryset()
 
     @action(detail=False)
@@ -160,22 +166,15 @@ class CreateGuestView(APIView):
         if not created and not user.is_guest:
             return Response(status=status.HTTP_200_OK, data={"redirect": "login"})
 
-        user.set_password(uuid.v4())
+        user.set_password(str(uuid.uuid4()))
+        user.save()
 
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
 
-        response = super().post(request, *args, **kwargs)
-        access_token = response.data["access"]
-        refresh_token = response.data["refresh"]
-        response.data = {}
-
-        set_token_cookies(response, str(access_token), str(refresh_token))
+        response = Response({}, status=status.HTTP_201_CREATED)
+        set_token_cookies(response, access_token, refresh_token)
         rotate_token(request)
-
-        user.set_password(uuid.v4())
-        user.save()
-
-        response.status_code = status.HTTP_201_CREATED
 
         return response

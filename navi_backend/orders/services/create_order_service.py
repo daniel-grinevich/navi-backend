@@ -1,9 +1,11 @@
+from collections import Counter
 from contextlib import contextmanager
 
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
 from navi_backend.core.base_service import BaseService
+from navi_backend.menu.models import CustomizationGroup
 from navi_backend.orders.models import Order
 from navi_backend.payments.services import StripePaymentService
 
@@ -12,6 +14,7 @@ class CreateOrderService(BaseService):
     def __init__(self, **kwargs):
         self.mro = [
             self.initialize_params,
+            self.validate_customizations,
             self.save_order,
             self.save_order_items,
             self.create_payment_intent,
@@ -40,6 +43,63 @@ class CreateOrderService(BaseService):
         )
 
         ctx["validated_data"] = validated_data
+        return ctx
+
+    def validate_customizations(self, ctx):
+        """
+        Enforce CustomizationGroup rules (is_required, allow_multiple,
+        minimum_allowed, maximum_allowed) for each order item.
+        """
+        errors = []
+
+        for idx, item_data in enumerate(ctx["order_items_data"]):
+            menu_item = item_data.get("menu_item")
+            if not menu_item or not menu_item.category:
+                continue
+
+            customizations = item_data.get("customizations", [])
+
+            # Count how many customizations were selected per group
+            group_counts = Counter()
+            for c in customizations:
+                customization = c.get("customization")
+                if customization and customization.group_id:
+                    group_counts[customization.group_id] += c.get("quantity", 1)
+
+            # Get all customization groups for this item's category
+            groups = CustomizationGroup.objects.filter(category=menu_item.category)
+
+            for group in groups:
+                count = group_counts.get(group.pk, 0)
+                item_label = f"Item {idx + 1} ({menu_item.name})"
+
+                if group.is_required and count == 0:
+                    errors.append(f'{item_label}: "{group.name}" is required.')
+                    continue
+
+                if count == 0:
+                    continue
+
+                if not group.allow_multiple and count > 1:
+                    errors.append(
+                        f'{item_label}: "{group.name}" only allows a single selection.'
+                    )
+
+                if group.minimum_allowed is not None and count < group.minimum_allowed:
+                    errors.append(
+                        f'{item_label}: "{group.name}" requires at least '
+                        f"{group.minimum_allowed} selection(s)."
+                    )
+
+                if group.maximum_allowed is not None and count > group.maximum_allowed:
+                    errors.append(
+                        f'{item_label}: "{group.name}" allows at most '
+                        f"{group.maximum_allowed} selection(s)."
+                    )
+
+        if errors:
+            raise ValidationError({"customizations": errors})
+
         return ctx
 
     def save_order(self, ctx):

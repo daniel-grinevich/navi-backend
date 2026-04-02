@@ -35,8 +35,7 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
 
     @action(detail=True, methods=["put"], name="Cancel Order")
     def cancel_order(self, request, pk=None):
-        slug = pk
-        order = get_object_or_404(self.get_queryset(), slug=slug)
+        order = get_object_or_404(self.get_queryset(), id=pk)
 
         try:
             order.is_cancelable()
