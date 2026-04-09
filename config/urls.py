@@ -6,12 +6,16 @@ from django.urls import include
 from django.urls import path
 from django.views import defaults as default_views
 
+from navi_backend.payments.api.views import StripeWebhookView
+
 urlpatterns = [
     path("", lambda response: JsonResponse({"status": "ok"}), name="ro"),
     path("health/", lambda response: JsonResponse({"status": "ok"}), name="health"),
     # Django Admin
     path(settings.ADMIN_URL, admin.site.urls),
     path("accounts/", include("allauth.urls")),
+    # Webhooks
+    path("api/webhooks/stripe/", StripeWebhookView.as_view(), name="stripe-webhook"),
     # API routes
     path("api/", include("config.api_router")),
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),

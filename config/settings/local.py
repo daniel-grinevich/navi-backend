@@ -71,16 +71,6 @@ if env("USE_DOCKER") == "yes":
 # https://django-extensions.readthedocs.io/en/latest/installation_instructions.html#configuration
 INSTALLED_APPS += ["django_extensions"]
 
-# settings/local.py
-# Your stuff...
-# ------------------------------------------------------------------------------
-# Allow cross-site fetches in dev
-SESSION_COOKIE_SAMESITE = None
-CSRF_COOKIE_SAMESITE = None
-
-# OK to be False over plain HTTP localhost
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
 
 # Cors origins allow our local dev
 CORS_ALLOW_CREDENTIALS = True
@@ -110,6 +100,7 @@ CORS_ALLOW_METHODS = [
 CORS_ALLOW_HEADERS = [
     "authorization",
     "content-type",
+    "X-CSRFToken",
 ]
 
 # STORAGES (MinIO - S3-compatible object storage for local dev)

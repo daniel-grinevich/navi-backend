@@ -193,9 +193,9 @@ class Customization(
         max_digits=8,
         validators=[
             MaxValueValidator(Decimal("99999.99")),
-            MinValueValidator(Decimal("0.01")),
+            MinValueValidator(Decimal("0.00")),
         ],
-        help_text=_("Price of customization in dollars (between $99999-$0.01)"),
+        help_text=_("Price of customization in dollars (between $99999-$0.00)"),
     )
 
     def __str__(self):
