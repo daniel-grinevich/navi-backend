@@ -4,8 +4,6 @@ from drf_spectacular.views import SpectacularAPIView
 from drf_spectacular.views import SpectacularSwaggerView
 from rest_framework.routers import DefaultRouter
 from rest_framework.routers import SimpleRouter
-from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework_simplejwt.views import TokenRefreshView
 
 from navi_backend.devices.api.views import EspressoMachineViewSet
 from navi_backend.devices.api.views import MachineTypeViewSet
@@ -23,6 +21,10 @@ from navi_backend.orders.api.views import OrderItemViewSet
 from navi_backend.orders.api.views import OrderViewSet
 from navi_backend.payments.api.views import PaymentViewSet
 from navi_backend.users.api.views import CreateGuestView
+from navi_backend.users.api.views import CSRFAPIView
+from navi_backend.users.api.views import LoginView
+from navi_backend.users.api.views import LogoutAPIView
+from navi_backend.users.api.views import RefreshTokenAPIView
 from navi_backend.users.api.views import SignupView
 from navi_backend.users.api.views import UserViewSet
 
@@ -30,12 +32,12 @@ router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 
 # Order routes
 router.register(
-    r"orders/(?P<order_pk>\d+)/items/(?P<order_item_pk>\d+)/customizations",
+    r"orders/(?P<order_pk>[0-9a-f-]+)/items/(?P<order_item_pk>[0-9a-f-]+)/customizations",
     OrderCustomizationViewSet,
     basename="order-items-customization",
 )
 router.register(
-    r"orders/(?P<order_pk>\d+)/items", OrderItemViewSet, basename="order-items"
+    r"orders/(?P<order_pk>[0-9a-f-]+)/items", OrderItemViewSet, basename="order-items"
 )
 router.register(r"orders", OrderViewSet, basename="orders")
 
@@ -75,9 +77,11 @@ router.register(r"users", UserViewSet, basename="users")
 app_name = "api"
 urlpatterns = [
     # Auth endpoints
-    path("token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("token/", LoginView.as_view(), name="token_obtain_pair"),
+    path("token/refresh/", RefreshTokenAPIView.as_view(), name="token_refresh"),
     path("signup/", SignupView.as_view(), name="signup"),
+    path("logout/", LogoutAPIView.as_view(), name="logout"),
+    path("csrf-token/", CSRFAPIView.as_view(), name="csrf-token"),
     path("create-guest/", CreateGuestView.as_view(), name="create-guest"),
     # API documentation
     path("schema/", SpectacularAPIView.as_view(), name="api-schema"),

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
-from navi_backend.core.api.serializers import BaseModelSerializer
-from navi_backend.core.api.serializers import ReadOnlyAuditMixin
+from navi_backend.core.api import BaseModelSerializer
+from navi_backend.core.api.mixins import ReadOnlyAuditMixin
 from navi_backend.menu.models import Category
 from navi_backend.menu.models import Customization
 from navi_backend.menu.models import CustomizationGroup
@@ -66,7 +66,7 @@ class MenuItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
         ]
 
 
-class CustomizationGroupSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
+class CustomizationGroupSerializer(BaseModelSerializer):
     customizations = CustomizationSerializer(
         source="customization_set",
         many=True,

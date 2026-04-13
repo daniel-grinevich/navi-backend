@@ -38,7 +38,7 @@ def order_customization(db):
 
 @pytest.fixture
 def order_item_and_customizations(db):
-    order = OrderFactory(status="O")
+    order = OrderFactory(order_status="O")
     order_item = OrderItemFactory(order=order)
     order_item_2 = OrderItemFactory()
     order_customization_1 = OrderCustomizationFactory(order_item=order_item)
@@ -107,8 +107,8 @@ def order_item_data2(db):
 
 @pytest.fixture
 def order_and_order_items():
-    order = OrderFactory(status="O")
-    order2 = OrderFactory(status="O")
+    order = OrderFactory(order_status="O")
+    order2 = OrderFactory(order_status="O")
     order_item_1 = OrderItemFactory(order=order)
     order_item_2 = OrderItemFactory(order=order)
     order_item_3 = OrderItemFactory(order=order2)
@@ -126,15 +126,15 @@ def admin_user(db):
 @pytest.fixture
 def user_and_orders():
     user = UserFactory()
-    own_order = OrderFactory(user=user, status="O")
-    other_order = OrderFactory(status="O")  # Another user's order
+    own_order = OrderFactory(user=user, order_status="O")
+    other_order = OrderFactory(order_status="O")  # Another user's order
     return user, own_order, other_order
 
 
 @pytest.fixture
 def admin_and_orders(admin_user):
     admin = admin_user
-    orders = OrderFactory.create_batch(5, status="O")  # Create 5 random orders
+    orders = OrderFactory.create_batch(5, order_status="O")  # Create 5 random orders
     return admin, orders
 
 

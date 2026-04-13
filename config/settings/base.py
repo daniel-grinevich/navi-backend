@@ -2,6 +2,7 @@
 """Base settings to build other settings files upon."""
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 import environ
@@ -102,6 +103,8 @@ THIRD_PARTY_APPS = [
     "allauth.mfa",
     "allauth.socialaccount",
     "rest_framework",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "drf_spectacular",
     "django_celery_beat",
@@ -153,7 +156,8 @@ PASSWORD_HASHERS = [
 # Payment
 STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-STRIPE_PUBLISHABLE_KEY = "pk_test_51RIaOHI8COG1t1ucUXOrLm0QGJHxRnnsZIaSzdlfY9tHZrfBf2l22RFuyz8IZOhcsDN9acC06TYRrsGdYy14DMK700E2q04FHI"
+
+STRIPE_PUBLISHABLE_KEY = env("STRIPE_PUBLISHABLE_KEY", default="")
 # https://docs.djangoproject.com/en/dev/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -249,8 +253,26 @@ CSRF_COOKIE_SECURE = False  # OK for local dev over HTTP
 CSRF_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_DOMAIN = None
 # https://docs.djangoproject.com/en/dev/ref/settings/#x-frame-options
 X_FRAME_OPTIONS = "DENY"
+
+# SIMPLE JWT
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ALGORITHM": "HS256",
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "AUTH_COOKIE_HTTPONLY": True,
+    "AUTH_COOKIE_SECURE": False,
+    "AUTH_COOKIE_SAMESITE": "Lax",
+    "AUTH_COOKIE_DOMAIN": None,
+    "AUTH_COOKIE_ACCESS": os.getenv("ACCESS_TOKEN", default="access_token"),
+    "AUTH_COOKIE_REFRESH": os.getenv("REFRESH_TOKEN", default="refresh_token"),
+    "AUTH_COOKIE_USE_CSRF": True,
+}
 
 # EMAIL
 # ------------------------------------------------------------------------------
@@ -330,11 +352,12 @@ SOCIALACCOUNT_FORMS = {"signup": "navi_backend.users.forms.UserSocialSignupForm"
 # django-rest-framework - https://www.django-rest-framework.org/api-guide/settings/
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "navi_backend.core.authentication.JWTCookieAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "EXCEPTION_HANDLER": "navi_backend.core.exceptions.custom_exception_handler",
 }
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup

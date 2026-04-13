@@ -3,7 +3,6 @@
 
 # Essential Performance Tools
 # ------------------------------------------------------------------------------
-django-debug-toolbar==4.4.6  # Query analysis, SQL timing, cache stats
 django-extensions==3.2.3  # Development utilities, shell_plus, runserver_plus
 
 # Optional Performance Tools (uncomment as needed)

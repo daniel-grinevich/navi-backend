@@ -36,11 +36,16 @@ class User(AbstractUser):
             str: URL for user detail.
 
         """
-        return reverse("users-detail", kwargs={"pk": self.id})
+        user_id = getattr(self, "id", None)
+
+        if user_id is None:
+            error_txt = "Cannot get_absolute_url without id."
+            raise ValueError(error_txt)
+        return reverse("users-detail", kwargs={"pk": user_id})
 
     def save(self, *args, **kwargs):
         if self.is_guest and not self.password:
-            self.password = str(uuid.uuid4)
+            self.password = str(uuid.uuid4())
 
         super().save(*args, **kwargs)
 

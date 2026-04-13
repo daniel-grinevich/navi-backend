@@ -3,70 +3,49 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAdminUser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from navi_backend.core.api import BaseModelViewSet
+from navi_backend.core.api.mixins import UserScopedQuerySetMixin
+from navi_backend.core.permissions import IsOwner
+from navi_backend.core.utils.decorators import require_body_params
 from navi_backend.devices.models import NaviPort
-from navi_backend.orders.models import Order
 from navi_backend.orders.models import OrderCustomization
 from navi_backend.orders.models import OrderItem
 from navi_backend.orders.tasks import create_order_invoice
 from navi_backend.payments.services import StripePaymentService
 
 from .mixins import TrackUserMixin
-from .permissions import IsOwnerOrAdmin
 from .serializers import OrderCustomizationSerializer
 from .serializers import OrderItemSerializer
 from .serializers import OrderSerializer
-from .utils import get_parent_pk
 
 
-class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
+class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
     serializer_class = OrderSerializer
-
-    def get_permissions(self):
-        if self.action in [
-            "list",
-            "retrieve",
-            "update",
-            "partial_update",
-            "cancel_order",
-        ]:
-            permission_classes = [IsAuthenticated, IsOwnerOrAdmin]
-        elif self.action == "create":
-            permission_classes = [IsAuthenticated]
-        elif self.action in ["destroy", "dispatch_order"]:
-            permission_classes = [IsAdminUser]
-        else:
-            permission_classes = [IsAuthenticated]
-        return [permission() for permission in permission_classes]
-
-    def get_queryset(self):
-        if self.request.user.is_staff:
-            return Order.objects.all()
-
-        user = self.request.user
-        if user and user.is_authenticated:
-            return Order.objects.filter(user=user)
-
-        return Order.objects.none()
+    action_permissions = {
+        "default": [IsOwner, IsAuthenticated],
+        "create": [IsAuthenticated],
+        "destroy": [IsAdminUser],
+        "dispatch_order": [IsAdminUser],
+    }
 
     @action(detail=True, methods=["put"], name="Cancel Order")
     def cancel_order(self, request, pk=None):
-        slug = pk
-        order = get_object_or_404(self.get_queryset(), slug=slug)
+        order = get_object_or_404(self.get_queryset(), id=pk)
 
-        if order.status != "O":
-            return Response(
-                {"detail": "Order could not be cancelled."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        try:
+            order.is_cancelable()
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=400)
 
         if order.payment and order.payment.stripe_payment_intent_id:
             StripePaymentService.cancel_payment(order.payment.stripe_payment_intent_id)
 
-        order.status = "C"
+        order.order_status = "C"
         order.save()
         return Response(
             {"detail": "Order cancelled successfully."},
@@ -74,46 +53,22 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
         )
 
     @action(detail=True, methods=["post"], url_path="dispatch")
+    @require_body_params("naviportId")
     def dispatch_order(self, request, pk=None):
         order = get_object_or_404(self.get_queryset(), id=pk)
 
-        if order.status != "O":
-            return Response(
-                {"detail": "Order must be in 'ordered' status to dispatch."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        try:
+            order.is_dispatchable()
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=400)
 
-        if not order.payment:
-            return Response(
-                {"detail": "Order has no payment associated."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if order.payment.status != "requires_capture":
-            return Response(
-                {"detail": "Payment is not ready for capture."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        navi_port_id = request.data.get("naviportId")
-        if not navi_port_id:
-            return Response(
-                {"detail": "navi_port_slug is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        navi_port = NaviPort.objects.filter(id=navi_port_id).first()
-        if not navi_port:
-            return Response(
-                {"detail": "NaviPort not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        navi_port = get_object_or_404(NaviPort, id=request.data["naviportId"])
 
         StripePaymentService.capture_payment(order.payment.stripe_payment_intent_id)
 
         order.navi_port = navi_port
-        order.status = "S"
-        order.save(update_fields=["navi_port", "status"])
+        order.order_status = "S"
+        order.save(update_fields=["navi_port", "order_status"])
 
         create_order_invoice.apply_async(args=[order.id], queue="invoice")
 
@@ -143,32 +98,25 @@ class OrderViewSet(TrackUserMixin, viewsets.ModelViewSet):
         super().perform_create(serializer)
 
 
-class OrderItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
+class OrderItemViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
     serializer_class = OrderItemSerializer
+    user_field = "order__user"
+    action_permissions = {
+        "default": [IsOwner, IsAuthenticated],
+        "create": [IsAuthenticated],
+        "destroy": [IsAdminUser],
+        "dispatch_order": [IsAdminUser],
+    }
+
+    def get_queryset(self):
+        self.queryset = OrderItem.objects.filter(order_id=self.kwargs.get("order_pk"))
+        return super().get_queryset()
 
     def get_parent_order(self):
-        order_pk = get_parent_pk(self.request.path, "orders")
+        order_pk = self.kwargs.get("order_pk")
         order_viewset = OrderViewSet()
         order_viewset.request = self.request
         return order_viewset.get_queryset().filter(pk=order_pk).first()
-
-    def get_queryset(self):
-        """
-        Restrict query to order items belonging to a specific order.
-        - Admins can access all orders.
-        - Regular users can only access their own order items.
-        """
-        order = self.get_parent_order()
-
-        if not order:
-            return (
-                OrderItem.objects.none()
-            )  # Return empty queryset if order doesn't exist
-
-        if self.request.user.is_staff or order.user == self.request.user:
-            return OrderItem.objects.filter(order_id=order.pk)
-
-        return OrderItem.objects.none()  # Unauthorized users get an empty queryset
 
     def perform_create(self, serializer):
         order = self.get_parent_order()
@@ -193,17 +141,16 @@ class OrderCustomizationViewSet(TrackUserMixin, viewsets.ModelViewSet):
     serializer_class = OrderCustomizationSerializer
 
     def get_parent_order(self):
-        order_pk = get_parent_pk(self.request.path, "orders")
-        # respect order permissions
+        order_pk = self.kwargs.get("order_pk")
         order_viewset = OrderViewSet()
-        order_viewset.request = self.request  # Inject request into OrderViewSet
+        order_viewset.request = self.request
         return order_viewset.get_queryset().filter(pk=order_pk).first()
 
     def get_parent_order_item(self):
-        order_item_pk = get_parent_pk(self.request.path, "items")
-        # respect order permissions
+        order_item_pk = self.kwargs.get("order_item_pk")
         order_item_viewset = OrderItemViewSet()
-        order_item_viewset.request = self.request  # Inject request into OrderViewSet
+        order_item_viewset.request = self.request
+        order_item_viewset.kwargs = self.kwargs
         return order_item_viewset.get_queryset().filter(pk=order_item_pk).first()
 
     def get_queryset(self):

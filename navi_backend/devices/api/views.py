@@ -11,7 +11,6 @@ from navi_backend.devices.models import MachineType
 from navi_backend.devices.models import NaviPort
 from navi_backend.devices.models import RaspberryPi
 from navi_backend.orders.api.mixins import TrackUserMixin
-from navi_backend.orders.api.utils import get_parent_pk
 
 
 class NaviPortViewSet(TrackUserMixin, viewsets.ModelViewSet):
@@ -25,11 +24,7 @@ class RaspberryPiViewSet(TrackUserMixin, viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
 
     def get_queryset(self):
-        navi_port_pk = get_parent_pk(self.request.path, "navi_ports")
-        navi_port = NaviPort.objects.filter(pk=navi_port_pk).first()
-        if not navi_port:
-            return RaspberryPi.objects.none()
-
+        navi_port_pk = self.kwargs.get("navi_port_pk")
         return RaspberryPi.objects.filter(navi_port__pk=navi_port_pk)
 
 
@@ -38,24 +33,11 @@ class EspressoMachineViewSet(TrackUserMixin, viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
 
     def get_queryset(self):
-        navi_port_pk = get_parent_pk(self.request.path, "navi_ports")
-        navi_port = NaviPort.objects.filter(pk=navi_port_pk).first()
-        if not navi_port:
-            return EspressoMachine.objects.none()
-
+        navi_port_pk = self.kwargs.get("navi_port_pk")
         return EspressoMachine.objects.filter(navi_port__pk=navi_port_pk)
 
 
 class MachineTypeViewSet(TrackUserMixin, viewsets.ModelViewSet):
+    queryset = MachineType.objects.all()
     serializer_class = MachineTypeSerializer
     permission_classes = [IsAdminUser]
-
-    def get_queryset(self):
-        espresso_machine_pk = get_parent_pk(self.request.path, "espresso_machines")
-        espresso_machine = EspressoMachine.objects.filter(
-            pk=espresso_machine_pk
-        ).first()
-        if not espresso_machine:
-            return MachineType.objects.none()
-
-        return MachineType.objects.filter(espresso_machine__pk=espresso_machine_pk)

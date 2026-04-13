@@ -2,6 +2,8 @@
 
 ## Settings
 
+hi
+
 Moved to [settings](https://cookiecutter-django.readthedocs.io/en/latest/1-getting-started/settings.html).
 
 ## Basic Commands

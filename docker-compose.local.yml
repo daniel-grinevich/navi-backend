@@ -22,7 +22,7 @@ services:
       - ./.envs/.local/.stripe
     ports:
       - "8000:8000"
-      - "5678:5678"  # debugpy port
+      - "5678:5678"
     environment:
       - DEBUGPY_ENABLED=${DEBUGPY_ENABLED:-0}  # Set to 1 to enable debugging
       - DEBUGPY_WAIT=${DEBUGPY_WAIT:-0}        # Set to 1 to wait for debugger before starting
@@ -50,6 +50,8 @@ services:
       - navi_backend_local_postgres_data_backups:/backups
     env_file:
       - ./.envs/.local/.postgres
+    ports:
+      - "5432:5432"
 
   redis:
     image: docker.io/redis:6
@@ -59,7 +61,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
-    image: navi_backend_local_django_celery
+    image: navi_backend_local_django
     depends_on:
       - postgres
       - redis
@@ -75,7 +77,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
-    image: navi_backend_local_django_beat
+    image: navi_backend_local_django
     depends_on:
       - postgres
       - redis
@@ -90,7 +92,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
-    image: navi_backend_local_django_flower
+    image: navi_backend_local_django
     depends_on:
       - postgres
       - redis

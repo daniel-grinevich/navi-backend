@@ -39,7 +39,7 @@ class Order(
         blank=True,
     )
     cart_token = models.CharField(max_length=255, blank=False, null=False)
-    status = models.CharField(
+    order_status = models.CharField(
         _("Order Status"),
         max_length=1,
         choices=Status.choices,
@@ -58,6 +58,22 @@ class Order(
             for item in self.items.all():
                 total += item.price
         return total
+
+    def is_dispatchable(self):
+        if self.order_status != "O":
+            msg = "Order must be in 'ordered' status to dispatch."
+            raise ValidationError(msg)
+        if not self.payment:
+            msg = "Order has no payment associated."
+            raise ValidationError(msg)
+        if self.payment.status != "requires_capture":
+            msg = "Payment is not ready for capture."
+            raise ValidationError(msg)
+
+    def is_cancelable(self):
+        if self.order_status != "O":
+            msg = "Order must be in 'ordered' status to cancel."
+            raise ValidationError(msg)
 
     def clean(self):
         if self.price and self.price < 0:
@@ -101,14 +117,13 @@ class OrderItem(
         if not self.order:
             msg = "Can't save an order item without a parent order."
             raise ValidationError(msg)
-        if self.order.status != "O":
+        if self.order.order_status != "O":
             msg = (
                 "You can't update order items if the order is not in "
                 "'Ordered' status."
             )
             raise ValidationError(msg)
 
-        # Set unit price from menu item if not already set
         if not self.unit_price:
             self.unit_price = self.menu_item.price
 
@@ -147,9 +162,9 @@ class OrderCustomization(
         max_digits=8,
         validators=[
             MaxValueValidator(Decimal("99999.99")),
-            MinValueValidator(Decimal("0.01")),
+            MinValueValidator(Decimal("0.00")),
         ],
-        help_text=_("Price per unit in dollars (between $99999-$0.01)"),
+        help_text=_("Price per unit in dollars (between $99999-$0.00)"),
     )
 
     @property
@@ -162,7 +177,7 @@ class OrderCustomization(
     def save(self, *args, **kwargs):
         if self.order_item:
             order_item = OrderItem.objects.get(pk=self.order_item.pk)
-            if order_item.order.status != "O":
+            if order_item.order.order_status != "O":
                 msg = (
                     "You cannot update order customizations if the order is not in "
                     "'Ordered' status."
