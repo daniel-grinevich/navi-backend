@@ -1,107 +1,65 @@
-###########
-# BUILDER #
-###########
-
-# define an alias for the specific python version used in this file.
+# --- Builder stage ---
 FROM docker.io/python:3.14-slim-bookworm AS python
 
-# Python build stage
-FROM python AS python-build-stage
+FROM python AS builder
 
 ARG BUILD_ENVIRONMENT=staging
 
-# Install apt packages
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+COPY --from=ghcr.io/astral-sh/uv:0.6.3 /uv /usr/local/bin/uv
+
 RUN apt-get update && apt-get install --no-install-recommends -y \
-  # dependencies for building Python packages
   build-essential \
-  # psycopg dependencies
   libpq-dev
 
-# Requirements are installed here to ensure they will be cached.
 COPY ./requirements .
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system -r ${BUILD_ENVIRONMENT}.txt
 
-RUN pip install --upgrade pip
-
-# Create Python Dependency and Sub-Dependency Wheels.
-RUN pip wheel --wheel-dir /usr/src/app/wheels  \
-  -r ${BUILD_ENVIRONMENT}.txt
-
-
-###########
-# RUNNER #
-###########
-FROM python AS python-run-stage
-
-ARG BUILD_ENVIRONMENT=staging
+# --- Runner stage ---
+FROM python AS runner
 ARG APP_HOME=/app
-
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV BUILD_ENV=${BUILD_ENVIRONMENT}
 
 WORKDIR ${APP_HOME}
 
-# Create a non-root user for running the application
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
 RUN addgroup --system django \
     && adduser --system --ingroup django django
 
-# Install required system dependencies
 RUN apt-get update && apt-get install --no-install-recommends -y \
-  libpq-dev \
+  libpq5 \
   gettext \
   wait-for-it \
-  # Development tools (kept for staging)
-  sudo git bash-completion nano ssh \
-  # cleaning up unused files
+  libpango-1.0-0 \
+  libpangocairo-1.0-0 \
+  libgdk-pixbuf2.0-0 \
+  libffi-dev \
+  shared-mime-info \
+  fonts-liberation \
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
 
-# All absolute dir copies ignore workdir instruction. All relative dir copies are wrt to the workdir instruction
-# copy python dependency wheels from python-build-stage
-COPY --from=python-build-stage /usr/src/app/wheels  /wheels/
+COPY --from=builder /usr/local/lib/python3.14/site-packages/ /usr/local/lib/python3.14/site-packages/
+COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
-# Upgrade pip
-RUN pip install --upgrade pip
+# Scripts
+COPY ./compose/staging/django/entrypoint /entrypoint
+COPY ./compose/staging/django/start /start
+COPY ./compose/staging/django/celery/worker/start /start-celeryworker
+COPY ./compose/staging/django/celery/beat/start /start-celerybeat
+COPY ./compose/staging/django/celery/flower/start /start-flower
+RUN sed -i 's/\r$//g' /entrypoint /start /start-celeryworker /start-celerybeat /start-flower \
+    && chmod +x /entrypoint /start /start-celeryworker /start-celerybeat /start-flower
 
-# use wheels to install python dependencies
-RUN pip install --no-cache-dir --no-index --find-links=/wheels/ /wheels/* \
-  && rm -rf /wheels/
-
-# Copy entrypoint and start scripts
-COPY --chown=django:django ./compose/production/django/entrypoint /entrypoint
-RUN sed -i 's/\r$//g' /entrypoint
-RUN chmod +x /entrypoint
-
-COPY --chown=django:django ./compose/production/django/start /start
-RUN sed -i 's/\r$//g' /start
-RUN chmod +x /start
-
-COPY --chown=django:django ./compose/staging/django/celery/worker/start /start-celeryworker
-RUN sed -i 's/\r$//g' /start-celeryworker
-RUN chmod +x /start-celeryworker
-
-COPY --chown=django:django ./compose/staging/django/celery/beat/start /start-celerybeat
-RUN sed -i 's/\r$//g' /start-celerybeat
-RUN chmod +x /start-celerybeat
-
-COPY --chown=django:django ./compose/staging/django/celery/flower/start /start-flower
-RUN sed -i 's/\r$//g' /start-flower
-RUN chmod +x /start-flower
-
-# copy application code to WORKDIR
 COPY --chown=django:django . ${APP_HOME}
-
-# make django owner of the WORKDIR directory as well.
 RUN chown -R django:django ${APP_HOME}
 
-# Add django user to sudoers for development purposes
-RUN echo "django ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/django \
-    && chmod 0440 /etc/sudoers.d/django
-
 USER django
-
-# Compile messages
-RUN DATABASE_URL="" \
-  DJANGO_SETTINGS_MODULE="config.settings.staging"
 
 ENTRYPOINT ["/entrypoint"]
