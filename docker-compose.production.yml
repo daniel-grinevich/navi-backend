@@ -4,8 +4,6 @@ volumes:
   production_traefik: {}
   production_django_media: {}
 
-
-
 services:
   django:
     build:
