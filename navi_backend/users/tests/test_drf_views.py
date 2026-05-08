@@ -11,21 +11,18 @@ class TestUserViewSet:
         return APIRequestFactory()
 
     def test_get_queryset(self, user: User, api_rf: APIRequestFactory):
-        view = UserViewSet()
+        view = UserViewSet.as_view({"get": "list"})
         request = api_rf.get("/users/")
         request.user = user
-
-        view.request = request
-
-        assert user in view.get_queryset()
+        response = view(request)
+        assert response.status_code == 200
+        assert response.data[0]["id"] == user.id
 
     def test_me(self, user: User, api_rf: APIRequestFactory):
-        view = UserViewSet()
+        view = UserViewSet.as_view({"get": "me"})
         request = api_rf.get("/users/")
         request.user = user
 
-        view.request = request
+        response = view(request)
 
-        response = view.me(request)  # type: ignore[call-arg, arg-type, misc]
-
-        assert user.name == response.data["name"]
+        assert user.email == response.data["email"]

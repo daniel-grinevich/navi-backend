@@ -41,7 +41,7 @@ class User(AbstractUser):
         if user_id is None:
             error_txt = "Cannot get_absolute_url without id."
             raise ValueError(error_txt)
-        return reverse("users-detail", kwargs={"pk": user_id})
+        return reverse("api:users-detail", kwargs={"pk": user_id})
 
     def save(self, *args, **kwargs):
         if self.is_guest and not self.password:

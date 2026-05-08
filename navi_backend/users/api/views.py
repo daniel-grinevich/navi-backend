@@ -30,7 +30,7 @@ from .serializers import UserSerializer
 User = get_user_model()
 
 
-class UserViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
+class UserViewSet(BaseModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
