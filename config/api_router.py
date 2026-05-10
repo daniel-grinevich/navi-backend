@@ -86,7 +86,7 @@ urlpatterns = [
     # API documentation
     path("schema/", SpectacularAPIView.as_view(), name="api-schema"),
     path(
-        "docs/", SpectacularSwaggerView.as_view(url_name="api-schema"), name="api-docs"
+        "docs/", SpectacularSwaggerView.as_view(url_name="api:api-schema"), name="api-docs"
     ),
 ]
 urlpatterns += router.urls

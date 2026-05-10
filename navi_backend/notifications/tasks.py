@@ -22,7 +22,7 @@ def send_user_confirmation_email(self, user_id):
         logger.warning("User %s not found for confirmation email", user_id)
         return
     if not user.email:
-        logger.warning("User %s has no email address", user_id)
+        logger.warning("User %s has no email address: ", user_id)
         return
 
     notification = EmailNotificationService(
