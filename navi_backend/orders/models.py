@@ -119,8 +119,7 @@ class OrderItem(
             raise ValidationError(msg)
         if self.order.order_status != "O":
             msg = (
-                "You can't update order items if the order is not in "
-                "'Ordered' status."
+                "You can't update order items if the order is not in 'Ordered' status."
             )
             raise ValidationError(msg)
 

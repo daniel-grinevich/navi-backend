@@ -1,8 +1,6 @@
 import factory
-from factory import Faker
-import random
 from django.utils import timezone
-from django.utils.text import slugify
+
 from navi_backend.users.tests.factories import UserFactory
 
 
@@ -21,8 +19,8 @@ class AuditFactory(factory.Factory):
 class SlugifiedFactory(factory.Factory):
     """Base factory for SlugifiedModel."""
 
-    name = factory.Sequence(lambda n: "Name %03d" % n)
-    slug = factory.Sequence(lambda n: "123-555-%04d" % n)
+    name = factory.Sequence(lambda n: f"Name {n:03d}")
+    slug = factory.Sequence(lambda n: f"123-555-{n:04d}")
 
     class Meta:
         abstract = True

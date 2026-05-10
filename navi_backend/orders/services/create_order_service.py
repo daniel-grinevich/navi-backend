@@ -107,7 +107,7 @@ class CreateOrderService(BaseService):
         return ctx
 
     def save_order_items(self, ctx):
-        from navi_backend.orders.api.serializers import OrderCustomizationSerializer
+        from navi_backend.orders.api.serializers import OrderCustomizationSerializer  # noqa: I001
         from navi_backend.orders.api.serializers import OrderItemSerializer
 
         order = ctx["order"]
