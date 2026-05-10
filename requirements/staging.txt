@@ -17,6 +17,11 @@ pytest==8.3.4  # Test framework
 pytest-django==4.9.0  # Django test utilities
 coverage==7.6.10  # Code coverage analysis
 
+# Async profiling
+------------------------------------------------------------------------------
+pytest-asyncio==0.25.3    # async test support (mirror of local)
+httpx==0.28.1              # for testing async HTTP calls manually
+
 # Optional Testing (uncomment as needed)
 # ------------------------------------------------------------------------------
 # pytest-benchmark==4.0.0  # Performance benchmarking

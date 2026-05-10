@@ -62,7 +62,7 @@ if "POSTGRES_PASSWORD_FILE" in os.environ:
 
         logging.getLogger(__name__).warning("Failed to read password file: %s", e)
 
-DATABASES["default"]["ATOMIC_REQUESTS"] = True
+DATABASES["default"]["ATOMIC_REQUESTS"] = False
 
 # Celery config
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://redis:6379/0")
@@ -81,7 +81,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 ROOT_URLCONF = "config.urls"
 # https://docs.djangoproject.com/en/dev/ref/settings/#wsgi-application
 WSGI_APPLICATION = "config.wsgi.application"
-
+ASGI_APPLICATION = "config.asgi.application"
 # APPS
 # ------------------------------------------------------------------------------
 DJANGO_APPS = [
