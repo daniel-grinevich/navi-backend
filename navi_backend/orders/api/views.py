@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from navi_backend.core.api import BaseModelViewSet
+from navi_backend.core.api.mixins import TrackUserMixin
 from navi_backend.core.api.mixins import UserScopedQuerySetMixin
 from navi_backend.core.permissions import IsOwner
 from navi_backend.core.utils.decorators import require_body_params
@@ -18,7 +19,6 @@ from navi_backend.orders.models import OrderItem
 from navi_backend.orders.tasks import create_order_invoice
 from navi_backend.payments.services import StripePaymentService
 
-from .mixins import TrackUserMixin
 from .serializers import OrderCustomizationSerializer
 from .serializers import OrderItemSerializer
 from .serializers import OrderSerializer

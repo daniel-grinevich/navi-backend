@@ -9,7 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets
 from rest_framework.permissions import IsAdminUser
 
-from navi_backend.orders.api.mixins import TrackUserMixin
+from navi_backend.core.api.mixins import TrackUserMixin
 from navi_backend.payments.api.serializers import PaymentCreateSerializer
 from navi_backend.payments.api.serializers import PaymentSerializer
 from navi_backend.payments.models import Payment
