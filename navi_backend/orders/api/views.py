@@ -9,8 +9,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from navi_backend.core.api import BaseModelViewSet
-from navi_backend.core.api.mixins import TrackUserMixin
 from navi_backend.core.api.mixins import UserScopedQuerySetMixin
+from navi_backend.core.api.mixins.track_user_mixin import TrackUserMixin
 from navi_backend.core.permissions import IsOwner
 from navi_backend.core.utils.decorators import require_body_params
 from navi_backend.devices.models import NaviPort
