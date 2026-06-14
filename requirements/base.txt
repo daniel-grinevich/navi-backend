@@ -29,6 +29,8 @@ stripe>=12.0.0
 # ASGI
 # ------------------------------------------------------------------------------
 uvicorn[standard]==0.34.0  # https://github.com/encode/uvicorn
+channels>=4.1.0  # https://github.com/django/channels
+channels-redis>=4.2.0  # https://github.com/django/channels_redis
 
 # PDF Render
 # ------------------------------------------------------------------------------

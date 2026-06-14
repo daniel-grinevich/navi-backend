@@ -16,7 +16,6 @@ from navi_backend.core.utils.decorators import require_body_params
 from navi_backend.devices.models import NaviPort
 from navi_backend.orders.models import OrderCustomization
 from navi_backend.orders.models import OrderItem
-from navi_backend.orders.tasks import create_order_invoice
 from navi_backend.payments.services import StripePaymentService
 
 from .serializers import OrderCustomizationSerializer
@@ -64,13 +63,9 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
 
         navi_port = get_object_or_404(NaviPort, id=request.data["naviportId"])
 
-        StripePaymentService.capture_payment(order.payment.stripe_payment_intent_id)
-
         order.navi_port = navi_port
         order.order_status = "S"
         order.save(update_fields=["navi_port", "order_status"])
-
-        create_order_invoice.apply_async(args=[order.id], queue="invoice")
 
         serializer = self.get_serializer(order)
         return Response(serializer.data, status=status.HTTP_200_OK)
