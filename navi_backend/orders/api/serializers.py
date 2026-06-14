@@ -56,6 +56,33 @@ class OrderItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
         ]
 
 
+class MachineOrderCustomizationSerializer(serializers.ModelSerializer):
+    customization_name = serializers.CharField(
+        source="customization.name", read_only=True
+    )
+
+    class Meta:
+        model = OrderCustomization
+        fields = ["customization_name", "quantity"]
+
+
+class MachineOrderItemSerializer(serializers.ModelSerializer):
+    menu_item_name = serializers.CharField(source="menu_item.name", read_only=True)
+    customizations = MachineOrderCustomizationSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = OrderItem
+        fields = ["menu_item_name", "quantity", "customizations"]
+
+
+class MachineOrderSerializer(serializers.ModelSerializer):
+    items = MachineOrderItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ["id", "order_status", "items"]
+
+
 class OrderSerializer(BaseModelSerializer):
     items = OrderItemSerializer(many=True, required=False)
     user = UserSerializer(read_only=True)

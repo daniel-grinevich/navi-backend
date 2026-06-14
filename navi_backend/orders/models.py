@@ -137,6 +137,22 @@ class OrderItem(
         return item_price + customizations_price
 
 
+class MachineErrorLog(UUIDModel, AuditModel):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="machine_errors")
+    raspberry_pi = models.ForeignKey(
+        "devices.RaspberryPi",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="error_logs",
+    )
+    error_message = models.TextField()
+    is_recoverable = models.BooleanField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Error on {self.order} — {self.error_message[:50]}"
+
+
 class OrderCustomization(
     UUIDModel,
     SlugifiedModel,
