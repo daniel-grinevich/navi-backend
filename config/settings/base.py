@@ -62,7 +62,7 @@ if "POSTGRES_PASSWORD_FILE" in os.environ:
 
         logging.getLogger(__name__).warning("Failed to read password file: %s", e)
 
-DATABASES["default"]["ATOMIC_REQUESTS"] = False
+DATABASES["default"]["ATOMIC_REQUESTS"] = True
 
 # Celery config
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://redis:6379/0")
