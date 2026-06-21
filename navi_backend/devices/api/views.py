@@ -2,6 +2,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAdminUser
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
+from navi_backend.core.api.mixins.track_user_mixin import TrackUserMixin
 from navi_backend.devices.api.serializers import EspressoMachineSerializer
 from navi_backend.devices.api.serializers import MachineTypeSerializer
 from navi_backend.devices.api.serializers import NaviPortSerializer
@@ -10,7 +11,6 @@ from navi_backend.devices.models import EspressoMachine
 from navi_backend.devices.models import MachineType
 from navi_backend.devices.models import NaviPort
 from navi_backend.devices.models import RaspberryPi
-from navi_backend.orders.api.mixins import TrackUserMixin
 
 
 class NaviPortViewSet(TrackUserMixin, viewsets.ModelViewSet):

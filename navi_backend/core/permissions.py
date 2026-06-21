@@ -1,6 +1,8 @@
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.permissions import BasePermission
 
+from navi_backend.devices.models import RaspberryPi
+
 
 class ActionBasedPermission(BasePermission):
     action_perm_map = {
@@ -42,3 +44,14 @@ class IsOwner(BasePermission):
 class ReadOnly(BasePermission):
     def has_permission(self, request, _view):
         return request.method in SAFE_METHODS
+
+
+class IsMachineAuthenticated(BasePermission):
+    def has_permission(self, request, view):
+        token = request.headers.get("X-Device-Token")
+        if not token:
+            return False
+        rpi = RaspberryPi.objects.filter(device_token=token, is_connected=True).first()
+        if rpi:
+            request.raspberry_pi = rpi
+        return rpi is not None

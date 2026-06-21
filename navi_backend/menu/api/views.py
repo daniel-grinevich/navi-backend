@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
+from navi_backend.core.api.mixins.track_user_mixin import TrackUserMixin
 from navi_backend.core.permissions import ReadOnly
 from navi_backend.menu.api.serializers import CategorySerializer
 from navi_backend.menu.api.serializers import CustomizationGroupSerializer
@@ -18,7 +19,6 @@ from navi_backend.menu.models import CustomizationGroup
 from navi_backend.menu.models import Ingredient
 from navi_backend.menu.models import MenuItem
 from navi_backend.menu.models import MenuItemIngredient
-from navi_backend.orders.api.mixins import TrackUserMixin
 
 
 class MenuItemViewSet(TrackUserMixin, viewsets.ModelViewSet):

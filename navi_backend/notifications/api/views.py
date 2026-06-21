@@ -1,13 +1,13 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAdminUser
 
+from navi_backend.core.api.mixins.track_user_mixin import TrackUserMixin
 from navi_backend.notifications.api.serializers import EmailLogSerializer
 from navi_backend.notifications.api.serializers import EmailTemplateSerializer
 from navi_backend.notifications.api.serializers import TextLogSerializer
 from navi_backend.notifications.models import EmailLog
 from navi_backend.notifications.models import EmailTemplate
 from navi_backend.notifications.models import TextLog
-from navi_backend.orders.api.mixins import TrackUserMixin
 
 
 class EmailLogViewSet(TrackUserMixin, viewsets.ModelViewSet):
