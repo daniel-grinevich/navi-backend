@@ -138,7 +138,11 @@ class OrderItem(
 
 
 class MachineErrorLog(UUIDModel, AuditModel):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="machine_errors")
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="machine_errors",
+    )
     raspberry_pi = models.ForeignKey(
         "devices.RaspberryPi",
         on_delete=models.SET_NULL,

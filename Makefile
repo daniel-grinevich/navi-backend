@@ -104,8 +104,8 @@ superuser:
 
 # Linting Commands
 lint:
-	ruff check --fix
-	ruff format
+	$(DC_RUN) ruff check --fix
+	$(DC_RUN) ruff format
 
 debug:
 	$(DC) stop django

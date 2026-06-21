@@ -28,7 +28,7 @@ def _get_user_from_access_token(token_str):
         jwt_auth = JWTAuthentication()
         validated = jwt_auth.get_validated_token(token_str.encode())
         return jwt_auth.get_user(validated)
-    except (InvalidToken, TokenError, User.DoesNotExist):
+    except InvalidToken, TokenError, User.DoesNotExist:
         return AnonymousUser()
 
 
@@ -42,7 +42,7 @@ def _get_user_from_refresh_token(token_str):
         if not user_id:
             return AnonymousUser()
         return User.objects.get(id=user_id)
-    except (InvalidToken, TokenError, User.DoesNotExist):
+    except InvalidToken, TokenError, User.DoesNotExist:
         return AnonymousUser()
 
 
@@ -54,7 +54,9 @@ class JWTCookieAuthMiddleware:
         if scope["type"] == "websocket":
             cookies = _parse_cookies(scope)
             access_name = settings.SIMPLE_JWT.get("AUTH_COOKIE_ACCESS", "access_token")
-            refresh_name = settings.SIMPLE_JWT.get("AUTH_COOKIE_REFRESH", "refresh_token")
+            refresh_name = settings.SIMPLE_JWT.get(
+                "AUTH_COOKIE_REFRESH", "refresh_token"
+            )
             access_token = cookies.get(access_name)
             if access_token:
                 scope["user"] = await _get_user_from_access_token(access_token)
@@ -68,5 +70,5 @@ class JWTCookieAuthMiddleware:
         return await self.inner(scope, receive, send)
 
 
-def JWTCookieAuthMiddlewareStack(inner):
+def JWTCookieAuthMiddlewareStack(inner):  # noqa: N802
     return JWTCookieAuthMiddleware(inner)

@@ -26,7 +26,8 @@ class MachineOrderStartView(APIView):
 
         if order.navi_port and order.navi_port.pk != navi_port.pk:
             return Response(
-                {"detail": "This order is assigned to a different location."}, status=400
+                {"detail": "This order is assigned to a different location."},
+                status=400,
             )
 
         if order.order_status != "O":

@@ -1,7 +1,7 @@
 from django.urls import resolve
 from django.urls import reverse
 
-from navi_backend.users.models import User
+from navi_backend.users.models import User  # noqa: TC001
 
 
 def test_user_detail(user: User):
