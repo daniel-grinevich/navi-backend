@@ -99,6 +99,7 @@ class OrderSerializer(BaseModelSerializer):
             "slug",
             "items",
             "order_status",
+            "created_at",
         ]
 
         field_sets = {
