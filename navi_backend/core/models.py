@@ -2,11 +2,11 @@ import uuid
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
-from navi_backend.core.helpers.geo_cache import send_geo_request
 from navi_backend.users.models import User
 
 
@@ -50,40 +50,25 @@ class AddressModel(models.Model):
             err = "longitude and latitude must be defined for address model"
             raise NotImplementedError(err)
 
+        super().save(*args, **kwargs)
+
+        # The address is already populated (provided by the caller or a prior
+        # geocode); nothing more to do.
         if self.address_line_1 and self.city and self.postal_code:
-            super().save(*args, **kwargs)
             return
 
-        response = send_geo_request(self.latitude, self.longitude)
-        address_info = response.get("address", {})
+        # Reverse-geocode in the background so the write path never blocks on the
+        # external geocoder. Imported here to avoid a models <-> tasks import
+        # cycle at module load.
+        from navi_backend.core.tasks import populate_address_from_geo  # noqa: PLC0415
 
-        if not address_info:
-            err = "address_info is empty."
-            raise ValueError(err)
-
-        road = address_info.get("road", "")
-        address_parts = road.split(",") if road else []
-
-        for index, part in enumerate(address_parts):
-            str_part = part.strip()
-
-            if index == 0:
-                house_number = address_info.get("house_number", "")
-                self.address_line_1 = f"{house_number} {str_part}".strip()
-            elif index == 1:
-                self.address_line_2 = str_part
-            elif not self.address_line_3:
-                self.address_line_3 = str_part
-            else:
-                self.address_line_3 += f", {str_part}"
-
-        self.city = address_info.get("city", "")
-        self.state_or_region = address_info.get("state", "")
-        self.postal_code = address_info.get("postcode", "")
-        if not self.country:
-            self.country = address_info.get("country_code", "US").upper()
-
-        super().save(*args, **kwargs)
+        transaction.on_commit(
+            lambda: populate_address_from_geo.delay(
+                self._meta.app_label,
+                self._meta.model_name,
+                self.pk,
+            ),
+        )
 
 
 class NamedModel(models.Model):
