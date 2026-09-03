@@ -14,7 +14,7 @@ from navi_backend.devices.models import RaspberryPi
 
 
 class NaviPortViewSet(TrackUserMixin, viewsets.ModelViewSet):
-    queryset = NaviPort.objects.all()
+    queryset = NaviPort.objects.select_related("espresso_machine", "raspberry_pi")
     serializer_class = NaviPortSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 

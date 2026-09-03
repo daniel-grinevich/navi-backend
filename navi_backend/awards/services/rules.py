@@ -6,10 +6,21 @@ Adding a new rule type is a two-step change: add a member to
 here with the ``@metric`` decorator. Nothing else needs to change.
 """
 
+from django.core.cache import cache
+
 from navi_backend.awards.models import RuleType
+from navi_backend.orders.models import OrderCustomization
 from navi_backend.orders.models import OrderItem
 
 _METRICS = {}
+
+# These metrics are computed with an aggregate query over a user's order history
+# (unlike the others, which just read a denormalized counter off ``loyalty``).
+# They are recomputed on every loyalty dashboard / achievements request, so we
+# cache them per user and invalidate when the user completes an order
+# (see ``invalidate_user_metrics``, called from points_service.process_order).
+_CACHED_RULE_TYPES = frozenset({RuleType.DISTINCT_ITEMS, RuleType.CUSTOMIZATIONS})
+_METRIC_CACHE_TTL = 60 * 5  # 5 minutes
 
 
 def metric(rule_type):
@@ -22,16 +33,38 @@ def metric(rule_type):
     return decorator
 
 
+def _metric_cache_key(user_id, rule_type):
+    return f"awards:metric:{user_id}:{rule_type}"
+
+
+def invalidate_user_metrics(user_id):
+    """Drop a user's cached DB-derived metric values (call after their order
+    history changes)."""
+    cache.delete_many(
+        [_metric_cache_key(user_id, rule_type) for rule_type in _CACHED_RULE_TYPES],
+    )
+
+
 def metric_value(rule_type, loyalty):
     """Return the current value of ``rule_type`` for the given ``UserLoyalty``.
 
     Unknown rule types resolve to ``0`` so a misconfigured award can never be
-    auto-earned.
+    auto-earned. Aggregate metrics are served from a short-lived per-user cache.
     """
     fn = _METRICS.get(rule_type)
     if fn is None:
         return 0
-    return fn(loyalty)
+
+    if rule_type not in _CACHED_RULE_TYPES:
+        return fn(loyalty)
+
+    key = _metric_cache_key(loyalty.user_id, rule_type)
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+    value = fn(loyalty)
+    cache.set(key, value, _METRIC_CACHE_TTL)
+    return value
 
 
 @metric(RuleType.TOTAL_POINTS)
@@ -60,3 +93,11 @@ def _distinct_items(loyalty):
         .distinct()
         .count()
     )
+
+
+@metric(RuleType.CUSTOMIZATIONS)
+def _customizations(loyalty):
+    return OrderCustomization.objects.filter(
+        order_item__order__user=loyalty.user,
+        order_item__order__order_status="D",
+    ).count()

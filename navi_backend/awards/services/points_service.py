@@ -18,6 +18,7 @@ from navi_backend.awards.models import PointsTransaction
 from navi_backend.awards.models import Tier
 from navi_backend.awards.models import UserAward
 from navi_backend.awards.models import UserLoyalty
+from navi_backend.awards.services.rules import invalidate_user_metrics
 from navi_backend.awards.services.rules import metric_value
 
 logger = logging.getLogger(__name__)
@@ -137,6 +138,10 @@ def process_order(order):
             order=order,
             note="Order completed",
         )
+
+    # This order changes the user's distinct-items / customizations tallies, so
+    # drop their cached metric values before (re)evaluating awards.
+    invalidate_user_metrics(order.user_id)
 
     newly_earned = evaluate_awards(loyalty)
     new_tier = recompute_tier(loyalty)

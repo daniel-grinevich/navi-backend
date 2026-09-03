@@ -3,6 +3,7 @@ from rest_framework import serializers
 from navi_backend.awards.models import Award
 from navi_backend.awards.models import LoyaltySettings
 from navi_backend.awards.models import PointsTransaction
+from navi_backend.awards.models import RuleType
 from navi_backend.awards.models import Tier
 from navi_backend.awards.models import UserAward
 from navi_backend.awards.models import UserLoyalty
@@ -107,6 +108,9 @@ class LoyaltySummarySerializer(serializers.ModelSerializer):
     points_to_next_tier = serializers.SerializerMethodField()
     earned_awards = serializers.SerializerMethodField()
     award_progress = serializers.SerializerMethodField()
+    # Single source of truth for reward-email opt-in is the user's notification
+    # preference; the dashboard reflects it (writes go through MyLoyaltyView).
+    notifications_enabled = serializers.SerializerMethodField()
 
     class Meta:
         model = UserLoyalty
@@ -130,15 +134,19 @@ class LoyaltySummarySerializer(serializers.ModelSerializer):
         ]
 
     def _next_tier(self, obj):
-        return (
-            Tier.objects.filter(
-                threshold_points__gt=obj.lifetime_points,
-                status=Tier.Status.ACTIVE,
-                is_deleted=False,
+        # Resolved twice per instance (next_tier + points_to_next_tier); compute
+        # the query once and reuse it.
+        if not hasattr(self, "_next_tier_cache"):
+            self._next_tier_cache = (
+                Tier.objects.filter(
+                    threshold_points__gt=obj.lifetime_points,
+                    status=Tier.Status.ACTIVE,
+                    is_deleted=False,
+                )
+                .order_by("threshold_points")
+                .first()
             )
-            .order_by("threshold_points")
-            .first()
-        )
+        return self._next_tier_cache
 
     def get_next_tier(self, obj):
         tier = self._next_tier(obj)
@@ -149,6 +157,12 @@ class LoyaltySummarySerializer(serializers.ModelSerializer):
         if not tier:
             return None
         return max(0, tier.threshold_points - obj.lifetime_points)
+
+    def get_notifications_enabled(self, obj) -> bool:
+        prefs = getattr(obj.user, "preferences", None)
+        if prefs is None:
+            return True
+        return prefs.email_rewards
 
     def get_earned_awards(self, obj):
         qs = UserAward.objects.filter(user=obj.user).select_related("award")
@@ -181,3 +195,45 @@ class LoyaltySummarySerializer(serializers.ModelSerializer):
                 },
             )
         return AwardProgressSerializer(progress, many=True).data
+
+
+# Maps backend award rule types to the metric strings the frontend achievements
+# UI understands. Rule types without a dedicated frontend metric fall back to
+# their raw value so nothing is silently hidden.
+RULE_TO_METRIC = {
+    RuleType.ORDERS_COMPLETED: "orders",
+    RuleType.DISTINCT_ITEMS: "unique_drinks",
+    RuleType.CUSTOMIZATIONS: "customizations",
+    RuleType.TOTAL_POINTS: "points",
+    RuleType.TOTAL_SPENT: "spent",
+}
+
+
+class AchievementSerializer(serializers.ModelSerializer):
+    """An Award rendered in the shape the frontend achievements UI expects.
+
+    ``id`` is the stable slug (not the UUID) so the frontend can key on it.
+    """
+
+    id = serializers.CharField(source="slug")
+    label = serializers.CharField(source="name")
+    desc = serializers.CharField(source="description")
+    target = serializers.IntegerField(source="threshold")
+    metric = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Award
+        fields = ["id", "label", "desc", "target", "metric", "icon"]
+
+    def get_metric(self, obj) -> str:
+        return str(RULE_TO_METRIC.get(obj.rule_type, obj.rule_type))
+
+
+class AchievementProgressSerializer(serializers.Serializer):
+    """Per-user progress toward a single achievement (frontend contract)."""
+
+    id = serializers.CharField()
+    current = serializers.IntegerField()
+    target = serializers.IntegerField()
+    unlocked = serializers.BooleanField()
+    unlocked_at = serializers.DateTimeField(allow_null=True)
