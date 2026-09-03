@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from navi_backend.awards.tasks import process_order_awards
 from navi_backend.core.permissions import IsMachineAuthenticated
 from navi_backend.orders.models import MachineErrorLog
 from navi_backend.orders.models import Order
@@ -63,6 +64,7 @@ class MachineOrderCompleteView(APIView):
             order.save(update_fields=["order_status"])
             broadcast_order_status(order.id, "D")
             create_order_invoice.apply_async(args=[order.id], queue="invoice")
+            process_order_awards.apply_async(args=[str(order.id)])
 
         elif outcome == "error":
             MachineErrorLog.objects.create(

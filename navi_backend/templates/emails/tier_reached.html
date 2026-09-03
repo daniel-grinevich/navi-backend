@@ -1,0 +1,10 @@
+<h3>
+  Congratulations
+  {% if name %}{{ name }}{% endif %}
+  ! 🎉
+</h3>
+<p>
+  You've reached the <strong>{{ tier_name }}</strong> tier at Navi Coffee.
+</p>
+{% if tier_benefits %}<p>{{ tier_benefits }}</p>{% endif %}
+<p>Thanks for being a loyal customer!</p>
