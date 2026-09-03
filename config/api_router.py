@@ -5,6 +5,12 @@ from drf_spectacular.views import SpectacularSwaggerView
 from rest_framework.routers import DefaultRouter
 from rest_framework.routers import SimpleRouter
 
+from navi_backend.awards.api.views import AwardViewSet
+from navi_backend.awards.api.views import LoyaltySettingsView
+from navi_backend.awards.api.views import MyAwardsViewSet
+from navi_backend.awards.api.views import MyLoyaltyView
+from navi_backend.awards.api.views import MyPointsTransactionViewSet
+from navi_backend.awards.api.views import TierViewSet
 from navi_backend.devices.api.views import EspressoMachineViewSet
 from navi_backend.devices.api.views import MachineTypeViewSet
 from navi_backend.devices.api.views import NaviPortViewSet
@@ -78,6 +84,16 @@ router.register(r"email_templates", EmailTemplateViewSet, basename="email-templa
 # User routes
 router.register(r"users", UserViewSet, basename="users")
 
+# Awards / loyalty routes
+router.register(r"tiers", TierViewSet, basename="tiers")
+router.register(r"awards", AwardViewSet, basename="awards")
+router.register(r"my/awards", MyAwardsViewSet, basename="my-awards")
+router.register(
+    r"my/points-transactions",
+    MyPointsTransactionViewSet,
+    basename="my-points-transactions",
+)
+
 app_name = "api"
 urlpatterns = [
     # Auth endpoints
@@ -87,6 +103,13 @@ urlpatterns = [
     path("logout/", LogoutAPIView.as_view(), name="logout"),
     path("csrf-token/", CSRFAPIView.as_view(), name="csrf-token"),
     path("create-guest/", CreateGuestView.as_view(), name="create-guest"),
+    # Loyalty / awards endpoints
+    path("my/loyalty/", MyLoyaltyView.as_view(), name="my-loyalty"),
+    path(
+        "loyalty-settings/",
+        LoyaltySettingsView.as_view(),
+        name="loyalty-settings",
+    ),
     # Machine endpoints
     path(
         "machine/orders/queue/",

@@ -120,6 +120,7 @@ LOCAL_APPS = [
     "navi_backend.orders",
     "navi_backend.notifications.apps.NotificationsConfig",
     "navi_backend.devices",
+    "navi_backend.awards.apps.AwardsConfig",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
