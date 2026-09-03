@@ -18,7 +18,7 @@ DC = docker compose -f $(COMPOSE_FILE)
 DC_RUN = $(DC) run --rm django
 DC_EXEC = $(DC) exec django
 
-.PHONY: help build up down shell logs ps clean test coverage nuke debug debug-wait
+.PHONY: help build up down shell logs ps clean test coverage nuke debug debug-wait pre-commit
 
 help:
 	@echo "Available commands:"
@@ -104,9 +104,11 @@ superuser:
 
 # Linting Commands
 lint:
-	isort .
-	ruff check --fix
-	ruff check --fix
+	$(DC_RUN) ruff check --fix
+	$(DC_RUN) ruff format
+
+pre-commit:
+	pre-commit run --all-files
 
 debug:
 	$(DC) stop django

@@ -1,3 +1,5 @@
+import secrets
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -21,6 +23,12 @@ class RaspberryPi(
     is_connected = models.BooleanField(default=False)
     firmware_version = models.CharField(max_length=50, blank=True)
     last_seen = models.DateTimeField(auto_now=True)
+    device_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.device_token:
+            self.device_token = secrets.token_urlsafe(32)
+        super().save(*args, **kwargs)
 
 
 class MachineType(

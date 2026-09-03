@@ -1,6 +1,9 @@
 import os
-from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 BASE_DIR = Path(__file__).parent.parent.resolve()
 PRODUCTION_DOTENVS_DIR = BASE_DIR / ".envs" / ".production"

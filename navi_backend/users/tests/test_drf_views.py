@@ -2,7 +2,7 @@ import pytest
 from rest_framework.test import APIRequestFactory
 
 from navi_backend.users.api.views import UserViewSet
-from navi_backend.users.models import User
+from navi_backend.users.models import User  # noqa: TC001
 
 
 class TestUserViewSet:

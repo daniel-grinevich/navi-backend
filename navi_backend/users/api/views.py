@@ -20,7 +20,6 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from navi_backend.core.api import BaseModelViewSet
-from navi_backend.core.api.mixins import UserScopedQuerySetMixin
 from navi_backend.core.permissions import IsOwner
 from navi_backend.users.jwt import delete_token_cookies
 from navi_backend.users.jwt import set_token_cookies

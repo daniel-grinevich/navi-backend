@@ -241,11 +241,13 @@ class CustomizationGroupFactory(
         model = CustomizationGroup
 
     name = factory.Sequence(
-        lambda n: customization_groups[n % len(customization_groups)]
-        + (
-            f" #{(n // len(customization_groups)) + 1}"
-            if n >= len(customization_groups)
-            else ""
+        lambda n: (
+            customization_groups[n % len(customization_groups)]
+            + (
+                f" #{(n // len(customization_groups)) + 1}"
+                if n >= len(customization_groups)
+                else ""
+            )
         )
     )
     description = factory.Faker("sentence")
@@ -273,11 +275,13 @@ class CustomizationFactory(
         model = Customization
 
     name = factory.Sequence(
-        lambda n: all_customizations[n % len(all_customizations)]
-        + (
-            f" #{(n // len(all_customizations)) + 1}"
-            if n >= len(all_customizations)
-            else ""
+        lambda n: (
+            all_customizations[n % len(all_customizations)]
+            + (
+                f" #{(n // len(all_customizations)) + 1}"
+                if n >= len(all_customizations)
+                else ""
+            )
         )
     )
     description = factory.Faker("sentence")

@@ -20,6 +20,11 @@ repos:
       - id: check-docstring-first
       - id: detect-private-key
 
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
   - repo: https://github.com/adamchainz/django-upgrade
     rev: '1.22.2'
     hooks:
@@ -28,7 +33,7 @@ repos:
 
   # Run the Ruff linter.
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.3
+    rev: v0.14.2
     hooks:
       # Linter
       - id: ruff

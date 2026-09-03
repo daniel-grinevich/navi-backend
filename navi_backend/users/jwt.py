@@ -1,5 +1,9 @@
+from typing import TYPE_CHECKING
+
 from django.conf import settings
-from rest_framework.response import Response
+
+if TYPE_CHECKING:
+    from rest_framework.response import Response
 
 
 def set_token_cookies(
