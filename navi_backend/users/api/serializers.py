@@ -3,6 +3,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import PasswordField
 
 from navi_backend.core.api import BaseModelSerializer
+from navi_backend.notifications.services import sms_available
 from navi_backend.users.models import UserPreferences
 
 User = get_user_model()
@@ -15,10 +16,14 @@ class UserSerializer(BaseModelSerializer):
     email = serializers.EmailField()
     is_admin = serializers.SerializerMethodField()
 
+    # NOTE: `password` is intentionally NOT admin-only. It's already
+    # write_only (never serialized in responses), and listing it here made
+    # ShowOnlyToAdminFieldsMixin strip it from the input for anonymous
+    # requests -> signup broke with "This field is required for non-guest
+    # users." because validate() never saw the submitted password.
     show_only_to_admin_fields = (
         "name",
         "created_at",
-        "password",
         "stripe_customer_id",
         "date_joined",
     )
@@ -88,6 +93,11 @@ class LoginSerializer(serializers.Serializer):
 
 
 class UserPreferencesSerializer(BaseModelSerializer):
+    # Tells the frontend whether to surface the SMS toggles at all: they're
+    # stored regardless, but SMS only actually sends once a real backend is
+    # configured (see notifications.services.sms.sms_available).
+    sms_available = serializers.SerializerMethodField()
+
     class Meta:
         model = UserPreferences
         fields = [
@@ -96,9 +106,15 @@ class UserPreferencesSerializer(BaseModelSerializer):
             "email_account",
             "email_order_updates",
             "email_marketing",
+            "email_rewards",
             "sms_account",
             "sms_order_updates",
             "sms_marketing",
+            "sms_rewards",
+            "sms_available",
             "updated_at",
         ]
         read_only_fields = ["updated_at"]
+
+    def get_sms_available(self, obj) -> bool:
+        return sms_available()

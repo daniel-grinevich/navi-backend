@@ -276,6 +276,32 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_USE_CSRF": True,
 }
 
+# GOOGLE OAUTH
+# ------------------------------------------------------------------------------
+# Credentials from the Google Cloud Console OAuth 2.0 client (Web application).
+# REDIRECT_URI must exactly match an "Authorized redirect URI" registered there
+# and point at this backend's callback. FRONTEND_URL is where the callback
+# sends the browser after setting the auth cookies.
+GOOGLE_OAUTH_CLIENT_ID = env("GOOGLE_OAUTH_CLIENT_ID", default="")
+GOOGLE_OAUTH_CLIENT_SECRET = env("GOOGLE_OAUTH_CLIENT_SECRET", default="")
+GOOGLE_OAUTH_REDIRECT_URI = env(
+    "GOOGLE_OAUTH_REDIRECT_URI",
+    default="http://localhost:8000/api/oauth/google/callback/",
+)
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
+# Public origin of THIS backend -- used to build absolute magic-link URLs that
+# the browser opens to have cookies set before redirecting to FRONTEND_URL.
+BACKEND_URL = env("BACKEND_URL", default="http://localhost:8000")
+
+# SMS (passwordless OTP + notifications)
+# ------------------------------------------------------------------------------
+# "console" (default) just logs the message -- fine for local dev. Set to
+# "twilio" and provide the credentials below to actually send texts.
+SMS_BACKEND = env("SMS_BACKEND", default="console")
+TWILIO_ACCOUNT_SID = env("TWILIO_ACCOUNT_SID", default="")
+TWILIO_AUTH_TOKEN = env("TWILIO_AUTH_TOKEN", default="")
+TWILIO_FROM_NUMBER = env("TWILIO_FROM_NUMBER", default="")
+
 # EMAIL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
@@ -287,6 +313,13 @@ EMAIL_HOST = env("EMAIL_HOST", default="localhost")
 EMAIL_PORT = env("EMAIL_PORT", default="587")
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-timeout
 EMAIL_TIMEOUT = 5
+
+# SMS
+# ------------------------------------------------------------------------------
+# Selects the SMS delivery backend (see notifications.services.sms). "console"
+# just logs (dev default); "twilio" sends for real and marks SMS "available" so
+# the frontend surfaces the SMS notification toggles.
+SMS_BACKEND = env("SMS_BACKEND", default="console")
 
 # ADMIN
 # ------------------------------------------------------------------------------
@@ -325,6 +358,18 @@ LOGGING = {
 
 REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
 REDIS_SSL = REDIS_URL.startswith("rediss://")
+
+# CACHES
+# ------------------------------------------------------------------------------
+# Safe default so caching works in every environment. `production` overrides this
+# with a shared Redis cache and `test` swaps in a dummy cache for isolation.
+# https://docs.djangoproject.com/en/dev/ref/settings/#caches
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "",
+    },
+}
 
 # Django Channels
 # ------------------------------------------------------------------------------

@@ -5,6 +5,7 @@ from drf_spectacular.views import SpectacularSwaggerView
 from rest_framework.routers import DefaultRouter
 from rest_framework.routers import SimpleRouter
 
+from navi_backend.awards.api.views import AchievementViewSet
 from navi_backend.awards.api.views import AwardViewSet
 from navi_backend.awards.api.views import LoyaltySettingsView
 from navi_backend.awards.api.views import MyAwardsViewSet
@@ -30,6 +31,12 @@ from navi_backend.orders.api.views import OrderCustomizationViewSet
 from navi_backend.orders.api.views import OrderItemViewSet
 from navi_backend.orders.api.views import OrderViewSet
 from navi_backend.payments.api.views import PaymentViewSet
+from navi_backend.users.api.oauth_views import GoogleOAuthCallbackView
+from navi_backend.users.api.oauth_views import GoogleOAuthStartView
+from navi_backend.users.api.passwordless_views import MagicLinkRequestView
+from navi_backend.users.api.passwordless_views import MagicLinkVerifyView
+from navi_backend.users.api.passwordless_views import SMSRequestView
+from navi_backend.users.api.passwordless_views import SMSVerifyView
 from navi_backend.users.api.views import CreateGuestView
 from navi_backend.users.api.views import CSRFAPIView
 from navi_backend.users.api.views import LoginView
@@ -87,6 +94,8 @@ router.register(r"users", UserViewSet, basename="users")
 # Awards / loyalty routes
 router.register(r"tiers", TierViewSet, basename="tiers")
 router.register(r"awards", AwardViewSet, basename="awards")
+# Frontend-facing achievements contract, backed by the Award models above.
+router.register(r"achievements", AchievementViewSet, basename="achievements")
 router.register(r"my/awards", MyAwardsViewSet, basename="my-awards")
 router.register(
     r"my/points-transactions",
@@ -103,6 +112,18 @@ urlpatterns = [
     path("logout/", LogoutAPIView.as_view(), name="logout"),
     path("csrf-token/", CSRFAPIView.as_view(), name="csrf-token"),
     path("create-guest/", CreateGuestView.as_view(), name="create-guest"),
+    # OAuth (Google) endpoints
+    path("oauth/google/start/", GoogleOAuthStartView.as_view(), name="oauth-google-start"),
+    path(
+        "oauth/google/callback/",
+        GoogleOAuthCallbackView.as_view(),
+        name="oauth-google-callback",
+    ),
+    # Passwordless: magic link (email) + SMS OTP
+    path("auth/magic/request/", MagicLinkRequestView.as_view(), name="magic-request"),
+    path("auth/magic/verify/", MagicLinkVerifyView.as_view(), name="magic-verify"),
+    path("auth/sms/request/", SMSRequestView.as_view(), name="sms-request"),
+    path("auth/sms/verify/", SMSVerifyView.as_view(), name="sms-verify"),
     # Loyalty / awards endpoints
     path("my/loyalty/", MyLoyaltyView.as_view(), name="my-loyalty"),
     path(

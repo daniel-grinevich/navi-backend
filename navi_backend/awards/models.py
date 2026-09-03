@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -10,6 +11,12 @@ from navi_backend.core.models import SlugifiedModel
 from navi_backend.core.models import UUIDModel
 from navi_backend.users.models import User
 
+# Cache keys for rarely-changing loyalty reference data. See awards.signals for
+# the Award invalidation hook; LoyaltySettings self-invalidates on save().
+LOYALTY_SETTINGS_CACHE_KEY = "awards:loyalty_settings"
+ACHIEVEMENTS_LIST_CACHE_KEY = "awards:achievements:list"
+LOYALTY_SETTINGS_CACHE_TTL = 60 * 60  # 1 hour
+
 
 class RuleType(models.TextChoices):
     """The metric an :class:`Award` is measured against."""
@@ -18,6 +25,7 @@ class RuleType(models.TextChoices):
     ORDERS_COMPLETED = "orders_completed", _("Orders completed")
     TOTAL_SPENT = "total_spent", _("Total amount spent")
     DISTINCT_ITEMS = "distinct_items", _("Distinct menu items tried")
+    CUSTOMIZATIONS = "customizations", _("Customizations applied")
 
 
 class PointsReason(models.TextChoices):
@@ -66,10 +74,17 @@ class LoyaltySettings(models.Model):
     def save(self, *args, **kwargs):
         self.pk = 1
         super().save(*args, **kwargs)
+        # This singleton is read on every order completion and loyalty request;
+        # drop the cache so the next read reflects the new config immediately.
+        cache.delete(LOYALTY_SETTINGS_CACHE_KEY)
 
     @classmethod
     def load(cls):
+        cached = cache.get(LOYALTY_SETTINGS_CACHE_KEY)
+        if cached is not None:
+            return cached
         obj, _created = cls.objects.get_or_create(pk=1)
+        cache.set(LOYALTY_SETTINGS_CACHE_KEY, obj, LOYALTY_SETTINGS_CACHE_TTL)
         return obj
 
 

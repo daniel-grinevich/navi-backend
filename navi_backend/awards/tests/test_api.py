@@ -9,7 +9,6 @@ from navi_backend.awards.api.views import TierViewSet
 from navi_backend.awards.models import LoyaltySettings
 from navi_backend.awards.models import RuleType
 from navi_backend.awards.models import UserAward
-from navi_backend.awards.models import UserLoyalty
 from navi_backend.users.tests.factories import UserFactory
 
 from .factories import AwardFactory
@@ -113,7 +112,10 @@ class TestMyLoyaltyAPI:
 
         assert response.status_code == 200
         assert response.data["notifications_enabled"] is False
-        assert UserLoyalty.for_user(user).notifications_enabled is False
+        # Reward-email opt-in is the single source of truth on the user's
+        # notification preferences, not the legacy UserLoyalty flag.
+        user.preferences.refresh_from_db()
+        assert user.preferences.email_rewards is False
 
 
 @pytest.mark.django_db

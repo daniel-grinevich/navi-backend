@@ -27,7 +27,14 @@ class MenuItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
     permission_classes = [IsAdminUser | ReadOnly]
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = (
+            super()
+            .get_queryset()
+            .select_related("category")
+            .prefetch_related(
+                "menu_item_ingredients__ingredient",
+            )
+        )
         status = self.request.query_params.get("status")
 
         if status is None:
@@ -44,7 +51,15 @@ class MenuItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
         """
         GET /menu_items/<slug>/category-customizations/
         """
-        menu_item = get_object_or_404(MenuItem, slug=slug)
+        # Serializing this nests category -> customization groups -> customizations
+        # plus the item's ingredients; prefetch the whole tree in one round-trip.
+        menu_item = get_object_or_404(
+            MenuItem.objects.select_related("category").prefetch_related(
+                "category__customizationgroup_set__customization_set",
+                "menu_item_ingredients__ingredient",
+            ),
+            slug=slug,
+        )
         if not menu_item.category:
             return Response(
                 {"detail": "No category for that menu-item."},

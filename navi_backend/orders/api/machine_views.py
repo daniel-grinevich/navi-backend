@@ -14,7 +14,7 @@ from navi_backend.orders.qr import InvalidQrTokenError
 from navi_backend.orders.qr import read_qr_token
 from navi_backend.orders.tasks import create_order_invoice
 from navi_backend.orders.utils import broadcast_order_status
-from navi_backend.payments.services import StripePaymentService
+from navi_backend.payments.tasks import capture_stripe_payment
 
 from .serializers import MachineOrderSerializer
 
@@ -164,12 +164,14 @@ class MachineOrderCompleteView(APIView):
         error_message = request.data.get("error_message", "")
 
         if outcome == "complete":
-            StripePaymentService.capture_payment(order.payment.stripe_payment_intent_id)
             order.order_status = "D"
             order.claimed_by = None
             order.claimed_at = None
             order.save(update_fields=["order_status", "claimed_by", "claimed_at"])
             broadcast_order_status(order.id, "D")
+            capture_stripe_payment.apply_async(
+                args=[order.payment.stripe_payment_intent_id],
+            )
             create_order_invoice.apply_async(args=[order.id], queue="invoice")
             process_order_awards.apply_async(args=[str(order.id)])
 
