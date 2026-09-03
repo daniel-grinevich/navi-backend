@@ -28,7 +28,7 @@ def _get_user_from_access_token(token_str):
         jwt_auth = JWTAuthentication()
         validated = jwt_auth.get_validated_token(token_str.encode())
         return jwt_auth.get_user(validated)
-    except InvalidToken, TokenError, User.DoesNotExist:
+    except (InvalidToken, TokenError, User.DoesNotExist):
         return AnonymousUser()
 
 
@@ -38,11 +38,14 @@ def _get_user_from_refresh_token(token_str):
     # fallback so long-lived WS connections survive without a re-login.
     try:
         token = RefreshToken(token_str)
-        user_id = token.payload.get("user_id")
+        # RefreshToken() verifies signature/expiry but not the blacklist, so a
+        # logged-out or rotated token would still authenticate. Reject those.
+        token.check_blacklist()
+        user_id = token.payload.get(settings.SIMPLE_JWT.get("USER_ID_CLAIM", "user_id"))
         if not user_id:
             return AnonymousUser()
         return User.objects.get(id=user_id)
-    except InvalidToken, TokenError, User.DoesNotExist:
+    except (InvalidToken, TokenError, User.DoesNotExist):
         return AnonymousUser()
 
 

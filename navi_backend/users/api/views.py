@@ -162,8 +162,14 @@ class CreateGuestView(APIView):
                 "is_guest": True,
             },
         )
-        if not created and not user.is_guest:
-            return Response(status=status.HTTP_200_OK, data={"redirect": "login"})
+        if not created:
+            # An account already exists for this email. Never reset its
+            # password or mint tokens for the caller — that would let anyone
+            # who knows a guest's email take over the session. Registered
+            # users are pointed at login; existing guests get no new session.
+            if not user.is_guest:
+                return Response(status=status.HTTP_200_OK, data={"redirect": "login"})
+            return Response(status=status.HTTP_409_CONFLICT, data={"redirect": "login"})
 
         user.set_password(str(uuid.uuid4()))
         user.save()
