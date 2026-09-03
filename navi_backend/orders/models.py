@@ -47,6 +47,18 @@ class Order(
         db_index=True,
         help_text=_("Order status"),
     )
+    # Lock/lease: which Pi currently holds this order and when it claimed it.
+    # Set atomically when an order moves O -> S so no other Pi can take it; a
+    # stale claim (crashed Pi) can be reclaimed once claimed_at ages out.
+    claimed_by = models.ForeignKey(
+        "devices.RaspberryPi",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="claimed_orders",
+        help_text=_("Raspberry Pi that currently holds this order."),
+    )
+    claimed_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.user} (v{self.created_at})"
