@@ -40,10 +40,11 @@ repos:
     rev: v1.36.3
     hooks:
       # pi/ templates are FastAPI/Jinja2, not Django templates.
+      # emails/ are HTML emails that need inline styles + entity refs (H021/H023).
       - id: djlint-reformat-django
-        exclude: '^pi/'
+        exclude: '^pi/|^navi_backend/templates/emails/'
       - id: djlint-django
-        exclude: '^pi/'
+        exclude: '^pi/|^navi_backend/templates/emails/'
 
 # sets up .pre-commit-ci.yaml to ensure pre-commit dependencies stay up to date
 ci:
