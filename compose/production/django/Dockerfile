@@ -15,12 +15,13 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
   libpq-dev
 
 
-# Requirements are installed here to ensure they will be cached.
-COPY ./requirements .
+# uv is the single source of truth for dependencies (pyproject.toml + uv.lock).
+RUN pip install --no-cache-dir uv
 
-# Create Python Dependency and Sub-Dependency Wheels.
-RUN pip wheel --wheel-dir /usr/src/app/wheels  \
-  -r ${BUILD_ENVIRONMENT}.txt
+# Export locked runtime deps (no dev group) and build wheels for them.
+COPY pyproject.toml uv.lock ./
+RUN uv export --frozen --no-emit-project --no-hashes --no-dev -o requirements.txt \
+  && pip wheel --wheel-dir /usr/src/app/wheels -r requirements.txt
 
 
 # Python 'run' stage

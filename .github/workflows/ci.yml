@@ -44,8 +44,7 @@ jobs:
         with:
           python-version: '3.14'
           cache-dependency-path: |
-            requirements/base.txt
-            requirements/local.txt
+            uv.lock
 
       - name: Create fake Stripe env file
         run: mkdir -p .envs/.local && touch .envs/.local/.stripe
