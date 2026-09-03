@@ -7,13 +7,16 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAdminUser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.viewsets import ReadOnlyModelViewSet
 
 from navi_backend.core.api import BaseModelViewSet
 from navi_backend.core.api.mixins import UserScopedQuerySetMixin
 from navi_backend.core.api.mixins.track_user_mixin import TrackUserMixin
+from navi_backend.core.pagination import StandardResultsSetPagination
 from navi_backend.core.permissions import IsOwner
 from navi_backend.core.utils.decorators import require_body_params
 from navi_backend.devices.models import NaviPort
+from navi_backend.orders.models import Order
 from navi_backend.orders.models import OrderCustomization
 from navi_backend.orders.models import OrderItem
 from navi_backend.payments.services import StripePaymentService
@@ -25,12 +28,29 @@ from .serializers import OrderSerializer
 
 class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
     serializer_class = OrderSerializer
+    pagination_class = StandardResultsSetPagination
     action_permissions = {
         "default": [IsOwner, IsAuthenticated],
         "create": [IsAuthenticated],
         "destroy": [IsAdminUser],
         "dispatch_order": [IsAdminUser],
     }
+
+    def get_queryset(self):
+        base = Order.objects.prefetch_related("items__customizations")
+        if self.action == "list":
+            # The client Orders screen is ALWAYS the caller's own orders, even
+            # for staff. Admins view everyone's orders via /api/admin/orders/;
+            # they don't leak onto the client portal.
+            qs = base.filter(user=self.request.user)
+            status_filter = self.request.query_params.get("status")
+            if status_filter:
+                qs = qs.filter(order_status=status_filter)
+            return qs.order_by("-created_at")
+        # retrieve + custom actions keep role-aware scoping (via the mixin) so
+        # staff can still dispatch/act on any order by id.
+        self.queryset = base
+        return super().get_queryset()
 
     @action(detail=True, methods=["put"], name="Cancel Order")
     def cancel_order(self, request, pk=None):
@@ -91,6 +111,26 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
     def perform_create(self, serializer):
         serializer.validated_data["user"] = self.request.user
         super().perform_create(serializer)
+
+
+class AdminOrderViewSet(ReadOnlyModelViewSet):
+    """Every user's orders, for the admin panel table.
+
+    Explicitly admin-only and unscoped — this is the counterpart to the client
+    OrderViewSet, whose list is always scoped to the caller. Read-only: order
+    lifecycle actions (dispatch/cancel) stay on OrderViewSet.
+    """
+
+    serializer_class = OrderSerializer
+    permission_classes = [IsAdminUser]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        qs = Order.objects.prefetch_related("items__customizations")
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(order_status=status_filter)
+        return qs.order_by("-created_at")
 
 
 class OrderItemViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
