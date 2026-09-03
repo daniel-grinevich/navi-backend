@@ -3,10 +3,13 @@ import logging
 from celery import shared_task
 from django.contrib.auth import get_user_model
 
+from navi_backend.notifications.models import NotificationCategory
+from navi_backend.notifications.models import NotificationKind
 from navi_backend.notifications.services.notification_strategy import (
     EmailNotificationService,
 )
 from navi_backend.notifications.services.notification_strategy import PDFAttachment
+from navi_backend.notifications.services.preferences import should_send
 from navi_backend.payments.models import Invoice
 
 logger = logging.getLogger(__name__)
@@ -23,6 +26,10 @@ def send_user_confirmation_email(self, user_id):
         return
     if not user.email:
         logger.warning("User %s has no email address: ", user_id)
+        return
+
+    if not should_send(user, NotificationKind.EMAIL, NotificationCategory.ACCOUNT):
+        logger.info("User %s opted out of account emails; skipping", user_id)
         return
 
     notification = EmailNotificationService(
@@ -45,6 +52,12 @@ def send_invoice_email(self, user_id, invoice_id):
 
     if not user.email:
         logger.warning("User %s has no email address", user_id)
+        return
+
+    if not should_send(
+        user, NotificationKind.EMAIL, NotificationCategory.ORDER_UPDATES
+    ):
+        logger.info("User %s opted out of order emails; skipping invoice", user_id)
         return
 
     try:

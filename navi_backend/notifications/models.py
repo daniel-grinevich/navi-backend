@@ -8,6 +8,18 @@ class NotificationKind(models.TextChoices):
     SMS = "sms", "SMS"
 
 
+class NotificationCategory(models.TextChoices):
+    """The topic a notification is about, independent of the channel it uses.
+
+    User preferences are stored per (channel, category) pair, so a user can, for
+    example, keep transactional order emails while muting marketing ones.
+    """
+
+    ACCOUNT = "account", "Account & security"
+    ORDER_UPDATES = "order_updates", "Order updates"
+    MARKETING = "marketing", "Marketing & promotions"
+
+
 class NotificationLog(UUIDModel):
     reason = models.CharField(max_length=50, blank=True)
     sent_at = models.DateTimeField(auto_now_add=True)

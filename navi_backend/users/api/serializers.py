@@ -3,6 +3,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import PasswordField
 
 from navi_backend.core.api import BaseModelSerializer
+from navi_backend.users.models import UserPreferences
 
 User = get_user_model()
 
@@ -84,3 +85,20 @@ class UserSerializer(BaseModelSerializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = PasswordField()
+
+
+class UserPreferencesSerializer(BaseModelSerializer):
+    class Meta:
+        model = UserPreferences
+        fields = [
+            "theme",
+            "language",
+            "email_account",
+            "email_order_updates",
+            "email_marketing",
+            "sms_account",
+            "sms_order_updates",
+            "sms_marketing",
+            "updated_at",
+        ]
+        read_only_fields = ["updated_at"]

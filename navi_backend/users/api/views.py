@@ -23,7 +23,9 @@ from navi_backend.core.api import BaseModelViewSet
 from navi_backend.core.permissions import IsOwner
 from navi_backend.users.jwt import delete_token_cookies
 from navi_backend.users.jwt import set_token_cookies
+from navi_backend.users.models import UserPreferences
 
+from .serializers import UserPreferencesSerializer
 from .serializers import UserSerializer
 
 User = get_user_model()
@@ -50,6 +52,21 @@ class UserViewSet(BaseModelViewSet):
     @action(detail=False)
     def me(self, request):
         serializer = self.get_serializer(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["get", "patch"])
+    def preferences(self, request):
+        prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+
+        if request.method == "PATCH":
+            serializer = UserPreferencesSerializer(
+                prefs, data=request.data, partial=True
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        serializer = UserPreferencesSerializer(prefs)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
