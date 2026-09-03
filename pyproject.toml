@@ -111,6 +111,9 @@ format_js = true
 # TODO: remove T002 when fixed https://github.com/djlint/djLint/issues/687
 ignore = "H006,H030,H031,T002"
 include = "H017,H035"
+# HTML emails legitimately need inline styles (H021) and entity refs (H023) for
+# client compatibility, so exclude the email templates from djLint entirely.
+extend_exclude = "navi_backend/templates/emails"
 indent = 2
 max_line_length = 119
 profile = "django"
