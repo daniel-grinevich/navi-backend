@@ -125,6 +125,8 @@ extend-exclude = [
 "manage.py" = ["TRY003"]
 "*/apps.py" = ["PLC0415"]
 "*/tests/*" = ["PLR2004"]
+# Seed/demo command: tuned probabilities and long catalog literals are expected.
+"*/management/commands/seed_random.py" = ["PLR2004", "PLR0915", "S311", "E501"]
 
 [tool.ruff.lint]
 select = [
