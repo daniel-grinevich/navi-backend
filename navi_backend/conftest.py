@@ -1,6 +1,6 @@
 import pytest
 
-from navi_backend.users.models import User
+from navi_backend.users.models import User  # noqa: TC001
 from navi_backend.users.tests.factories import UserFactory
 
 

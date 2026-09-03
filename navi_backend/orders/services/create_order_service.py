@@ -107,8 +107,12 @@ class CreateOrderService(BaseService):
         return ctx
 
     def save_order_items(self, ctx):
-        from navi_backend.orders.api.serializers import OrderCustomizationSerializer
-        from navi_backend.orders.api.serializers import OrderItemSerializer
+        from navi_backend.orders.api.serializers import (  # noqa: PLC0415
+            OrderCustomizationSerializer,
+        )
+        from navi_backend.orders.api.serializers import (  # noqa: PLC0415
+            OrderItemSerializer,
+        )
 
         order = ctx["order"]
         tracking_user = ctx["tracking_user"]

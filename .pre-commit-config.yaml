@@ -28,7 +28,7 @@ repos:
 
   # Run the Ruff linter.
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.3
+    rev: v0.14.2
     hooks:
       # Linter
       - id: ruff
@@ -39,8 +39,11 @@ repos:
   - repo: https://github.com/Riverside-Healthcare/djLint
     rev: v1.36.3
     hooks:
+      # pi/ templates are FastAPI/Jinja2, not Django templates.
       - id: djlint-reformat-django
+        exclude: '^pi/'
       - id: djlint-django
+        exclude: '^pi/'
 
 # sets up .pre-commit-ci.yaml to ensure pre-commit dependencies stay up to date
 ci:

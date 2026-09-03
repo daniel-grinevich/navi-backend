@@ -20,7 +20,6 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from navi_backend.core.api import BaseModelViewSet
-from navi_backend.core.api.mixins import UserScopedQuerySetMixin
 from navi_backend.core.permissions import IsOwner
 from navi_backend.users.jwt import delete_token_cookies
 from navi_backend.users.jwt import set_token_cookies
@@ -163,8 +162,14 @@ class CreateGuestView(APIView):
                 "is_guest": True,
             },
         )
-        if not created and not user.is_guest:
-            return Response(status=status.HTTP_200_OK, data={"redirect": "login"})
+        if not created:
+            # An account already exists for this email. Never reset its
+            # password or mint tokens for the caller — that would let anyone
+            # who knows a guest's email take over the session. Registered
+            # users are pointed at login; existing guests get no new session.
+            if not user.is_guest:
+                return Response(status=status.HTTP_200_OK, data={"redirect": "login"})
+            return Response(status=status.HTTP_409_CONFLICT, data={"redirect": "login"})
 
         user.set_password(str(uuid.uuid4()))
         user.save()

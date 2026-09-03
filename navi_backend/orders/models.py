@@ -47,6 +47,18 @@ class Order(
         db_index=True,
         help_text=_("Order status"),
     )
+    # Lock/lease: which Pi currently holds this order and when it claimed it.
+    # Set atomically when an order moves O -> S so no other Pi can take it; a
+    # stale claim (crashed Pi) can be reclaimed once claimed_at ages out.
+    claimed_by = models.ForeignKey(
+        "devices.RaspberryPi",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="claimed_orders",
+        help_text=_("Raspberry Pi that currently holds this order."),
+    )
+    claimed_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.user} (v{self.created_at})"
@@ -119,8 +131,7 @@ class OrderItem(
             raise ValidationError(msg)
         if self.order.order_status != "O":
             msg = (
-                "You can't update order items if the order is not in "
-                "'Ordered' status."
+                "You can't update order items if the order is not in 'Ordered' status."
             )
             raise ValidationError(msg)
 
@@ -136,6 +147,26 @@ class OrderItem(
             customization.price for customization in self.customizations.all()
         )
         return item_price + customizations_price
+
+
+class MachineErrorLog(UUIDModel, AuditModel):
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="machine_errors",
+    )
+    raspberry_pi = models.ForeignKey(
+        "devices.RaspberryPi",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="error_logs",
+    )
+    error_message = models.TextField()
+    is_recoverable = models.BooleanField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Error on {self.order} — {self.error_message[:50]}"
 
 
 class OrderCustomization(

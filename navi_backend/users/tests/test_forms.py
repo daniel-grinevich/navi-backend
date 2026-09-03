@@ -3,7 +3,7 @@
 from django.utils.translation import gettext_lazy as _
 
 from navi_backend.users.forms import UserAdminCreationForm
-from navi_backend.users.models import User
+from navi_backend.users.models import User  # noqa: TC001
 
 
 class TestUserAdminCreationForm:
@@ -33,5 +33,5 @@ class TestUserAdminCreationForm:
         assert len(form.errors) == 1
         assert "email" in form.errors
         assert form.errors["email"][0] == _(
-            "User with this Email address " "already exists."
+            "User with this Email address already exists."
         )

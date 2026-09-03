@@ -27,7 +27,7 @@ from navi_backend.menu.tests.factories import MenuItemIngredientFactory
 class Command(BaseCommand):
     help = "seeds local db with temp data for testing"
 
-    def handle(self, *args, **kwargs):  # noqa: C901
+    def handle(self, *args, **kwargs):
         with transaction.atomic():
             # Clear existing data
             self.stdout.write("Clearing existing data...")
