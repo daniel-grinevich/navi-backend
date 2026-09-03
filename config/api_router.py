@@ -17,6 +17,8 @@ from navi_backend.notifications.api.views import EmailLogViewSet
 from navi_backend.notifications.api.views import EmailTemplateViewSet
 from navi_backend.notifications.api.views import TextLogViewSet
 from navi_backend.orders.api.machine_views import MachineOrderCompleteView
+from navi_backend.orders.api.machine_views import MachineOrderQueueView
+from navi_backend.orders.api.machine_views import MachineOrderScanView
 from navi_backend.orders.api.machine_views import MachineOrderStartView
 from navi_backend.orders.api.views import OrderCustomizationViewSet
 from navi_backend.orders.api.views import OrderItemViewSet
@@ -86,6 +88,16 @@ urlpatterns = [
     path("csrf-token/", CSRFAPIView.as_view(), name="csrf-token"),
     path("create-guest/", CreateGuestView.as_view(), name="create-guest"),
     # Machine endpoints
+    path(
+        "machine/orders/queue/",
+        MachineOrderQueueView.as_view(),
+        name="machine-order-queue",
+    ),
+    path(
+        "machine/orders/scan/",
+        MachineOrderScanView.as_view(),
+        name="machine-order-scan",
+    ),
     path(
         "machine/orders/<uuid:order_id>/start/",
         MachineOrderStartView.as_view(),

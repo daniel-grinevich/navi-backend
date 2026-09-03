@@ -117,6 +117,9 @@ target-version = "py314"
 extend-exclude = [
     "*/migrations/*.py",
     "staticfiles/*",
+    # The Pi app is a standalone service with its own runtime/deps (ARM
+    # container, FastAPI); it isn't part of the Django backend lint domain.
+    "pi/*",
 
 ]
 

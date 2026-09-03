@@ -7,6 +7,7 @@ from navi_backend.menu.models import MenuItem
 from navi_backend.orders.models import Order
 from navi_backend.orders.models import OrderCustomization
 from navi_backend.orders.models import OrderItem
+from navi_backend.orders.qr import make_qr_token
 from navi_backend.orders.services import CreateOrderService
 from navi_backend.users.api.serializers import UserSerializer
 
@@ -86,6 +87,7 @@ class MachineOrderSerializer(serializers.ModelSerializer):
 class OrderSerializer(BaseModelSerializer):
     items = OrderItemSerializer(many=True, required=False)
     user = UserSerializer(read_only=True)
+    qr_token = serializers.SerializerMethodField()
 
     show_only_to_admin_fields = ()
 
@@ -99,11 +101,21 @@ class OrderSerializer(BaseModelSerializer):
             "slug",
             "items",
             "order_status",
+            "qr_token",
         ]
 
         field_sets = {
             "partial_update": ["navi_port", "items", "order_status"],
         }
+
+    def get_qr_token(self, obj):
+        """Signed token the phone renders as a QR for the Pi to scan.
+
+        Only meaningful while the order is still awaiting pickup.
+        """
+        if obj.order_status != "O":
+            return None
+        return make_qr_token(obj.id)
 
     def create(self, validated_data):
         service = CreateOrderService(
