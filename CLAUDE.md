@@ -8,7 +8,8 @@ Guidance for AI agents (and humans) working in this repository. Keep it short, k
 
 ## Git & merge requests
 
-- **This repo (backend): open merge/pull requests against `development`.** `master` is the release branch — only merge into it as part of a release, not for regular feature work.
+- **This repo (backend): open merge/pull requests against `development`** for most work (features, fixes, refactors).
+- **`master` is the protected release branch.** Don't target it for regular feature work — but **CI/CD changes (GitHub Actions, pipeline config) go straight to `master`.**
 - **Frontend repo: MRs target `production`.** (Noted here so agents working across both repos don't mix them up.)
 - Branch off the appropriate base; never commit directly to `master`.
 - Only commit or push when the user asks.
