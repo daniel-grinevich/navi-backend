@@ -1,3 +1,4 @@
+import contextlib
 import uuid
 
 from django.conf import settings
@@ -13,9 +14,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken
 from rest_framework_simplejwt.exceptions import TokenError
-from rest_framework_simplejwt.serializers import TokenBlacklistSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.tokens import Token
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -56,9 +55,10 @@ class UserViewSet(BaseModelViewSet):
 class SignupView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = UserSerializer
+    throttle_scope = "auth-signup"
 
     def post(self, request):
-        serializer = UserSerializer(data=request.data)
+        serializer = UserSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(status=status.HTTP_201_CREATED, data=serializer.data)
@@ -67,6 +67,7 @@ class SignupView(APIView):
 
 class LoginView(TokenObtainPairView):
     permission_classes = [permissions.AllowAny]
+    throttle_scope = "auth-login"
 
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
@@ -81,6 +82,8 @@ class LoginView(TokenObtainPairView):
 
 
 class RefreshTokenAPIView(TokenRefreshView):
+    throttle_scope = "auth-refresh"
+
     def post(self, request, *args, **kwargs):
         try:
             serializer = self.get_serializer(
@@ -108,31 +111,22 @@ class RefreshTokenAPIView(TokenRefreshView):
 
 
 class LogoutAPIView(APIView):
-    serializer_class = TokenBlacklistSerializer
-    permission_classes = [IsAuthenticated]
+    # No auth/permissions: logout must still work with an expired access
+    # token, and it only ever clears the caller's own cookies.
+    authentication_classes = ()
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        serializer = self.serializer_class(
-            data={"refresh": self.get_refresh_token_from_cookie()}
-        )
-
-        try:
-            serializer.is_valid(raise_exception=True)
-        except TokenError as e:
-            raise InvalidToken(e.args[0]) from e
+        refresh = request.COOKIES.get(settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"])
+        if refresh:
+            # An expired or already-blacklisted token still gets its cookies
+            # cleared below.
+            with contextlib.suppress(TokenError):
+                RefreshToken(refresh).blacklist()
 
         response = Response({}, status=status.HTTP_200_OK)
-
         delete_token_cookies(response)
-
         return response
-
-    def get_refresh_token_from_cookie(self) -> Token:
-        refresh = self.request.COOKIES.get(settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"])
-        if not refresh:
-            raise PermissionDenied
-
-        return refresh
 
 
 class CSRFAPIView(APIView):
@@ -146,6 +140,7 @@ class CSRFAPIView(APIView):
 class CreateGuestView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = UserSerializer
+    throttle_scope = "auth-guest"
 
     def post(self, request, *args, **kwargs):
         guest_email = request.data.get("guestUser")
@@ -162,7 +157,9 @@ class CreateGuestView(APIView):
                 "is_guest": True,
             },
         )
-        if not created and not user.is_guest:
+        if not created:
+            # Never hand out a session for an existing account: knowing an
+            # email must not be enough to take over its orders/history.
             return Response(status=status.HTTP_200_OK, data={"redirect": "login"})
 
         user.set_password(str(uuid.uuid4()))
