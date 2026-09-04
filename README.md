@@ -1,52 +1,39 @@
 # Navi Backend
 
-## Settings
+Django 5.2 / DRF backend for [navitascoffee.com](https://navitascoffee.com) — orders, menu, payments, users, devices, and notifications for the Navi coffee platform. Python 3.14, Postgres, Redis, Celery; Cookiecutter-Django layout.
 
-hi
+**New here (human or AI agent)? Start with [AGENTS.md](AGENTS.md)** — conventions, layout, and the deploy pipeline in one page.
 
-Moved to [settings](https://cookiecutter-django.readthedocs.io/en/latest/1-getting-started/settings.html).
+## Local development
 
-## Basic Commands
+Everything runs in Docker Compose via the `Makefile`:
 
-### Setting Up Your Users
+```sh
+make up-d          # start the stack (Django, Postgres, Redis, Celery, mailpit, …)
+make migrate       # apply DB migrations
+make test          # full pytest suite
+make lint          # ruff check --fix + ruff format
+make shell         # Django shell
+```
 
-- To create a **normal user account**, just go to Sign Up and fill out the form. Once you submit it, you'll see a "Verify Your E-mail Address" page. Go to your console to see a simulated email verification message. Copy the link into your browser. Now the user's email should be verified and ready to go.
+Create an admin user: `docker compose -f docker-compose.local.yml run --rm django python manage.py createsuperuser`
 
-- To create a **superuser account**, use this command:
+## Branches
 
-      $ python manage.py createsuperuser
+- `development` — default target for feature/fix PRs
+- `master` — protected release branch (CI/CD config changes go here directly)
 
-For convenience, you can keep your normal user logged in on Chrome and your superuser logged in on Firefox (or similar), so that you can see how the site behaves for both kinds of users.
+## Releases & deployment
 
-### Type checks
+Deploys are GitOps via the [rainbow-road](https://github.com/daniel-grinevich/rainbow-road) repo (kustomize + ArgoCD on k3s):
 
-Running type checks with mypy:
+1. Merge to `master`, push a semver tag (`git tag v1.2.3 && git push origin v1.2.3`)
+2. GitHub Actions builds the image, pushes it to GHCR, and bumps the tag in rainbow-road
+3. Staging auto-syncs; **production waits for a manual Sync click in the ArgoCD UI**
+4. Every sync runs `manage.py migrate` as a PreSync Job before the app pods roll
 
-    $ mypy navi_backend
+Watch the build in the GitHub Actions tab and the rollout in ArgoCD.
 
-### Test coverage
+## Quality gates
 
-To run the tests, check your test coverage, and generate an HTML coverage report:
-
-    $ coverage run -m pytest
-    $ coverage html
-    $ open htmlcov/index.html
-
-#### Running tests with pytest
-
-    $ pytest
-
-### Live reloading and Sass CSS compilation
-
-Moved to [Live reloading and SASS compilation](https://cookiecutter-django.readthedocs.io/en/latest/2-local-development/developing-locally.html#using-webpack-or-gulp).
-
-## Deployment
-
-The following details how to deploy this application.
-
-### Docker
-
-See detailed [cookiecutter-django Docker documentation](https://cookiecutter-django.readthedocs.io/en/latest/3-deployment/deployment-with-docker.html).
-
-
-Adding some text to test pushing
+Ruff (lint + format), mypy (`django-stubs`), pytest (`--reuse-db`), pre-commit hooks, Trivy/TruffleHog scans in CI. Run `make lint` and `make test` before pushing.

@@ -56,7 +56,17 @@ class UserSerializer(BaseModelSerializer):
         user = User.objects.filter(email=email).first()
 
         if user:
-            if not user.is_guest:
+            request = self.context.get("request")
+            requester = getattr(request, "user", None)
+            is_own_guest_account = (
+                user.is_guest
+                and requester is not None
+                and requester.is_authenticated
+                and requester.pk == user.pk
+            )
+            # Only the guest's own logged-in session may claim the account;
+            # otherwise knowing an email is enough to take it over.
+            if not is_own_guest_account:
                 raise serializers.ValidationError(
                     {"email": "An account with this email already exists."}
                 )

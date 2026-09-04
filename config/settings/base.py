@@ -368,6 +368,13 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "navi_backend.core.exceptions.custom_exception_handler",
+    "DEFAULT_THROTTLE_CLASSES": ("rest_framework.throttling.ScopedRateThrottle",),
+    "DEFAULT_THROTTLE_RATES": {
+        "auth-login": "10/min",
+        "auth-refresh": "30/min",
+        "auth-signup": "20/hour",
+        "auth-guest": "20/hour",
+    },
 }
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
