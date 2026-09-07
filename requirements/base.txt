@@ -1,5 +1,5 @@
 python-slugify==8.0.4  # https://github.com/un33k/python-slugify
-Pillow==12.0.0  # https://github.com/python-pillow/Pillow
+Pillow==12.3.0  # https://github.com/python-pillow/Pillow
 argon2-cffi==23.1.0  # https://github.com/hynek/argon2_cffi
 whitenoise==6.11.0  # https://github.com/evansd/whitenoise
 redis==7.1.0  # https://github.com/redis/redis-py
@@ -11,7 +11,7 @@ fido2==2.0.0
 
 # Django
 # ------------------------------------------------------------------------------
-django==5.2.7  # pyup: < 5.1  # https://www.djangoproject.com/
+django==5.2.13  # pyup: < 5.1  # https://www.djangoproject.com/
 django-environ==0.12.0  # https://github.com/joke2k/django-environ
 django-model-utils==5.0.0  # https://github.com/jazzband/django-model-utils
 django-allauth[mfa]==65.13.1  # https://github.com/pennersr/django-allauth
