@@ -18,6 +18,7 @@ from navi_backend.notifications.api.views import EmailTemplateViewSet
 from navi_backend.notifications.api.views import TextLogViewSet
 from navi_backend.orders.api.machine_views import MachineOrderCompleteView
 from navi_backend.orders.api.machine_views import MachineOrderStartView
+from navi_backend.orders.api.views import AdminOrderViewSet
 from navi_backend.orders.api.views import OrderCustomizationViewSet
 from navi_backend.orders.api.views import OrderItemViewSet
 from navi_backend.orders.api.views import OrderViewSet
@@ -42,6 +43,9 @@ router.register(
     r"orders/(?P<order_pk>[0-9a-f-]+)/items", OrderItemViewSet, basename="order-items"
 )
 router.register(r"orders", OrderViewSet, basename="orders")
+
+# Admin routes (staff-only, unscoped — for admin panel tables)
+router.register(r"admin/orders", AdminOrderViewSet, basename="admin-orders")
 
 # Menu routes
 router.register(r"menu-items", MenuItemViewSet, basename="menu-items")
