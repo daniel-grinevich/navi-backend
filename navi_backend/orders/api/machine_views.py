@@ -154,43 +154,40 @@ class MachineOrderCompleteView(APIView):
     def post(self, request, order_id):
         order = get_object_or_404(Order, pk=order_id)
 
-        # Only the Pi that holds the claim may complete or fail it.
-        if order.claimed_by_id and order.claimed_by_id != request.raspberry_pi.id:
-            return Response(
-                {"detail": "Order is claimed by another machine."}, status=409
-            )
-
         outcome = request.data.get("outcome")
         error_message = request.data.get("error_message", "")
+        if outcome not in ("complete", "error"):
+            return Response(
+                {"detail": "outcome must be 'complete' or 'error'."}, status=400
+            )
+
+        # Mirror of _claim_order: one conditional UPDATE both verifies this Pi
+        # still holds the claim and releases it, so a stale Pi racing a reclaim
+        # can't finish an order it no longer owns.
+        new_status = "D" if outcome == "complete" else "O"
+        updated = Order.objects.filter(
+            pk=order_id,
+            order_status="S",
+            claimed_by=request.raspberry_pi,
+        ).update(order_status=new_status, claimed_by=None, claimed_at=None)
+        if not updated:
+            return Response(
+                {"detail": "Order is not claimed by this machine."}, status=409
+            )
 
         if outcome == "complete":
-            order.order_status = "D"
-            order.claimed_by = None
-            order.claimed_at = None
-            order.save(update_fields=["order_status", "claimed_by", "claimed_at"])
             broadcast_order_status(order.id, "D")
             capture_stripe_payment.apply_async(
                 args=[order.payment.stripe_payment_intent_id],
             )
             create_order_invoice.apply_async(args=[order.id], queue="invoice")
             process_order_awards.apply_async(args=[str(order.id)])
-
-        elif outcome == "error":
+        else:
             MachineErrorLog.objects.create(
                 order=order,
                 raspberry_pi=request.raspberry_pi,
                 error_message=error_message,
             )
-            # Release the claim so the order can be picked up again.
-            order.order_status = "O"
-            order.claimed_by = None
-            order.claimed_at = None
-            order.save(update_fields=["order_status", "claimed_by", "claimed_at"])
             broadcast_order_status(order.id, "O", error=error_message)
-
-        else:
-            return Response(
-                {"detail": "outcome must be 'complete' or 'error'."}, status=400
-            )
 
         return Response({"ok": True})
