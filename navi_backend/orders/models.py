@@ -150,6 +150,21 @@ class OrderItem(
 
 
 class MachineErrorLog(UUIDModel, AuditModel):
+    # Machine-generated rows have no acting user; relax the audit FKs.
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="%(app_label)s_%(class)s_created",
+        null=True,
+        blank=True,
+    )
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="%(app_label)s_%(class)s_updated",
+        null=True,
+        blank=True,
+    )
     order = models.ForeignKey(
         Order,
         on_delete=models.CASCADE,
