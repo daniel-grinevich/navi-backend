@@ -102,6 +102,7 @@ class OrderSerializer(BaseModelSerializer):
             "items",
             "order_status",
             "qr_token",
+            "created_at",
         ]
 
         field_sets = {

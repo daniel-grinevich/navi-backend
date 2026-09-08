@@ -14,6 +14,34 @@ Guidance for AI agents (and humans) working in this repository. Keep it short, k
 - Branch off the appropriate base; never commit directly to `master`.
 - Only commit or push when the user asks.
 
+## Releases & deployment
+
+Staging and production run on k3s, deployed via GitOps (kustomize + ArgoCD) from the
+[`rainbow-road`](https://github.com/daniel-grinevich/rainbow-road) repo (`navi/` directory).
+The docker-compose files are for local dev only.
+
+Release flow (semantic versioning):
+
+1. Merge to `master`, then push a tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+2. `deploy-production.yml` builds the image from the tagged commit, pushes
+   `ghcr.io/daniel-grinevich/navi-backend:X.Y.Z`, and commits the new tag into
+   `rainbow-road/navi/production/kustomization.yaml`.
+3. ArgoCD (`navi-production` app) sees the change but **does not auto-sync** —
+   a human reviews the diff in the ArgoCD UI and clicks **Sync** to release.
+4. On sync, a **PreSync migrate Job** (`navi/base/migrate-job.yaml` in rainbow-road) runs
+   `manage.py migrate` before any deployment rolls. If migrations fail, the deploy stops.
+
+Staging (`navi-staging` app) auto-syncs from the `staging-latest` image tag — no button.
+
+Gotchas learned the hard way:
+
+- New Python deps that need system libraries (e.g. WeasyPrint → pango/glib) must be added
+  to `compose/production/django/Dockerfile`, or workers crash-loop at import time.
+- Production settings live in `config/settings/production.py`; if a setting exists in
+  `staging.py` but not there (CORS, cookie flags), prod silently misbehaves.
+- The k8s cluster is reachable via `ssh dandelion@servero1` + `sudo kubectl`
+  (namespaces `navi-production` / `navi-staging`).
+
 ## Running things (Docker)
 
 Everything runs through the `Makefile`, which wraps `docker compose`. Default env is `local`.
@@ -40,6 +68,15 @@ Each app is layered. Follow the existing split (see `navi_backend/orders/` as th
 - `tests/` — pytest tests (use `factory-boy` factories, not hand-built fixtures).
 
 **Views/serializers stay thin; business logic lives in `services/` and `managers/`.** Don't put multi-model orchestration or transaction logic in a view.
+
+## Auth (do not weaken these)
+
+JWTs live in HttpOnly cookies (`navi_backend/core/authentication.py` +
+`navi_backend/users/jwt.py`): 5-min access / 7-day refresh, rotation with blacklist,
+CSRF enforced on cookie auth. Auth endpoints are rate-limited via DRF
+`ScopedRateThrottle` (`throttle_scope` on the views, rates in `base.py`) backed by the
+default cache (Redis in prod). Guest accounts can only be claimed/upgraded by the
+guest's own authenticated session — never by knowing the email alone.
 
 ## Style & design principles
 
