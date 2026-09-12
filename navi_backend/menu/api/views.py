@@ -6,6 +6,8 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 from navi_backend.core.api.mixins.track_user_mixin import TrackUserMixin
+from navi_backend.core.cache import get_or_set_safe
+from navi_backend.core.cache import versioned_key
 from navi_backend.core.permissions import ReadOnly
 from navi_backend.menu.api.serializers import CategorySerializer
 from navi_backend.menu.api.serializers import CustomizationGroupSerializer
@@ -42,6 +44,18 @@ class MenuItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
 
         return qs.filter(status=status)
 
+    def list(self, request, *args, **kwargs):
+        # The menu is identical for every caller and only changes on admin
+        # edits (menu.signals bumps the version). Stampede-safe: one request
+        # re-serializes after invalidation, the rest are served from cache.
+        status_param = request.query_params.get("status") or "all"
+        data = get_or_set_safe(
+            versioned_key("menu", f"items:list:{status_param}"),
+            lambda: self.get_serializer(self.get_queryset(), many=True).data,
+            ttl=60 * 5,
+        )
+        return Response(data)
+
     @action(
         detail=False,
         methods=["get"],
@@ -51,25 +65,36 @@ class MenuItemViewSet(TrackUserMixin, viewsets.ModelViewSet):
         """
         GET /menu_items/<slug>/category-customizations/
         """
-        # Serializing this nests category -> customization groups -> customizations
-        # plus the item's ingredients; prefetch the whole tree in one round-trip.
-        menu_item = get_object_or_404(
-            MenuItem.objects.select_related("category").prefetch_related(
-                "category__customizationgroup_set__customization_set",
-                "menu_item_ingredients__ingredient",
-            ),
-            slug=slug,
+
+        def build():
+            # Serializing this nests category -> customization groups ->
+            # customizations plus the item's ingredients; prefetch the whole
+            # tree in one round-trip. It's the heaviest menu read, identical
+            # for every caller, so it's cached under the menu version.
+            menu_item = get_object_or_404(
+                MenuItem.objects.select_related("category").prefetch_related(
+                    "category__customizationgroup_set__customization_set",
+                    "menu_item_ingredients__ingredient",
+                ),
+                slug=slug,
+            )
+            if not menu_item.category:
+                return None
+            return MenuItemCustomizationSerializer(
+                menu_item, context={"request": request}
+            ).data
+
+        data = get_or_set_safe(
+            versioned_key("menu", f"category-customizations:{slug}"),
+            build,
+            ttl=60 * 15,
         )
-        if not menu_item.category:
+        if data is None:
             return Response(
                 {"detail": "No category for that menu-item."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-
-        serializer = MenuItemCustomizationSerializer(
-            menu_item, context={"request": request}
-        )
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"])
     def add_ingredient(self, request, pk=None):

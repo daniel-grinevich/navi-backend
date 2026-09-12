@@ -2,6 +2,13 @@ import time
 
 import requests
 
+from navi_backend.core.cache import get_or_set_safe
+
+# Street addresses for fixed coordinates effectively never change; keep them
+# for 30 days. ~4 decimal places is ~11m, plenty for reverse geocoding.
+GEOCODE_TTL = 60 * 60 * 24 * 30
+COORD_PRECISION = 4
+
 CODE_200 = 200
 
 
@@ -30,7 +37,14 @@ def geocode_address_fields(lat, lng):
     geocoder returns no usable address; network/HTTP failures propagate from
     :func:`send_geo_request` so a Celery task can retry them.
     """
-    response = send_geo_request(lat, lng)
+    # Nominatim is rate-limited (1 req/s) and slow; cache per coordinate so
+    # repeated lookups (and concurrent tasks, via the lock in get_or_set_safe)
+    # only ever hit it once per location.
+    key = (
+        f"geocode:{round(float(lat), COORD_PRECISION)}"
+        f":{round(float(lng), COORD_PRECISION)}"
+    )
+    response = get_or_set_safe(key, lambda: send_geo_request(lat, lng), GEOCODE_TTL)
     address_info = response.get("address", {})
 
     if not address_info:
