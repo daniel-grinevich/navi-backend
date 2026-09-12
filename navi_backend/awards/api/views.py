@@ -1,4 +1,3 @@
-from django.core.cache import cache
 from rest_framework import mixins
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -17,6 +16,7 @@ from navi_backend.awards.models import UserAward
 from navi_backend.awards.models import UserLoyalty
 from navi_backend.awards.services.rules import metric_value
 from navi_backend.core.api import BaseModelViewSet
+from navi_backend.core.cache import get_or_set_safe
 from navi_backend.core.permissions import ReadOnly
 
 from .serializers import AchievementProgressSerializer
@@ -146,10 +146,13 @@ class AchievementViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     def list(self, request, *args, **kwargs):
         # The active-awards catalogue is identical for every caller and changes
         # only when an admin edits an Award (invalidated in awards.signals).
-        data = cache.get(ACHIEVEMENTS_LIST_CACHE_KEY)
-        if data is None:
-            data = self.get_serializer(self.get_queryset(), many=True).data
-            cache.set(ACHIEVEMENTS_LIST_CACHE_KEY, data, 60 * 60)
+        # get_or_set_safe keeps a herd of clients from re-serializing it all
+        # at once after an invalidation or expiry.
+        data = get_or_set_safe(
+            ACHIEVEMENTS_LIST_CACHE_KEY,
+            lambda: self.get_serializer(self.get_queryset(), many=True).data,
+            ttl=60 * 60,
+        )
         return Response(data)
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
