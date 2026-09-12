@@ -47,6 +47,18 @@ class Order(
         db_index=True,
         help_text=_("Order status"),
     )
+    # Lock/lease: which Pi currently holds this order and when it claimed it.
+    # Set atomically when an order moves O -> S so no other Pi can take it; a
+    # stale claim (crashed Pi) can be reclaimed once claimed_at ages out.
+    claimed_by = models.ForeignKey(
+        "devices.RaspberryPi",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="claimed_orders",
+        help_text=_("Raspberry Pi that currently holds this order."),
+    )
+    claimed_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.user} (v{self.created_at})"
@@ -138,6 +150,21 @@ class OrderItem(
 
 
 class MachineErrorLog(UUIDModel, AuditModel):
+    # Machine-generated rows have no acting user; relax the audit FKs.
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="%(app_label)s_%(class)s_created",
+        null=True,
+        blank=True,
+    )
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="%(app_label)s_%(class)s_updated",
+        null=True,
+        blank=True,
+    )
     order = models.ForeignKey(
         Order,
         on_delete=models.CASCADE,

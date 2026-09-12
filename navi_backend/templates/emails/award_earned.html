@@ -1,0 +1,15 @@
+<h3>
+  Congratulations
+  {% if name %}{{ name }}{% endif %}
+  ! 🎉
+</h3>
+<p>
+  You just earned the <strong>{{ award_name }}</strong> award.
+</p>
+{% if award_description %}<p>{{ award_description }}</p>{% endif %}
+{% if points_reward %}
+  <p>
+    You also received <strong>{{ points_reward }}</strong> bonus points.
+  </p>
+{% endif %}
+<p>Keep ordering to unlock more rewards at Navi Coffee!</p>

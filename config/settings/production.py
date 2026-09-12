@@ -59,7 +59,8 @@ SESSION_COOKIE_NAME = "__Secure-sessionid"
 CSRF_COOKIE_SECURE = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#csrf-cookie-name
 CSRF_COOKIE_NAME = "__Secure-csrftoken"
-# JWT auth cookies must only travel over HTTPS in production.
+# Ensure the JWT access/refresh cookies get the Secure flag too — base.py
+# defaults this to False for local HTTP dev.
 SIMPLE_JWT["AUTH_COOKIE_SECURE"] = True
 # https://docs.djangoproject.com/en/dev/topics/security/#ssl-https
 # https://docs.djangoproject.com/en/dev/ref/settings/#secure-hsts-seconds

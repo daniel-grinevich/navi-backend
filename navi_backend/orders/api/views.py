@@ -19,7 +19,7 @@ from navi_backend.devices.models import NaviPort
 from navi_backend.orders.models import Order
 from navi_backend.orders.models import OrderCustomization
 from navi_backend.orders.models import OrderItem
-from navi_backend.payments.services import StripePaymentService
+from navi_backend.payments.tasks import cancel_stripe_payment
 
 from .serializers import OrderCustomizationSerializer
 from .serializers import OrderItemSerializer
@@ -37,6 +37,8 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
     }
 
     def get_queryset(self):
+        # Prefetch items + customizations: Order.price walks both, so lists
+        # would otherwise fan out into N+1s.
         base = Order.objects.prefetch_related("items__customizations")
         if self.action == "list":
             # The client Orders screen is ALWAYS the caller's own orders, even
@@ -62,7 +64,9 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
             return Response({"detail": str(e)}, status=400)
 
         if order.payment and order.payment.stripe_payment_intent_id:
-            StripePaymentService.cancel_payment(order.payment.stripe_payment_intent_id)
+            cancel_stripe_payment.apply_async(
+                args=[order.payment.stripe_payment_intent_id],
+            )
 
         order.order_status = "C"
         order.save()

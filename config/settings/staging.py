@@ -2,6 +2,7 @@ from .base import *  # noqa: F403
 from .base import DATABASES
 from .base import INSTALLED_APPS
 from .base import REDIS_URL
+from .base import SIMPLE_JWT
 from .base import env
 
 DEBUG = True
@@ -30,6 +31,11 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SAMESITE = "None"
 CSRF_COOKIE_SAMESITE = "None"
+
+# JWT auth cookies must match the cross-site posture above: SameSite=None
+# requires Secure, and base.py defaults both to the local-dev values.
+SIMPLE_JWT["AUTH_COOKIE_SECURE"] = True
+SIMPLE_JWT["AUTH_COOKIE_SAMESITE"] = "None"
 
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
 
