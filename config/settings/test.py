@@ -31,6 +31,15 @@ CACHES = {
     },
 }
 
+# CHANNELS
+# ------------------------------------------------------------------------------
+# In-memory layer so websocket consumers are testable without Redis.
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
+
 # EMAIL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-backend

@@ -3,8 +3,6 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta http-equiv="refresh"
-          content="{{ poll_interval|int if poll_interval|int > 0 else 3 }}" />
     <title>{{ device_name }}</title>
     <style>
       :root {
@@ -141,12 +139,15 @@
     </style>
   </head>
   <body>
+    <div id="app">
     <header>
       <h1>☕ {{ device_name }}</h1>
-      {% if connected %}
-        <span class="status ok">● connected</span>
-      {% else %}
+      {% if not connected %}
         <span class="status down">● offline</span>
+      {% elif live %}
+        <span class="status ok">● live</span>
+      {% else %}
+        <span class="status ok">● polling</span>
       {% endif %}
     </header>
     {% if last_error %}<div class="err">{{ last_error }}</div>{% endif %}
@@ -208,5 +209,20 @@
         {% endfor %}
       </div>
     </div>
+    </div>
+    <script>
+      // Live refresh: re-render the page in place every second, unless the
+      // operator is mid-typing in the scan box.
+      setInterval(async () => {
+        const scan = document.querySelector("input[name=qr_token]");
+        if (scan && (document.activeElement === scan || scan.value)) return;
+        try {
+          const html = await (await fetch(location.href)).text();
+          const next = new DOMParser().parseFromString(html, "text/html");
+          document.getElementById("app").innerHTML =
+            next.getElementById("app").innerHTML;
+        } catch (e) { /* backend briefly away; keep last render */ }
+      }, 1000);
+    </script>
   </body>
 </html>

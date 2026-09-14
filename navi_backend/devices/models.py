@@ -1,6 +1,8 @@
 import secrets
+from datetime import timedelta
 
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from navi_backend.core.models import AddressModel
@@ -9,6 +11,10 @@ from navi_backend.core.models import NamedModel
 from navi_backend.core.models import SlugifiedModel
 from navi_backend.core.models import UUIDModel
 from navi_backend.menu.models import MenuItem
+
+# A Pi is "online" if it has checked in (HTTP poll or websocket ping) within
+# this window. Pis ping every ~15s and poll every ~3-30s, so 60s is generous.
+ONLINE_WINDOW_SECONDS = 60
 
 
 class RaspberryPi(
@@ -20,15 +26,26 @@ class RaspberryPi(
     mac_address = models.CharField(max_length=100, unique=True)
     ip_address = models.GenericIPAddressField(blank=True, null=True)
     location = models.CharField(max_length=255, blank=True)
+    # Admin "enabled" switch -- machine auth requires it. NOT presence; see
+    # last_seen / is_online for whether the device is actually checking in.
     is_connected = models.BooleanField(default=False)
     firmware_version = models.CharField(max_length=50, blank=True)
-    last_seen = models.DateTimeField(auto_now=True)
+    # Updated via queryset .update() on every authenticated machine request and
+    # websocket ping, so admin saves can't fake presence (hence no auto_now).
+    last_seen = models.DateTimeField(null=True, blank=True)
     device_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if not self.device_token:
             self.device_token = secrets.token_urlsafe(32)
         super().save(*args, **kwargs)
+
+    @property
+    def is_online(self):
+        if not self.last_seen:
+            return False
+        cutoff = timezone.now() - timedelta(seconds=ONLINE_WINDOW_SECONDS)
+        return self.last_seen >= cutoff
 
 
 class MachineType(

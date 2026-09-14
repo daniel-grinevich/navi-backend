@@ -9,6 +9,8 @@ scan box (standing in for the customer's phone QR).
     python manage.py register_sim_pi --order <order_id>
 """
 
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
@@ -53,6 +55,10 @@ class Command(BaseCommand):
             name=SIM_PORT_NAME,
             defaults={
                 "raspberry_pi": pi,
+                # AddressModel.save() requires (truthy) coordinates; any real
+                # spot works for a sim.
+                "latitude": Decimal("40.712800"),
+                "longitude": Decimal("-74.006000"),
                 "created_by": actor,
                 "updated_by": actor,
             },

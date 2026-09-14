@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.permissions import BasePermission
 
@@ -67,4 +68,7 @@ class IsMachineAuthenticated(BasePermission):
         rpi = RaspberryPi.objects.filter(device_token=token, is_connected=True).first()
         if rpi:
             request.raspberry_pi = rpi
+            # Presence heartbeat: any authenticated machine request counts as
+            # a check-in (queryset update skips save() side effects).
+            RaspberryPi.objects.filter(pk=rpi.pk).update(last_seen=timezone.now())
         return rpi is not None
