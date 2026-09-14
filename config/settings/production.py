@@ -5,6 +5,7 @@ from .base import REDIS_URL
 from .base import SIMPLE_JWT
 from .base import SPECTACULAR_SETTINGS
 from .base import env
+from .sentry import init_sentry
 
 # GENERAL
 # ------------------------------------------------------------------------------
@@ -192,5 +193,18 @@ LOGGING = {
 SPECTACULAR_SETTINGS["SERVERS"] = [
     {"url": "https://navitascoffee.com", "description": "Production server"},
 ]
+
+# Sentry
+# ------------------------------------------------------------------------------
+# No-op unless SENTRY_DSN is set.
+SENTRY_DSN = env("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    init_sentry(
+        dsn=SENTRY_DSN,
+        environment=ENVIRONMENT,
+        release=env("SENTRY_RELEASE", default=""),
+        traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.1),
+    )
+
 # Your stuff...
 # ------------------------------------------------------------------------------

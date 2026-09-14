@@ -4,6 +4,7 @@ from .base import INSTALLED_APPS
 from .base import REDIS_URL
 from .base import SIMPLE_JWT
 from .base import env
+from .sentry import init_sentry
 
 DEBUG = True
 
@@ -93,3 +94,14 @@ else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 ENVIRONMENT_NAME = "Staging"
+
+# Sentry — no-op unless SENTRY_DSN is set. Tracing defaults off in staging to
+# keep the free-tier quota for production.
+SENTRY_DSN = env("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    init_sentry(
+        dsn=SENTRY_DSN,
+        environment=ENVIRONMENT,
+        release=env("SENTRY_RELEASE", default=""),
+        traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.0),
+    )
