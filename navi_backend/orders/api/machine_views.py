@@ -179,9 +179,11 @@ class MachineOrderCompleteView(APIView):
 
         if outcome == "complete":
             broadcast_order_status(order.id, "D")
-            capture_stripe_payment.apply_async(
-                args=[order.payment.stripe_payment_intent_id],
-            )
+            if order.payment:
+                # $0 orders (fully covered by rewards) have nothing to capture.
+                capture_stripe_payment.apply_async(
+                    args=[order.payment.stripe_payment_intent_id],
+                )
             create_order_invoice.apply_async(args=[order.id], queue="invoice")
             process_order_awards.apply_async(args=[str(order.id)])
         else:

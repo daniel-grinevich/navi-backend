@@ -6,6 +6,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 from corsheaders.defaults import default_headers
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
@@ -75,6 +76,13 @@ CELERY_TIMEZONE = TIME_ZONE
 # Workers use our dictConfig (see navi_backend/core/logging/celery.py);
 # backup for the setup_logging signal so Celery never reformats the root logger
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+# Recurring jobs, run by `celery beat` (schedule times are in CELERY_TIMEZONE).
+CELERY_BEAT_SCHEDULE = {
+    "expire-inactive-loyalty-points": {
+        "task": "navi_backend.awards.tasks.expire_inactive_points_task",
+        "schedule": crontab(hour=3, minute=0),
+    },
+}
 
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

@@ -20,7 +20,11 @@ def create_order_invoice(self, order_id):
 
     order = (
         Order.objects.select_related("user", "navi_port", "payment")
-        .prefetch_related("items__menu_item", "items__customizations__customization")
+        .prefetch_related(
+            "items__menu_item",
+            "items__customizations__customization",
+            "reward_redemptions__reward",
+        )
         .get(id=order_id)
     )
 

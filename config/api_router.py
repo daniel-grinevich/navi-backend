@@ -6,11 +6,18 @@ from rest_framework.routers import DefaultRouter
 from rest_framework.routers import SimpleRouter
 
 from navi_backend.awards.api.views import AchievementViewSet
+from navi_backend.awards.api.views import AdminPromotionViewSet
+from navi_backend.awards.api.views import AdminRedemptionViewSet
+from navi_backend.awards.api.views import AdminRewardViewSet
+from navi_backend.awards.api.views import AdminUserLoyaltyViewSet
 from navi_backend.awards.api.views import AwardViewSet
 from navi_backend.awards.api.views import LoyaltySettingsView
 from navi_backend.awards.api.views import MyAwardsViewSet
 from navi_backend.awards.api.views import MyLoyaltyView
 from navi_backend.awards.api.views import MyPointsTransactionViewSet
+from navi_backend.awards.api.views import MyRedemptionViewSet
+from navi_backend.awards.api.views import PromotionViewSet
+from navi_backend.awards.api.views import RewardViewSet
 from navi_backend.awards.api.views import TierViewSet
 from navi_backend.devices.api.views import EspressoMachineViewSet
 from navi_backend.devices.api.views import MachineTypeViewSet
@@ -108,6 +115,23 @@ router.register(
     r"my/points-transactions",
     MyPointsTransactionViewSet,
     basename="my-points-transactions",
+)
+router.register(r"my/redemptions", MyRedemptionViewSet, basename="my-redemptions")
+
+# Rewards routes (live catalog + running promotions)
+router.register(r"rewards", RewardViewSet, basename="rewards")
+router.register(r"promotions", PromotionViewSet, basename="promotions")
+
+# Rewards admin routes (staff-only, unscoped — for the admin frontend)
+router.register(r"admin/rewards", AdminRewardViewSet, basename="admin-rewards")
+router.register(r"admin/promotions", AdminPromotionViewSet, basename="admin-promotions")
+router.register(
+    r"admin/redemptions", AdminRedemptionViewSet, basename="admin-redemptions"
+)
+router.register(
+    r"admin/loyalty-accounts",
+    AdminUserLoyaltyViewSet,
+    basename="admin-loyalty-accounts",
 )
 
 app_name = "api"

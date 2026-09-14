@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -9,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
+from navi_backend.awards.services.redemption_service import reverse_order_redemptions
 from navi_backend.core.api import BaseModelViewSet
 from navi_backend.core.api.mixins import UserScopedQuerySetMixin
 from navi_backend.core.api.mixins.track_user_mixin import TrackUserMixin
@@ -25,6 +27,14 @@ from .serializers import OrderCustomizationSerializer
 from .serializers import OrderItemSerializer
 from .serializers import OrderSerializer
 
+# Order.price walks items + customizations and subtracts reward discounts, and
+# OrderSerializer sums earned points: prefetch all of it so lists don't N+1.
+ORDER_PREFETCH = (
+    "items__customizations",
+    "reward_redemptions__reward",
+    "points_transactions",
+)
+
 
 class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
     serializer_class = OrderSerializer
@@ -37,9 +47,7 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
     }
 
     def get_queryset(self):
-        # Prefetch items + customizations: Order.price walks both, so lists
-        # would otherwise fan out into N+1s.
-        base = Order.objects.prefetch_related("items__customizations")
+        base = Order.objects.prefetch_related(*ORDER_PREFETCH)
         if self.action == "list":
             # The client Orders screen is ALWAYS the caller's own orders, even
             # for staff. Admins view everyone's orders via /api/admin/orders/;
@@ -68,8 +76,12 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
                 args=[order.payment.stripe_payment_intent_id],
             )
 
-        order.order_status = "C"
-        order.save()
+        with transaction.atomic():
+            order.order_status = "C"
+            order.save()
+            # Hand back any points the customer spent on rewards for this order.
+            reverse_order_redemptions([order.id])
+
         return Response(
             {"detail": "Order cancelled successfully."},
             status=status.HTTP_200_OK,
@@ -130,7 +142,7 @@ class AdminOrderViewSet(ReadOnlyModelViewSet):
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
-        qs = Order.objects.prefetch_related("items__customizations")
+        qs = Order.objects.prefetch_related(*ORDER_PREFETCH)
         status_filter = self.request.query_params.get("status")
         if status_filter:
             qs = qs.filter(order_status=status_filter)
