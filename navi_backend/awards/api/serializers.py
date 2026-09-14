@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from navi_backend.awards.models import Award
+from navi_backend.awards.models import AwardLevel
 from navi_backend.awards.models import LoyaltySettings
 from navi_backend.awards.models import PointsTransaction
 from navi_backend.awards.models import RuleType
@@ -29,11 +30,18 @@ class TierSerializer(BaseModelSerializer):
         ]
 
 
+class AwardLevelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AwardLevel
+        fields = ["id", "rank", "name", "threshold", "points_reward", "icon"]
+
+
 class AwardSerializer(BaseModelSerializer):
     rule_type_display = serializers.CharField(
         source="get_rule_type_display",
         read_only=True,
     )
+    levels = AwardLevelSerializer(many=True, read_only=True)
     show_only_to_admin_fields = ()
 
     class Meta:
@@ -48,6 +56,7 @@ class AwardSerializer(BaseModelSerializer):
             "rule_type_display",
             "threshold",
             "points_reward",
+            "levels",
         ]
 
 
@@ -65,10 +74,11 @@ class LoyaltySettingsSerializer(serializers.ModelSerializer):
 
 class UserAwardSerializer(serializers.ModelSerializer):
     award = AwardSerializer(read_only=True)
+    level = AwardLevelSerializer(read_only=True)
 
     class Meta:
         model = UserAward
-        fields = ["id", "award", "earned_at"]
+        fields = ["id", "award", "level", "earned_at"]
 
 
 class PointsTransactionSerializer(serializers.ModelSerializer):
@@ -169,28 +179,41 @@ class LoyaltySummarySerializer(serializers.ModelSerializer):
         return UserAwardSerializer(qs, many=True).data
 
     def get_award_progress(self, obj):
-        earned_ids = set(
-            UserAward.objects.filter(user=obj.user).values_list(
-                "award_id",
-                flat=True,
-            ),
-        )
+        earned = {
+            ua.award_id: ua
+            for ua in UserAward.objects.filter(user=obj.user).select_related("level")
+        }
         candidates = Award.objects.filter(
             status=Award.Status.ACTIVE, is_deleted=False
-        ).exclude(id__in=earned_ids)
+        ).prefetch_related("levels")
 
         progress = []
         for award in candidates:
-            current = int(metric_value(award.rule_type, obj))
-            if award.threshold:
-                percent = min(100, int(current * 100 / award.threshold))
+            levels = award.ordered_levels()
+            user_award = earned.get(award.id)
+            if levels:
+                # Leveled badges keep a next goal until the top level is hit.
+                current_rank = (
+                    user_award.level.rank if user_award and user_award.level else 0
+                )
+                next_level = next(
+                    (level for level in levels if level.rank > current_rank),
+                    None,
+                )
+                if next_level is None:
+                    continue
+                threshold = next_level.threshold
             else:
-                percent = 0
+                if user_award is not None or not award.threshold:
+                    continue
+                threshold = award.threshold
+            current = int(metric_value(award.rule_type, obj))
+            percent = min(100, int(current * 100 / threshold)) if threshold else 0
             progress.append(
                 {
                     "award": award,
                     "current": current,
-                    "threshold": award.threshold,
+                    "threshold": threshold,
                     "percent": percent,
                 },
             )
@@ -210,30 +233,58 @@ RULE_TO_METRIC = {
 
 
 class AchievementSerializer(serializers.ModelSerializer):
-    """An Award rendered in the shape the frontend achievements UI expects.
+    """An Award rendered in the shape the frontend badges UI expects.
 
     ``id`` is the stable slug (not the UUID) so the frontend can key on it.
+    For multi-level badges ``target`` is the top level's threshold and
+    ``levels`` lists every step so the UI can show the full ladder.
     """
 
     id = serializers.CharField(source="slug")
     label = serializers.CharField(source="name")
     desc = serializers.CharField(source="description")
-    target = serializers.IntegerField(source="threshold")
+    target = serializers.SerializerMethodField()
     metric = serializers.SerializerMethodField()
+    levels = serializers.SerializerMethodField()
 
     class Meta:
         model = Award
-        fields = ["id", "label", "desc", "target", "metric", "icon"]
+        fields = ["id", "label", "desc", "target", "metric", "icon", "levels"]
 
     def get_metric(self, obj) -> str:
         return str(RULE_TO_METRIC.get(obj.rule_type, obj.rule_type))
 
+    def get_target(self, obj) -> int:
+        levels = obj.ordered_levels()
+        if levels:
+            return levels[-1].threshold
+        return obj.threshold or 0
+
+    def get_levels(self, obj) -> list:
+        return [
+            {
+                "rank": level.rank,
+                "name": level.name,
+                "target": level.threshold,
+                "icon": level.icon,
+            }
+            for level in obj.ordered_levels()
+        ]
+
 
 class AchievementProgressSerializer(serializers.Serializer):
-    """Per-user progress toward a single achievement (frontend contract)."""
+    """Per-user progress toward a single badge (frontend contract).
+
+    ``target`` is the user's *next* goal: the next level's threshold for
+    multi-level badges, or the flat threshold otherwise. ``level`` is the
+    name of the highest level reached (null when none / single-threshold).
+    """
 
     id = serializers.CharField()
     current = serializers.IntegerField()
     target = serializers.IntegerField()
     unlocked = serializers.BooleanField()
     unlocked_at = serializers.DateTimeField(allow_null=True)
+    level = serializers.CharField(allow_null=True)
+    level_rank = serializers.IntegerField(allow_null=True)
+    next_level = serializers.CharField(allow_null=True)
