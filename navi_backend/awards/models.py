@@ -146,8 +146,13 @@ class Award(UUIDModel, NamedModel, SlugifiedModel, AuditModel):
     )
     threshold = models.PositiveIntegerField(
         _("threshold"),
+        null=True,
+        blank=True,
         validators=[MinValueValidator(1)],
-        help_text=_("Value of the metric required to earn this award."),
+        help_text=_(
+            "Value of the metric required to earn this award. Leave blank "
+            "for a multi-level badge and define levels instead."
+        ),
     )
     points_reward = models.PositiveIntegerField(
         _("points reward"),
@@ -160,6 +165,63 @@ class Award(UUIDModel, NamedModel, SlugifiedModel, AuditModel):
 
     def __str__(self):
         return self.name
+
+    def ordered_levels(self):
+        """Levels by ascending rank. Cheap when ``levels`` is prefetched."""
+        return sorted(self.levels.all(), key=lambda level: level.rank)
+
+
+class AwardLevel(UUIDModel):
+    """One tier of a multi-level award (e.g. Bronze/Silver/Gold).
+
+    An award with levels is earned progressively: the user unlocks the highest
+    level whose ``threshold`` their metric has crossed. Awards without levels
+    fall back to the flat ``Award.threshold``.
+    """
+
+    award = models.ForeignKey(
+        Award,
+        on_delete=models.CASCADE,
+        related_name="levels",
+    )
+    rank = models.PositiveIntegerField(
+        _("rank"),
+        help_text=_("1 is the first level; higher rank means a better level."),
+    )
+    name = models.CharField(
+        _("name"),
+        max_length=100,
+        help_text=_('Level name shown to the user, e.g. "Bronze".'),
+    )
+    threshold = models.PositiveIntegerField(
+        _("threshold"),
+        validators=[MinValueValidator(1)],
+        help_text=_("Value of the award's metric required to reach this level."),
+    )
+    points_reward = models.PositiveIntegerField(
+        _("points reward"),
+        default=0,
+        help_text=_("Bonus points granted when this level is reached."),
+    )
+    icon = models.CharField(
+        _("icon"),
+        max_length=255,
+        blank=True,
+        default="",
+        help_text=_("Icon name or URL for the frontend."),
+    )
+
+    class Meta:
+        ordering = ["award", "rank"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["award", "rank"],
+                name="unique_award_level_rank",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.award} — {self.name} (rank {self.rank})"
 
 
 class UserLoyalty(UUIDModel):
@@ -262,6 +324,14 @@ class UserAward(UUIDModel):
         Award,
         on_delete=models.CASCADE,
         related_name="earned_by",
+    )
+    level = models.ForeignKey(
+        AwardLevel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="earned_by",
+        help_text=_("Highest level reached; empty for single-threshold awards."),
     )
     earned_at = models.DateTimeField(auto_now_add=True)
 

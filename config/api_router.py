@@ -100,6 +100,9 @@ router.register(r"tiers", TierViewSet, basename="tiers")
 router.register(r"awards", AwardViewSet, basename="awards")
 # Frontend-facing achievements contract, backed by the Award models above.
 router.register(r"achievements", AchievementViewSet, basename="achievements")
+# "Badges" is the user-facing name for the same contract; keep both routes so
+# the frontend can migrate without a breaking change.
+router.register(r"badges", AchievementViewSet, basename="badges")
 router.register(r"my/awards", MyAwardsViewSet, basename="my-awards")
 router.register(
     r"my/points-transactions",

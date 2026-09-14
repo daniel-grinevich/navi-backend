@@ -3,6 +3,7 @@ from decimal import Decimal
 import factory
 
 from navi_backend.awards.models import Award
+from navi_backend.awards.models import AwardLevel
 from navi_backend.awards.models import RuleType
 from navi_backend.awards.models import Tier
 from navi_backend.awards.models import UserLoyalty
@@ -43,6 +44,17 @@ class AwardFactory(
     threshold = 1
     points_reward = 0
     status = "A"
+
+
+class AwardLevelFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = AwardLevel
+
+    award = factory.SubFactory(AwardFactory, threshold=None)
+    rank = factory.Sequence(lambda n: n + 1)
+    name = factory.Sequence(lambda n: f"Level {n + 1}")
+    threshold = 1
+    points_reward = 0
 
 
 class UserLoyaltyFactory(factory.django.DjangoModelFactory):
