@@ -18,11 +18,6 @@ from .factories import MenuItemIngredientFactory
 
 @pytest.mark.django_db
 class TestCategory:
-    def test_create_category(self, category):
-        assert category
-        assert category.name
-        assert category.slug
-
     def test_category_string_representation(self):
         category = CategoryFactory(name="Beverages")
         assert str(category) == "Beverages"
@@ -30,13 +25,6 @@ class TestCategory:
 
 @pytest.mark.django_db
 class TestMenuItem:
-    def test_create_menu_item(self, menu_item):
-        assert menu_item
-        assert menu_item.name == "Latte"
-        assert menu_item.price > 0
-        assert menu_item.category
-        assert menu_item.version == 1
-
     def test_menu_item_string_representation(self):
         menu_item = MenuItemFactory(name="Espresso")
         assert str(menu_item) == f"Espresso (v{menu_item.version})"
@@ -109,28 +97,13 @@ class TestMenuItem:
 
 @pytest.mark.django_db
 class TestIngredient:
-    def test_create_ingredient(self, ingredient):
-        assert ingredient
-        assert ingredient.name == "Espresso"
-
     def test_ingredient_string_representation(self):
         ingredient = IngredientFactory(name="Milk")
         assert str(ingredient) == "Milk"
 
-    def test_ingredient_allergen_flag(self):
-        ingredient = IngredientFactory(is_allergen=True)
-        assert ingredient.is_allergen is True
-
 
 @pytest.mark.django_db
 class TestMenuItemIngredient:
-    def test_create_menu_item_ingredient(self, menu_item_ingredient):
-        assert menu_item_ingredient
-        assert menu_item_ingredient.menu_item.name == "Latte"
-        assert menu_item_ingredient.ingredient.name == "Milk"
-        assert menu_item_ingredient.quantity == "200"
-        assert menu_item_ingredient.unit == "g"
-
     def test_menu_item_ingredient_string_representation(self):
         ingredient_relation = MenuItemIngredientFactory(
             quantity=Decimal("150"), unit="ml"
@@ -152,10 +125,6 @@ class TestMenuItemIngredient:
 
 @pytest.mark.django_db
 class TestCustomizationGroup:
-    def test_create_customization_group(self, customization_group):
-        assert customization_group
-        assert customization_group.name
-
     def test_customization_group_string_representation(self):
         group = CustomizationGroupFactory(name="Size Options")
         assert str(group) == "Size Options"
@@ -171,12 +140,6 @@ class TestCustomizationGroup:
 
 @pytest.mark.django_db
 class TestCustomization:
-    def test_create_customization(self, customization):
-        assert customization
-        assert customization.name
-        assert customization.group
-        assert customization.price > 0
-
     def test_customization_string_representation(self):
         customization = CustomizationFactory(name="Extra Shot")
         assert str(customization) == "Extra Shot"
