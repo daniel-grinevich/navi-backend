@@ -3,8 +3,7 @@
 Hand-rolled to match the app's custom JWT-cookie auth flow (see LoginView):
 after the provider handshake we mint the SAME access/refresh cookies as a
 password login via ``set_token_cookies`` and redirect the browser back to the
-frontend. No new dependencies -- the two outbound HTTP calls to Google use the
-standard library.
+frontend.
 
 Flow:
   GET /api/oauth/google/start/?next=/menu
@@ -13,19 +12,27 @@ Flow:
   GET /api/oauth/google/callback/?code=...&state=...
       -> exchange code for tokens, read the user's email, find/create/upgrade
          the user, set auth cookies, 302 to FRONTEND_URL + next.
+
+The callback is a plain async Django view (not DRF): it spends most of its
+time on two dependent outbound calls to Google, so awaiting them keeps a
+threadpool worker free under the ASGI server. It needs nothing from DRF --
+no auth, no throttling, no serializers -- and returns a bare redirect.
 """
 
-import json
-import urllib.error
 import urllib.parse
-import urllib.request
 
+import httpx2
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import signing
+from django.db import transaction
 from django.http import HttpResponseRedirect
+from django.utils.decorators import method_decorator
+from django.views import View
 from rest_framework import permissions
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from navi_backend.users.jwt import set_token_cookies
 
@@ -43,6 +50,11 @@ STATE_MAX_AGE_SECONDS = 600  # 10 minutes to complete the handshake.
 _HTTP_TIMEOUT = 10
 
 
+def _client() -> httpx2.AsyncClient:
+    """Client factory; tests swap this out for one with a MockTransport."""
+    return httpx2.AsyncClient(timeout=_HTTP_TIMEOUT)
+
+
 def _frontend_redirect(next_path: str) -> HttpResponseRedirect:
     """Build a redirect to the frontend, guarding against open redirects.
 
@@ -55,20 +67,22 @@ def _frontend_redirect(next_path: str) -> HttpResponseRedirect:
     return HttpResponseRedirect(f"{base}{next_path}")
 
 
-def _post_form(url: str, data: dict) -> dict:
-    encoded = urllib.parse.urlencode(data).encode()
-    req = urllib.request.Request(url, data=encoded, method="POST")  # noqa: S310
-    req.add_header("Accept", "application/json")
-    with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT) as resp:  # noqa: S310
-        return json.loads(resp.read().decode())
+async def _post_form(client: httpx2.AsyncClient, url: str, data: dict) -> dict:
+    resp = await client.post(url, data=data, headers={"Accept": "application/json"})
+    resp.raise_for_status()
+    return resp.json()
 
 
-def _get_json(url: str, access_token: str) -> dict:
-    req = urllib.request.Request(url, method="GET")  # noqa: S310
-    req.add_header("Authorization", f"Bearer {access_token}")
-    req.add_header("Accept", "application/json")
-    with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT) as resp:  # noqa: S310
-        return json.loads(resp.read().decode())
+async def _get_json(client: httpx2.AsyncClient, url: str, access_token: str) -> dict:
+    resp = await client.get(
+        url,
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        },
+    )
+    resp.raise_for_status()
+    return resp.json()
 
 
 class GoogleOAuthStartView(APIView):
@@ -91,14 +105,16 @@ class GoogleOAuthStartView(APIView):
             "access_type": "online",
             "prompt": "select_account",
         }
-        return HttpResponseRedirect(f"{GOOGLE_AUTH_URL}?{urllib.parse.urlencode(params)}")
+        return HttpResponseRedirect(
+            f"{GOOGLE_AUTH_URL}?{urllib.parse.urlencode(params)}"
+        )
 
 
-class GoogleOAuthCallbackView(APIView):
-    permission_classes = [permissions.AllowAny]
-    authentication_classes = []
-
-    def get(self, request):
+# ATOMIC_REQUESTS only supports sync views; opting out is safe here because
+# the sole multi-write path (guest upgrade) is a single save() call.
+@method_decorator(transaction.non_atomic_requests, name="dispatch")
+class GoogleOAuthCallbackView(View):
+    async def get(self, request):
         # The user denied consent or Google returned an error.
         if request.GET.get("error"):
             return _frontend_redirect("/login?error=oauth_denied")
@@ -118,53 +134,61 @@ class GoogleOAuthCallbackView(APIView):
             return _frontend_redirect("/login?error=oauth_no_code")
 
         try:
-            email, name, email_verified = self._fetch_identity(code)
-        except (urllib.error.URLError, ValueError, KeyError):
+            email, name, email_verified = await self._fetch_identity(code)
+        except (httpx2.HTTPError, ValueError, KeyError):
             return _frontend_redirect("/login?error=oauth_exchange")
 
         if not email or not email_verified:
             return _frontend_redirect("/login?error=oauth_unverified")
 
-        user = self._get_or_create_user(email.lower(), name)
+        user = await self._get_or_create_user(email.lower(), name)
 
         response = _frontend_redirect(next_path)
-        access, refresh = self._issue_tokens(user)
+        access, refresh = await self._issue_tokens(user)
         set_token_cookies(response, access, refresh)
         return response
 
-    def _fetch_identity(self, code: str) -> tuple[str, str, bool]:
-        """Exchange the auth code and return (email, name, email_verified)."""
-        tokens = _post_form(
-            GOOGLE_TOKEN_URL,
-            {
-                "code": code,
-                "client_id": settings.GOOGLE_OAUTH_CLIENT_ID,
-                "client_secret": settings.GOOGLE_OAUTH_CLIENT_SECRET,
-                "redirect_uri": settings.GOOGLE_OAUTH_REDIRECT_URI,
-                "grant_type": "authorization_code",
-            },
-        )
-        userinfo = _get_json(GOOGLE_USERINFO_URL, tokens["access_token"])
+    async def _fetch_identity(self, code: str) -> tuple[str, str, bool]:
+        """Exchange the auth code and return (email, name, email_verified).
+
+        The two calls are dependent (userinfo needs the access token), so
+        they stay sequential.
+        """
+        async with _client() as client:
+            tokens = await _post_form(
+                client,
+                GOOGLE_TOKEN_URL,
+                {
+                    "code": code,
+                    "client_id": settings.GOOGLE_OAUTH_CLIENT_ID,
+                    "client_secret": settings.GOOGLE_OAUTH_CLIENT_SECRET,
+                    "redirect_uri": settings.GOOGLE_OAUTH_REDIRECT_URI,
+                    "grant_type": "authorization_code",
+                },
+            )
+            userinfo = await _get_json(
+                client, GOOGLE_USERINFO_URL, tokens["access_token"]
+            )
         return (
             userinfo.get("email", ""),
             userinfo.get("name", ""),
             bool(userinfo.get("email_verified", False)),
         )
 
-    def _get_or_create_user(self, email: str, name: str):
+    async def _get_or_create_user(self, email: str, name: str):
         """Find, upgrade (guest -> full), or create the user for this email.
 
         Google has verified the email, so matching an existing account and
         signing into it is safe (account linking).
         """
-        user = User.objects.filter(email=email).first()
+        user = await User.objects.filter(email=email).afirst()
 
         if user is None:
             # No usable password: this account signs in via Google. The user
             # can still set a password later through the normal flow.
             user = User(email=email, name=name or "", is_guest=False)
             user.set_unusable_password()
-            user.save()
+            await user.asave()
             return user
 
         changed = False
@@ -175,11 +199,11 @@ class GoogleOAuthCallbackView(APIView):
             user.name = name
             changed = True
         if changed:
-            user.save()
+            await user.asave()
         return user
 
-    def _issue_tokens(self, user) -> tuple[str, str]:
-        from rest_framework_simplejwt.tokens import RefreshToken
-
-        refresh = RefreshToken.for_user(user)
+    async def _issue_tokens(self, user) -> tuple[str, str]:
+        # RefreshToken.for_user writes an OutstandingToken row (the blacklist
+        # app is installed), so it has to run off the event loop.
+        refresh = await sync_to_async(RefreshToken.for_user)(user)
         return str(refresh.access_token), str(refresh)

@@ -49,6 +49,16 @@ EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 # ------------------------------------------------------------------------------
 TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore[index]
 
+# LOGGING
+# ------------------------------------------------------------------------------
+# Keep test output quiet; tests that assert on logging build their own
+# handlers/formatters directly (see core/tests/test_logging.py).
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "root": {"level": "CRITICAL", "handlers": []},
+}
+
 # MEDIA
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#media-url

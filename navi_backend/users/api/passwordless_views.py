@@ -20,8 +20,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from navi_backend.notifications.models import NotificationKind
-from navi_backend.notifications.services import NotificationFactory
+from navi_backend.notifications.tasks import send_magic_link_email
+from navi_backend.notifications.tasks import send_sms_otp
 from navi_backend.users import passwordless
 from navi_backend.users.jwt import set_token_cookies
 
@@ -55,14 +55,13 @@ class MagicLinkRequestView(APIView):
         # cookies, then it redirects the browser to the frontend.
         backend = settings.BACKEND_URL.rstrip("/")
         link = f"{backend}/api/auth/magic/verify/?{query}"
-        NotificationFactory.create(
-            NotificationKind.EMAIL,
-            recipient=email,
-            subject="Your Navi sign-in link",
-            template="emails/magic_link.html",
-            context={"link": link, "minutes": 15},
-            reason="magic_link",
-        ).send()
+        # expires: the token dies at 15 min, so a send still queued by then
+        # is worthless -- drop it rather than deliver a dead link.
+        send_magic_link_email.apply_async(
+            args=[email, link],
+            queue="email",
+            expires=15 * 60,
+        )
 
 
 class MagicLinkVerifyView(APIView):
@@ -73,8 +72,10 @@ class MagicLinkVerifyView(APIView):
         email = (request.GET.get("email") or "").strip().lower()
         token = request.GET.get("token") or ""
 
-        if not email or not token or not passwordless.consume_magic_link_token(
-            email, token
+        if (
+            not email
+            or not token
+            or not passwordless.consume_magic_link_token(email, token)
         ):
             return _frontend_redirect("/login?error=magic_invalid")
 
@@ -93,12 +94,9 @@ class SMSRequestView(APIView):
         phone = _normalize_phone(request.data.get("phone") or "")
         if phone:
             code = passwordless.issue_sms_code(phone)
-            NotificationFactory.create(
-                NotificationKind.SMS,
-                recipient=phone,
-                message=f"Your Navi code is {code}. It expires in 10 minutes.",
-                reason="sms_otp",
-            ).send()
+            message = f"Your Navi code is {code}. It expires in 10 minutes."
+            # expires: the code dies at 10 min; don't deliver it late.
+            send_sms_otp.apply_async(args=[phone, message], expires=10 * 60)
         return Response(
             {"detail": "If that number is valid, a code is on its way."},
             status=status.HTTP_200_OK,

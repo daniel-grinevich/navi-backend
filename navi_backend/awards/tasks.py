@@ -2,11 +2,15 @@ import logging
 
 from celery import shared_task
 from django.contrib.auth import get_user_model
+from django.db import transaction
 
 from navi_backend.awards.models import Award
+from navi_backend.awards.models import AwardLevel
 from navi_backend.awards.models import LoyaltySettings
 from navi_backend.awards.models import Tier
+from navi_backend.awards.models import UserLoyalty
 from navi_backend.awards.services import points_service
+from navi_backend.awards.services.rules import invalidate_user_metrics
 from navi_backend.notifications.models import NotificationCategory
 from navi_backend.notifications.models import NotificationKind
 from navi_backend.notifications.services import NotificationFactory
@@ -29,6 +33,28 @@ def process_order_awards(self, order_id):
     points_service.process_order(order)
 
 
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+def evaluate_user_awards(self, user_id):
+    """Re-evaluate awards and tier for a user after any qualifying event.
+
+    Generic counterpart to ``process_order_awards``: enqueue this from any
+    place a user does something award-relevant that isn't an order (writing a
+    review, completing a profile, ...). Idempotent — already-earned awards and
+    levels are skipped.
+    """
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        logger.warning("User %s not found for award evaluation", user_id)
+        return
+
+    invalidate_user_metrics(user.id)
+    with transaction.atomic():
+        loyalty = UserLoyalty.for_user(user)
+        points_service.evaluate_awards(loyalty)
+        points_service.recompute_tier(loyalty)
+
+
 def _loyalty_notifications_on():
     """Program-wide kill-switch. Per-user opt-in is handled by the factory via
     the user's ``rewards`` notification preference."""
@@ -36,7 +62,7 @@ def _loyalty_notifications_on():
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=5)
-def send_award_earned_email(self, user_id, award_id):
+def send_award_earned_email(self, user_id, award_id, level_id=None):
     try:
         user = (
             User.objects.select_related("preferences")
@@ -61,16 +87,21 @@ def send_award_earned_email(self, user_id, award_id):
         logger.warning("Award %s not found for award email", award_id)
         return
 
+    level = None
+    if level_id:
+        level = AwardLevel.objects.filter(pk=level_id).first()
+
+    badge_name = f"{award.name} — {level.name}" if level else award.name
     notification = NotificationFactory.create(
         NotificationKind.EMAIL,
         recipient=user.email,
-        subject=f"You earned the {award.name} award! 🎉",
+        subject=f"You earned the {badge_name} badge! 🎉",
         template="emails/award_earned.html",
         context={
             "name": getattr(user, "name", ""),
-            "award_name": award.name,
+            "award_name": badge_name,
             "award_description": award.description,
-            "points_reward": award.points_reward,
+            "points_reward": level.points_reward if level else award.points_reward,
         },
         reason="award_earned",
         user=user,
