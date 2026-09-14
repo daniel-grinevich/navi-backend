@@ -1,15 +1,21 @@
 """Core loyalty engine.
 
 ``process_order`` is the single entry point invoked (asynchronously) when an
-order is completed. It grants points, updates the user's denormalized counters,
-evaluates awards and recomputes the tier — all in one transaction and
-idempotent per order.
+order is completed. It grants points (base + scheduled promotion bonuses),
+updates the user's denormalized counters, evaluates awards and recomputes the
+tier — all in one transaction and idempotent per order.
+
+``record_points`` is the only way a balance changes: earning, redeeming,
+reversing, expiring and manual adjustments all go through it.
 """
 
 import logging
 from decimal import Decimal
 
+from django.db import IntegrityError
 from django.db import transaction
+from django.db.models import F
+from django.utils import timezone
 
 from navi_backend.awards.models import Award
 from navi_backend.awards.models import LoyaltySettings
@@ -18,32 +24,102 @@ from navi_backend.awards.models import PointsTransaction
 from navi_backend.awards.models import Tier
 from navi_backend.awards.models import UserAward
 from navi_backend.awards.models import UserLoyalty
+from navi_backend.awards.services.exceptions import InsufficientPointsError
+from navi_backend.awards.services.promotions import promotion_bonuses
 from navi_backend.awards.services.rules import invalidate_user_metrics
 from navi_backend.awards.services.rules import metric_value
 
 logger = logging.getLogger(__name__)
 
+_LOYALTY_POINT_FIELDS = [
+    "balance_points",
+    "lifetime_points",
+    "last_activity_at",
+    "updated_at",
+]
 
-def _record_points(loyalty, points, reason, order=None, note=""):
+
+def record_points(  # noqa: PLR0913
+    loyalty,
+    points,
+    reason,
+    *,
+    order=None,
+    promotion=None,
+    redemption=None,
+    note="",
+    created_by=None,
+    counts_toward_lifetime=None,
+    touch_activity=True,
+):
     """Apply a point movement and write an immutable ledger entry.
 
-    Lifetime points only ever increase (they drive tiers/awards); the spendable
-    balance can move in either direction but never goes below zero.
+    The balance changes with a single ``UPDATE ... SET balance = balance + n``
+    so concurrent grants and redemptions can't lose updates, and the database
+    CHECK on ``balance_points`` rejects anything that would overdraw
+    (raised here as :class:`InsufficientPointsError`).
+
+    Lifetime points drive tiers/awards, so by default only genuine earning
+    counts toward them: positive movements, except a reversal that merely
+    hands back points already earned once.
+
+    ``loyalty`` is refreshed in place so callers see the new balances.
     """
-    if points > 0:
-        loyalty.lifetime_points += points
-    loyalty.balance_points = max(0, loyalty.balance_points + points)
-    loyalty.save(
-        update_fields=["lifetime_points", "balance_points", "updated_at"],
-    )
-    return PointsTransaction.objects.create(
-        user=loyalty.user,
-        points=points,
-        reason=reason,
-        order=order,
-        balance_after=loyalty.balance_points,
-        note=note,
-    )
+    if counts_toward_lifetime is None:
+        counts_toward_lifetime = reason != PointsReason.REDEMPTION_REVERSAL
+
+    now = timezone.now()
+    updates = {"balance_points": F("balance_points") + points, "updated_at": now}
+    if counts_toward_lifetime and points > 0:
+        updates["lifetime_points"] = F("lifetime_points") + points
+    if touch_activity:
+        updates["last_activity_at"] = now
+
+    with transaction.atomic():
+        try:
+            # Savepoint: a CHECK violation must not poison the caller's
+            # transaction before we turn it into a domain error.
+            with transaction.atomic():
+                UserLoyalty.objects.filter(pk=loyalty.pk).update(**updates)
+        except IntegrityError as exc:
+            msg = f"Not enough points for a deduction of {-points}."
+            raise InsufficientPointsError(msg) from exc
+
+        loyalty.refresh_from_db(fields=_LOYALTY_POINT_FIELDS)
+        return PointsTransaction.objects.create(
+            user_id=loyalty.user_id,
+            points=points,
+            reason=reason,
+            order=order,
+            promotion=promotion,
+            redemption=redemption,
+            balance_after=loyalty.balance_points,
+            note=note,
+            created_by=created_by,
+        )
+
+
+def adjust_points(loyalty, points, *, note, staff_user):
+    """Manual staff adjustment (support credit or correction).
+
+    Positive adjustments count toward lifetime points, so awards and tier are
+    re-evaluated once the adjustment commits.
+    """
+    with transaction.atomic():
+        entry = record_points(
+            loyalty,
+            points,
+            PointsReason.ADJUSTMENT,
+            note=note,
+            created_by=staff_user,
+        )
+        if points > 0:
+            # Lazy import: awards.tasks imports this module.
+            from navi_backend.awards.tasks import evaluate_user_awards  # noqa: PLC0415
+
+            user_id = str(loyalty.user_id)
+            transaction.on_commit(lambda: evaluate_user_awards.delay(user_id))
+    return entry
 
 
 def recompute_tier(loyalty):
@@ -107,7 +183,7 @@ def _evaluate_flat_award(loyalty, award, user_award):
     if not created:
         return False
     if award.points_reward:
-        _record_points(
+        record_points(
             loyalty,
             award.points_reward,
             PointsReason.AWARD_BONUS,
@@ -154,7 +230,7 @@ def _evaluate_leveled_award(loyalty, award, levels, user_award):
 
     bonus = sum(level.points_reward for level in crossed)
     if bonus:
-        _record_points(
+        record_points(
             loyalty,
             bonus,
             PointsReason.AWARD_BONUS,
@@ -169,9 +245,10 @@ def process_order(order):
     """Grant points and evaluate awards/tiers for a completed order.
 
     Idempotent: if the order has already produced an ``ORDER`` ledger entry the
-    call is a no-op. Guest/anonymous orders (no user) are skipped.
+    call is a no-op (a unique constraint backs this up against races).
+    Orders without a user, or placed by a guest account, are skipped.
     """
-    if order.user_id is None:
+    if order.user_id is None or order.user.is_guest:
         return None
 
     already_processed = PointsTransaction.objects.filter(
@@ -185,20 +262,39 @@ def process_order(order):
     settings = LoyaltySettings.load()
     loyalty = UserLoyalty.for_user(order.user)
 
+    # What the customer actually paid: reward discounts never earn points.
     order_total = order.price or Decimal("0.00")
-    loyalty.orders_completed += 1
-    loyalty.total_spent = (loyalty.total_spent or Decimal("0.00")) + order_total
-    loyalty.save(update_fields=["orders_completed", "total_spent", "updated_at"])
+    UserLoyalty.objects.filter(pk=loyalty.pk).update(
+        orders_completed=F("orders_completed") + 1,
+        total_spent=F("total_spent") + order_total,
+        updated_at=timezone.now(),
+    )
+    loyalty.refresh_from_db(fields=["orders_completed", "total_spent"])
 
-    points = int(order_total * settings.points_per_dollar) + settings.points_per_order
-    if points:
-        _record_points(
+    base_points = (
+        int(order_total * settings.points_per_dollar) + settings.points_per_order
+    )
+    # Always write the ORDER entry, even for 0 points (e.g. a fully redeemed
+    # order): it is the idempotency marker for this order.
+    record_points(
+        loyalty,
+        base_points,
+        PointsReason.ORDER,
+        order=order,
+        note="Order completed",
+    )
+
+    bonus_points = 0
+    for promotion, points in promotion_bonuses(order, settings):
+        record_points(
             loyalty,
             points,
-            PointsReason.ORDER,
+            PointsReason.PROMOTION_BONUS,
             order=order,
-            note="Order completed",
+            promotion=promotion,
+            note=f"Promotion: {promotion.name}",
         )
+        bonus_points += points
 
     # This order changes the user's distinct-items / customizations tallies, so
     # drop their cached metric values before (re)evaluating awards.
@@ -208,7 +304,9 @@ def process_order(order):
     new_tier = recompute_tier(loyalty)
 
     return {
-        "points_awarded": points,
+        "points_awarded": base_points + bonus_points,
+        "base_points": base_points,
+        "bonus_points": bonus_points,
         "awards": newly_earned,
         "tier": new_tier,
     }

@@ -1,13 +1,21 @@
+import copy
+
+from django.core.exceptions import ValidationError as DjangoValidationError
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from navi_backend.awards.models import Award
 from navi_backend.awards.models import AwardLevel
 from navi_backend.awards.models import LoyaltySettings
 from navi_backend.awards.models import PointsTransaction
+from navi_backend.awards.models import Promotion
+from navi_backend.awards.models import Reward
+from navi_backend.awards.models import RewardRedemption
 from navi_backend.awards.models import RuleType
 from navi_backend.awards.models import Tier
 from navi_backend.awards.models import UserAward
 from navi_backend.awards.models import UserLoyalty
+from navi_backend.awards.services.expiry_service import points_expire_at
 from navi_backend.awards.services.rules import metric_value
 from navi_backend.core.api import BaseModelSerializer
 
@@ -66,6 +74,7 @@ class LoyaltySettingsSerializer(serializers.ModelSerializer):
         fields = [
             "points_per_dollar",
             "points_per_order",
+            "points_expiry_days",
             "notifications_enabled",
             "updated_at",
         ]
@@ -110,12 +119,104 @@ class AwardProgressSerializer(serializers.Serializer):
     percent = serializers.IntegerField()
 
 
+# ---------------------------------------------------------------------------
+# Rewards, customer-facing
+# ---------------------------------------------------------------------------
+
+_SCHEDULE_FIELDS = ["starts_at", "ends_at", "days_of_week", "start_time", "end_time"]
+_TARGET_FIELDS = ["menu_item", "category", "customization"]
+
+
+def _target_name(obj):
+    target = getattr(obj, "target", None) or (
+        obj.menu_item or obj.category or obj.customization
+    )
+    return target.name if target else None
+
+
+class RewardSerializer(serializers.ModelSerializer):
+    """A live catalog entry. ``max_value`` lets the app show "up to $6"."""
+
+    target_type = serializers.CharField(read_only=True)
+    target_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Reward
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "icon",
+            "points_cost",
+            "max_value",
+            "target_type",
+            *_TARGET_FIELDS,
+            "target_name",
+            *_SCHEDULE_FIELDS,
+        ]
+        read_only_fields = fields
+
+    def get_target_name(self, obj) -> str | None:
+        return _target_name(obj)
+
+
+class PromotionSerializer(serializers.ModelSerializer):
+    target_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Promotion
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "scope",
+            "effect",
+            "multiplier",
+            "bonus_points",
+            *_TARGET_FIELDS,
+            "target_name",
+            "min_order_total",
+            "first_order_only",
+            *_SCHEDULE_FIELDS,
+        ]
+        read_only_fields = fields
+
+    def get_target_name(self, obj) -> str | None:
+        return _target_name(obj)
+
+
+class RedemptionSerializer(serializers.ModelSerializer):
+    reward_name = serializers.CharField(source="reward.name", read_only=True)
+
+    class Meta:
+        model = RewardRedemption
+        fields = [
+            "id",
+            "reward",
+            "reward_name",
+            "order",
+            "order_item",
+            "order_customization",
+            "points_spent",
+            "discount_amount",
+            "status",
+            "created_at",
+            "reversed_at",
+        ]
+        read_only_fields = fields
+
+
 class LoyaltySummarySerializer(serializers.ModelSerializer):
-    """The user-facing dashboard: balances, tier, next tier and progress."""
+    """The user-facing dashboard: balances, tier, next tier/reward and progress."""
 
     current_tier = TierSerializer(read_only=True)
     next_tier = serializers.SerializerMethodField()
     points_to_next_tier = serializers.SerializerMethodField()
+    next_reward = serializers.SerializerMethodField()
+    points_to_next_reward = serializers.SerializerMethodField()
+    points_expire_at = serializers.SerializerMethodField()
     earned_awards = serializers.SerializerMethodField()
     award_progress = serializers.SerializerMethodField()
     # Single source of truth for reward-email opt-in is the user's notification
@@ -132,6 +233,9 @@ class LoyaltySummarySerializer(serializers.ModelSerializer):
             "current_tier",
             "next_tier",
             "points_to_next_tier",
+            "next_reward",
+            "points_to_next_reward",
+            "points_expire_at",
             "notifications_enabled",
             "earned_awards",
             "award_progress",
@@ -158,6 +262,18 @@ class LoyaltySummarySerializer(serializers.ModelSerializer):
             )
         return self._next_tier_cache
 
+    def _next_reward(self, obj):
+        # The cheapest live reward the user can't afford yet: their next goal.
+        if not hasattr(self, "_next_reward_cache"):
+            self._next_reward_cache = (
+                Reward.objects.live()
+                .filter(points_cost__gt=obj.balance_points)
+                .select_related(*_TARGET_FIELDS)
+                .order_by("points_cost")
+                .first()
+            )
+        return self._next_reward_cache
+
     def get_next_tier(self, obj):
         tier = self._next_tier(obj)
         return TierSerializer(tier).data if tier else None
@@ -167,6 +283,20 @@ class LoyaltySummarySerializer(serializers.ModelSerializer):
         if not tier:
             return None
         return max(0, tier.threshold_points - obj.lifetime_points)
+
+    def get_next_reward(self, obj):
+        reward = self._next_reward(obj)
+        return RewardSerializer(reward).data if reward else None
+
+    def get_points_to_next_reward(self, obj) -> int | None:
+        reward = self._next_reward(obj)
+        if not reward:
+            return None
+        return reward.points_cost - obj.balance_points
+
+    @extend_schema_field(serializers.DateTimeField(allow_null=True))
+    def get_points_expire_at(self, obj):
+        return points_expire_at(obj)
 
     def get_notifications_enabled(self, obj) -> bool:
         prefs = getattr(obj.user, "preferences", None)
@@ -218,6 +348,210 @@ class LoyaltySummarySerializer(serializers.ModelSerializer):
                 },
             )
         return AwardProgressSerializer(progress, many=True).data
+
+
+# ---------------------------------------------------------------------------
+# Rewards admin frontend (staff-only endpoints under /api/admin/)
+# ---------------------------------------------------------------------------
+
+_ADMIN_READ_ONLY = [
+    "id",
+    "slug",
+    "is_deleted",
+    "deleted_at",
+    "created_at",
+    "updated_at",
+    "created_by",
+    "updated_by",
+]
+
+
+def validate_with_model_clean(serializer, attrs):
+    """Run the model's ``clean()`` on the would-be instance.
+
+    Keeps the API and Django admin on exactly the same rules (one target,
+    positive max value, sane schedule, scope/effect pairs...).
+    """
+    model = serializer.Meta.model
+    candidate = copy.copy(serializer.instance) if serializer.instance else model()
+    for field, value in attrs.items():
+        setattr(candidate, field, value)
+    try:
+        candidate.clean()
+    except DjangoValidationError as exc:
+        raise serializers.ValidationError(serializers.as_serializer_error(exc)) from exc
+    return attrs
+
+
+class AdminRewardSerializer(serializers.ModelSerializer):
+    """Every field of a reward, plus live status and redemption stats."""
+
+    target_type = serializers.CharField(read_only=True)
+    target_name = serializers.SerializerMethodField()
+    target_price = serializers.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        read_only=True,
+    )
+    max_value_below_price = serializers.SerializerMethodField(
+        help_text="True when the target costs more than max_value, so customers "
+        "pay the difference.",
+    )
+    is_live = serializers.BooleanField(read_only=True, default=False)
+    redemption_count = serializers.IntegerField(read_only=True, default=0)
+    points_redeemed = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = Reward
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "icon",
+            "points_cost",
+            "max_value",
+            *_TARGET_FIELDS,
+            "target_type",
+            "target_name",
+            "target_price",
+            "max_value_below_price",
+            *_SCHEDULE_FIELDS,
+            "status",
+            "is_live",
+            "is_deleted",
+            "deleted_at",
+            "redemption_count",
+            "points_redeemed",
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+        ]
+        read_only_fields = _ADMIN_READ_ONLY
+
+    def get_target_name(self, obj) -> str | None:
+        return _target_name(obj)
+
+    def get_max_value_below_price(self, obj) -> bool:
+        price = obj.target_price
+        return price is not None and obj.max_value < price
+
+    def validate(self, attrs):
+        return validate_with_model_clean(self, attrs)
+
+
+class AdminPromotionSerializer(serializers.ModelSerializer):
+    """Every field of a promotion, plus live status and payout stats."""
+
+    target_name = serializers.SerializerMethodField()
+    is_live = serializers.BooleanField(read_only=True, default=False)
+    times_applied = serializers.IntegerField(read_only=True, default=0)
+    bonus_points_granted = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = Promotion
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "scope",
+            "effect",
+            "multiplier",
+            "bonus_points",
+            *_TARGET_FIELDS,
+            "target_name",
+            "min_order_total",
+            "first_order_only",
+            *_SCHEDULE_FIELDS,
+            "status",
+            "is_live",
+            "is_deleted",
+            "deleted_at",
+            "times_applied",
+            "bonus_points_granted",
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+        ]
+        read_only_fields = _ADMIN_READ_ONLY
+
+    def get_target_name(self, obj) -> str | None:
+        return _target_name(obj)
+
+    def validate(self, attrs):
+        return validate_with_model_clean(self, attrs)
+
+
+class AdminRedemptionSerializer(RedemptionSerializer):
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+
+    class Meta(RedemptionSerializer.Meta):
+        fields = ["user", "user_email", *RedemptionSerializer.Meta.fields]
+        read_only_fields = fields
+
+
+class AdminPointsTransactionSerializer(PointsTransactionSerializer):
+    class Meta(PointsTransactionSerializer.Meta):
+        fields = [
+            *PointsTransactionSerializer.Meta.fields,
+            "promotion",
+            "redemption",
+            "created_by",
+        ]
+        read_only_fields = fields
+
+
+class AdminUserLoyaltySerializer(serializers.ModelSerializer):
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+    user_name = serializers.CharField(source="user.name", read_only=True)
+    is_guest = serializers.BooleanField(source="user.is_guest", read_only=True)
+    current_tier = TierSerializer(read_only=True)
+    points_expire_at = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserLoyalty
+        fields = [
+            "id",
+            "user",
+            "user_email",
+            "user_name",
+            "is_guest",
+            "balance_points",
+            "lifetime_points",
+            "orders_completed",
+            "total_spent",
+            "current_tier",
+            "last_activity_at",
+            "points_expire_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    @extend_schema_field(serializers.DateTimeField(allow_null=True))
+    def get_points_expire_at(self, obj):
+        # The view passes the settings in once so a page of accounts doesn't
+        # load them per row.
+        return points_expire_at(obj, self.context.get("loyalty_settings"))
+
+
+class AdjustPointsSerializer(serializers.Serializer):
+    points = serializers.IntegerField(
+        help_text="Positive to credit, negative to deduct.",
+    )
+    note = serializers.CharField(
+        max_length=255,
+        help_text="Why the adjustment was made; shown in the ledger.",
+    )
+
+    def validate_points(self, value):
+        if value == 0:
+            msg = "Adjustment must be non-zero."
+            raise serializers.ValidationError(msg)
+        return value
 
 
 # Maps backend award rule types to the metric strings the frontend achievements

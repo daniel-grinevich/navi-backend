@@ -4,10 +4,13 @@ from contextlib import contextmanager
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
+from navi_backend.awards.services.exceptions import RedemptionError
+from navi_backend.awards.services.redemption_service import apply_redemptions
 from navi_backend.core.base_service import BaseService
 from navi_backend.menu.models import CustomizationGroup
 from navi_backend.orders.models import Order
 from navi_backend.orders.utils import notify_machines_queue_changed
+from navi_backend.payments.constants import STRIPE_MINIMUM_CHARGE
 from navi_backend.payments.services import StripePaymentService
 
 
@@ -18,6 +21,7 @@ class CreateOrderService(BaseService):
             self.validate_customizations,
             self.save_order,
             self.save_order_items,
+            self.apply_rewards,
             self.create_payment_intent,
         ]
         super().__init__(**kwargs)
@@ -27,6 +31,9 @@ class CreateOrderService(BaseService):
         try:
             with transaction.atomic():
                 yield self.mro
+        except ValidationError:
+            # Already structured (e.g. {"rewards": [...]}); keep it that way.
+            raise
         except Exception as e:
             raise ValidationError({"error": str(e)}) from e
 
@@ -35,6 +42,7 @@ class CreateOrderService(BaseService):
         request_context = self.kwargs.get("context", {})
 
         ctx["order_items_data"] = validated_data.pop("items", [])
+        ctx["reward_requests"] = []
         request_user = validated_data.get("user") or request_context["request"].user
         ctx["tracking_user"] = validated_data.get("created_by") or request_user
 
@@ -123,6 +131,7 @@ class CreateOrderService(BaseService):
 
         for order_item_data in ctx["order_items_data"]:
             customizations = order_item_data.pop("customizations", [])
+            item_reward = order_item_data.pop("reward", None)
 
             order_item_data["order"] = order.id
             order_item_data["unit_price"] = order_item_data["menu_item"].price
@@ -135,6 +144,8 @@ class CreateOrderService(BaseService):
             order_item = order_item_serializer.save(
                 created_by=tracking_user, updated_by=tracking_user
             )
+            if item_reward:
+                ctx["reward_requests"].append((item_reward, order_item))
 
             for customization_data in customizations:
                 customization_serializer = OrderCustomizationSerializer(
@@ -148,14 +159,56 @@ class CreateOrderService(BaseService):
                 if not customization_serializer.is_valid():
                     raise ValidationError(customization_serializer.errors)
 
-                customization_serializer.save(
+                order_customization = customization_serializer.save(
                     created_by=tracking_user, updated_by=tracking_user
                 )
+                if customization_reward := customization_data.get("reward"):
+                    ctx["reward_requests"].append(
+                        (customization_reward, order_customization)
+                    )
 
+        return ctx
+
+    def apply_rewards(self, ctx):
+        """Redeem rewards chosen per line, inside the order's transaction.
+
+        A failure here rolls back the order and every point deducted with it.
+        """
+        requests = ctx["reward_requests"]
+        if not requests:
+            return ctx
+
+        order = ctx["order"]
+        try:
+            apply_redemptions(order, order.user, requests)
+        except RedemptionError as e:
+            raise ValidationError({"rewards": [str(e)]}) from e
         return ctx
 
     def create_payment_intent(self, ctx):
         order = ctx["order"]
+
+        # Defensive: Order.price is floored at $0, so check the raw difference.
+        if order.subtotal - order.discount_total < 0:
+            raise ValidationError({"price": ["Order total cannot be negative."]})
+
+        total = order.price
+        if total == 0:
+            # Fully covered by rewards: nothing to authorize or capture.
+            order._stripe_client_secret = None  # NOQA: SLF001
+            ctx["order"] = order
+            return ctx
+
+        if total < STRIPE_MINIMUM_CHARGE:
+            raise ValidationError(
+                {
+                    "price": [
+                        "Order total must be $0.00 or at least "
+                        f"${STRIPE_MINIMUM_CHARGE}."
+                    ]
+                }
+            )
+
         client_secret, payment = StripePaymentService.create_payment_intent(order)
         order.payment = payment
         order._stripe_client_secret = client_secret  # NOQA: SLF001

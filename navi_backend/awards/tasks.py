@@ -10,6 +10,7 @@ from navi_backend.awards.models import LoyaltySettings
 from navi_backend.awards.models import Tier
 from navi_backend.awards.models import UserLoyalty
 from navi_backend.awards.services import points_service
+from navi_backend.awards.services.expiry_service import expire_inactive_points
 from navi_backend.awards.services.rules import invalidate_user_metrics
 from navi_backend.notifications.models import NotificationCategory
 from navi_backend.notifications.models import NotificationKind
@@ -53,6 +54,18 @@ def evaluate_user_awards(self, user_id):
         loyalty = UserLoyalty.for_user(user)
         points_service.evaluate_awards(loyalty)
         points_service.recompute_tier(loyalty)
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+def expire_inactive_points_task(self):
+    """Daily (celery-beat): expire balances idle for ``points_expiry_days``.
+
+    Safe to retry: each account re-checks inactivity under a row lock, and an
+    expired account has nothing left to expire.
+    """
+    expired = expire_inactive_points()
+    logger.info("Expired points for %s inactive loyalty account(s)", expired)
+    return expired
 
 
 def _loyalty_notifications_on():

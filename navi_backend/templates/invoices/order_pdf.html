@@ -344,8 +344,14 @@
       <table class="totals-table">
         <tr>
           <td>Subtotal:</td>
-          <td>${{ order.price }}</td>
+          <td>${{ order.subtotal }}</td>
         </tr>
+        {% for redemption in order.reward_redemptions.all %}
+          <tr>
+            <td>{{ redemption.reward.name }}:</td>
+            <td>-${{ redemption.discount_amount }}</td>
+          </tr>
+        {% endfor %}
         <tr>
           <td>Tax:</td>
           <td>$0.00</td>

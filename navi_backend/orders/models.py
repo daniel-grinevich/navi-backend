@@ -64,18 +64,45 @@ class Order(
         return f"{self.user} (v{self.created_at})"
 
     @property
-    def price(self):
+    def subtotal(self):
+        """Sum of line prices before any reward discounts."""
         total = Decimal("0.00")
         if self.pk:
             for item in self.items.all():
                 total += item.price
         return total
 
+    @property
+    def discount_total(self):
+        """Reward discounts on this order (prefetch ``reward_redemptions``).
+
+        Every redemption counts, reversed ones included: reversing a redemption
+        refunds the points but never changes a price that was already
+        authorized with Stripe.
+        """
+        if not self.pk:
+            return Decimal("0.00")
+        return sum(
+            (
+                redemption.discount_amount
+                for redemption in self.reward_redemptions.all()
+            ),
+            Decimal("0.00"),
+        )
+
+    @property
+    def price(self):
+        """What the customer pays. Hard floor at $0.00."""
+        return max(Decimal("0.00"), self.subtotal - self.discount_total)
+
     def is_dispatchable(self):
         if self.order_status != "O":
             msg = "Order must be in 'ordered' status to dispatch."
             raise ValidationError(msg)
         if not self.payment:
+            if self.price == 0:
+                # Fully covered by rewards: nothing to authorize or capture.
+                return
             msg = "Order has no payment associated."
             raise ValidationError(msg)
         if self.payment.status != "requires_capture":
@@ -88,8 +115,12 @@ class Order(
             raise ValidationError(msg)
 
     def clean(self):
-        if self.price and self.price < 0:
-            raise ValidationError({"price": _("Price cannot be negative.")})
+        # price itself can't go negative (it is floored); reject the state that
+        # would need the floor instead of silently hiding it.
+        if self.discount_total > self.subtotal:
+            raise ValidationError(
+                {"price": _("Reward discounts cannot exceed the order subtotal.")}
+            )
 
     def save(self, *args, **kwargs):
         return super().save(*args, **kwargs)

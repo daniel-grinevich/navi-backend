@@ -1,6 +1,8 @@
 import stripe
 from django.conf import settings
+from django.db import transaction
 
+from navi_backend.awards.services.redemption_service import reverse_order_redemptions
 from navi_backend.orders.models import Order
 from navi_backend.orders.utils import notify_machines_queue_changed
 from navi_backend.payments.models import Payment
@@ -93,20 +95,33 @@ class StripePaymentService:
         elif event_type == "payment_intent.payment_failed":
             payment.status = "failed"
             payment.save(update_fields=["status"])
-            cancelled = Order.objects.filter(payment=payment, order_status="O").update(
-                order_status="C"
-            )
-            if cancelled:
-                notify_machines_queue_changed()
+            StripePaymentService.cancel_open_orders(payment)
 
         elif event_type == "payment_intent.canceled":
             payment.status = "canceled"
             payment.save(update_fields=["status"])
-            cancelled = Order.objects.filter(payment=payment, order_status="O").update(
-                order_status="C"
+            StripePaymentService.cancel_open_orders(payment)
+
+    @staticmethod
+    def cancel_open_orders(payment):
+        """Cancel orders still awaiting pickup on a dead payment.
+
+        Any reward points spent on those orders are handed back. Returns how
+        many orders were cancelled.
+        """
+        with transaction.atomic():
+            order_ids = list(
+                Order.objects.select_for_update()
+                .filter(payment=payment, order_status="O")
+                .values_list("id", flat=True)
             )
-            if cancelled:
-                notify_machines_queue_changed()
+            if not order_ids:
+                return 0
+            Order.objects.filter(pk__in=order_ids).update(order_status="C")
+            reverse_order_redemptions(order_ids)
+
+        notify_machines_queue_changed()
+        return len(order_ids)
 
     @staticmethod
     def get_or_create_stripe_customer(user):
