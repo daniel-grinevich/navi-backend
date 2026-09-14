@@ -43,6 +43,32 @@ def send_user_confirmation_email(self, user_id):
     notification.send()
 
 
+# Low retry cap: the magic-link token expires in 15 minutes, so retrying
+# for longer would deliver a dead link. Callers also set ``expires`` so a
+# backed-up queue drops the send instead of delivering it late.
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+def send_magic_link_email(self, email, link):
+    NotificationFactory.create(
+        NotificationKind.EMAIL,
+        recipient=email,
+        subject="Your Navi sign-in link",
+        template="emails/magic_link.html",
+        context={"link": link, "minutes": 15},
+        reason="magic_link",
+    ).send()
+
+
+# Same reasoning as the magic link: the OTP expires in 10 minutes.
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+def send_sms_otp(self, phone, message):
+    NotificationFactory.create(
+        NotificationKind.SMS,
+        recipient=phone,
+        message=message,
+        reason="sms_otp",
+    ).send()
+
+
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=5)
 def send_invoice_email(self, user_id, invoice_id):
     try:
