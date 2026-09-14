@@ -61,6 +61,14 @@ def mock_broadcast():
         yield m
 
 
+@pytest.fixture
+def mock_notify():
+    with mock.patch(
+        "navi_backend.orders.api.machine_views.notify_machines_queue_changed"
+    ) as m:
+        yield m
+
+
 class TestQrToken:
     def test_round_trip(self, order):
         assert read_qr_token(make_qr_token(order.id)) == str(order.id)
@@ -249,6 +257,41 @@ class TestQueue:
             str(routed_here.id),
             str(mine_in_progress.id),
         }
+
+
+class TestPresence:
+    def test_machine_request_touches_last_seen(self, machine_client, pi, navi_port):
+        pi.last_seen = None
+        pi.save(update_fields=["last_seen"])
+
+        response = machine_client.get(QUEUE_URL)
+
+        assert response.status_code == 200
+        pi.refresh_from_db()
+        assert pi.last_seen is not None
+
+    def test_scan_nudges_machines(
+        self, machine_client, navi_port, order, mock_broadcast, mock_notify
+    ):
+        response = machine_client.post(
+            SCAN_URL, {"qr_token": make_qr_token(order.id)}, format="json"
+        )
+
+        assert response.status_code == 200
+        mock_notify.assert_called_once_with()
+
+    def test_failed_claim_does_not_nudge(
+        self, machine_client, navi_port, order, mock_broadcast, mock_notify
+    ):
+        order.order_status = "D"
+        order.save(update_fields=["order_status"])
+
+        response = machine_client.post(
+            SCAN_URL, {"qr_token": make_qr_token(order.id)}, format="json"
+        )
+
+        assert response.status_code == 409
+        mock_notify.assert_not_called()
 
 
 class TestComplete:

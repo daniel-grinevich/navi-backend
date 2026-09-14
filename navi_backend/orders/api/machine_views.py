@@ -14,6 +14,7 @@ from navi_backend.orders.qr import InvalidQrTokenError
 from navi_backend.orders.qr import read_qr_token
 from navi_backend.orders.tasks import create_order_invoice
 from navi_backend.orders.utils import broadcast_order_status
+from navi_backend.orders.utils import notify_machines_queue_changed
 from navi_backend.payments.tasks import capture_stripe_payment
 
 from .serializers import MachineOrderSerializer
@@ -145,6 +146,7 @@ def _start_order(request, order_id):
 
     order.refresh_from_db()
     broadcast_order_status(order.id, "S")
+    notify_machines_queue_changed()
     return Response(MachineOrderSerializer(order).data)
 
 
@@ -190,4 +192,5 @@ class MachineOrderCompleteView(APIView):
             )
             broadcast_order_status(order.id, "O", error=error_message)
 
+        notify_machines_queue_changed()
         return Response({"ok": True})

@@ -16,8 +16,22 @@ class Config:
     # X-Device-Token header on every machine API call.
     DEVICE_TOKEN = os.environ.get("NAVI_DEVICE_TOKEN", "")
 
-    # How often (seconds) to poll the backend for its order queue.
+    # How often (seconds) to poll the backend for its order queue. Polling is
+    # the fallback transport; while the websocket is up we poll at
+    # SLOW_POLL_INTERVAL instead, as a safety net.
     POLL_INTERVAL = float(os.environ.get("NAVI_POLL_INTERVAL", "3"))
+    SLOW_POLL_INTERVAL = float(os.environ.get("NAVI_SLOW_POLL_INTERVAL", "30"))
+
+    # Websocket to the backend for push updates + presence. Derived from the
+    # API URL (http->ws, /api stripped) unless set explicitly.
+    WS_URL = os.environ.get("NAVI_WS_URL", "")
+
+    # How often (seconds) to ping over the websocket so the backend's
+    # last_seen presence stays fresh.
+    PING_INTERVAL = float(os.environ.get("NAVI_PING_INTERVAL", "15"))
+
+    # Delay (seconds) before re-dialing a dropped websocket.
+    WS_RECONNECT_SECONDS = float(os.environ.get("NAVI_WS_RECONNECT_SECONDS", "3"))
 
     # Simulated seconds to "make" a drink before auto/ manual completion.
     BREW_SECONDS = float(os.environ.get("NAVI_BREW_SECONDS", "5"))
@@ -27,6 +41,14 @@ class Config:
 
     # A friendly label for this Pi, shown in the UI.
     DEVICE_NAME = os.environ.get("NAVI_DEVICE_NAME", "NaviPort Pi")
+
+    def __init__(self):
+        if not self.WS_URL:
+            base = self.API_BASE_URL.removesuffix("/api")
+            scheme_swapped = base.replace("https://", "wss://", 1).replace(
+                "http://", "ws://", 1
+            )
+            self.WS_URL = f"{scheme_swapped}/ws/machine/"
 
 
 config = Config()

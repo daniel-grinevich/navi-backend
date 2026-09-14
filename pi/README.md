@@ -21,8 +21,13 @@ Balena's Raspberry Pi OS base) and on a real Pi — only env vars and
 
 1. Customer places an order → it sits in status `O` (Ordered). Their phone shows
    `order.qr_token` (a signed, opaque token — not the raw order id) as a QR.
-2. The Pi polls `GET /api/machine/orders/queue/` and shows the order under
-   **Waiting for pickup**.
+2. The Pi holds a websocket to the backend (`/ws/machine/`, authenticated by
+   the same device token). When any order changes, the backend pushes a tiny
+   `queue.changed` nudge and the Pi refetches `GET /api/machine/orders/queue/`
+   — HTTP stays the single source of truth. If the socket is down the Pi
+   falls back to polling the same endpoint (UI badge shows **live** vs
+   **polling**). The socket doubles as the heartbeat: connects and pings
+   refresh `last_seen`, so the backend knows which Pis are actually online.
 3. The QR is scanned → the Pi calls `POST /api/machine/orders/scan/` with the
    token. The backend verifies the signature and **atomically** claims the order
    (`O → S`, locked to this Pi). Exactly one Pi can win the claim.
@@ -66,5 +71,7 @@ Swap the internals of `hardware.py`:
   and have `app.py` feed decoded tokens into the same scan path.
 - `brew()` → drive the espresso machine over GPIO/serial.
 
-Set `NAVI_API_URL`, `NAVI_DEVICE_TOKEN`, and `NAVI_DEVICE_NAME`. Everything else
-is identical to local.
+Set `NAVI_API_URL`, `NAVI_DEVICE_TOKEN`, and `NAVI_DEVICE_NAME`. The websocket
+URL is derived from `NAVI_API_URL` (override with `NAVI_WS_URL` if they differ).
+Everything else is identical to local. The Pi only ever dials out — no inbound
+ports, port forwarding, or VPN needed at the café.

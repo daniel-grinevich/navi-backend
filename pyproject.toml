@@ -43,6 +43,8 @@ dependencies = [
 dev = [
   "anyio[trio]==4.8.0",
   "coverage==7.6.10",
+  # channels.testing imports daphne unconditionally; test-only dep.
+  "daphne==4.2.1",
   "debugpy==1.8.19",
   "django-coverage-plugin==3.1.0",
   "django-debug-toolbar==6.0.0",

@@ -13,9 +13,11 @@ shows as a QR.
 
 import asyncio
 import contextlib
+import json
 from pathlib import Path
 
 import hardware
+import websockets
 from client import MachineApiError
 from client import client
 from fastapi import FastAPI
@@ -38,6 +40,9 @@ class State:
         self.queue: list[dict] = []
         self.connected: bool = False
         self.last_error: str | None = None
+        # True while the push websocket to the backend is up ("live" mode);
+        # False means we're on the polling fallback.
+        self.ws_connected: bool = False
         # order_ids currently being brewed by this Pi.
         self.brewing: set[str] = set()
 
@@ -45,20 +50,67 @@ class State:
 state = State()
 
 
+async def refresh_queue():
+    """Fetch the queue over HTTP -- the single source of truth."""
+    try:
+        state.queue = await client.fetch_queue()
+        state.connected = True
+        state.last_error = None
+    except MachineApiError as exc:
+        state.connected = False
+        state.last_error = exc.detail
+    except Exception as exc:  # network down, backend not up yet, etc.
+        state.connected = False
+        state.last_error = str(exc)
+
+
 async def poll_loop():
-    """Continuously refresh the queue from the backend."""
+    """Refresh the queue on a timer.
+
+    This is the fallback transport: while the websocket is up we only poll
+    occasionally as a safety net; when it's down we poll at full speed.
+    """
+    while True:
+        await refresh_queue()
+        interval = (
+            config.SLOW_POLL_INTERVAL if state.ws_connected else config.POLL_INTERVAL
+        )
+        await asyncio.sleep(interval)
+
+
+async def _ping_loop(ws):
+    """Keep the backend's last_seen presence fresh while the socket is up."""
+    while True:
+        await asyncio.sleep(config.PING_INTERVAL)
+        await ws.send(json.dumps({"type": "ping"}))
+
+
+async def ws_loop():
+    """Hold a push socket to the backend; refetch the queue on every nudge.
+
+    The socket never carries order data -- the backend sends "queue.changed"
+    and we refetch over HTTP. Reconnects forever with a short delay.
+    """
     while True:
         try:
-            state.queue = await client.fetch_queue()
-            state.connected = True
-            state.last_error = None
-        except MachineApiError as exc:
-            state.connected = False
-            state.last_error = exc.detail
-        except Exception as exc:  # network down, backend not up yet, etc.
-            state.connected = False
-            state.last_error = str(exc)
-        await asyncio.sleep(config.POLL_INTERVAL)
+            async with websockets.connect(
+                config.WS_URL,
+                additional_headers={"X-Device-Token": config.DEVICE_TOKEN},
+            ) as ws:
+                state.ws_connected = True
+                await refresh_queue()  # snapshot on (re)connect
+                pinger = asyncio.create_task(_ping_loop(ws))
+                try:
+                    async for raw in ws:
+                        message = json.loads(raw)
+                        if message.get("type") == "queue.changed":
+                            await refresh_queue()
+                finally:
+                    pinger.cancel()
+        except Exception as exc:
+            state.last_error = f"websocket: {exc}"
+        state.ws_connected = False
+        await asyncio.sleep(config.WS_RECONNECT_SECONDS)
 
 
 async def brew_and_complete(order_id: str):
@@ -81,6 +133,7 @@ async def brew_and_complete(order_id: str):
 @app.on_event("startup")
 async def _startup():
     asyncio.create_task(poll_loop())
+    asyncio.create_task(ws_loop())
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -93,11 +146,11 @@ async def index(request: Request):
             "request": request,
             "device_name": config.DEVICE_NAME,
             "connected": state.connected,
+            "live": state.ws_connected,
             "last_error": state.last_error,
             "pending": pending,
             "in_progress": in_progress,
             "brewing": state.brewing,
-            "poll_interval": config.POLL_INTERVAL,
         },
     )
 
@@ -132,4 +185,8 @@ async def error(order_id: str, message: str = Form("Manual error from Pi UI")):
 
 @app.get("/healthz")
 async def healthz():
-    return {"connected": state.connected, "queue_size": len(state.queue)}
+    return {
+        "connected": state.connected,
+        "live": state.ws_connected,
+        "queue_size": len(state.queue),
+    }
