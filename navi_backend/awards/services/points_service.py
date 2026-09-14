@@ -70,37 +70,98 @@ def recompute_tier(loyalty):
 
 
 def evaluate_awards(loyalty):
-    """Grant any active awards the user now qualifies for but hasn't earned.
+    """Grant any active awards/levels the user now qualifies for.
 
-    Returns the list of newly earned :class:`Award` objects.
+    Single-threshold awards are earned once; multi-level awards upgrade the
+    user's :class:`UserAward` to the highest level whose threshold the metric
+    has crossed, granting the bonus points of every newly crossed level.
+
+    Returns the list of :class:`Award` objects newly earned or leveled up.
     """
-    earned_ids = set(
-        UserAward.objects.filter(user=loyalty.user).values_list(
-            "award_id",
-            flat=True,
-        ),
-    )
+    existing = {
+        ua.award_id: ua
+        for ua in UserAward.objects.filter(user=loyalty.user).select_related("level")
+    }
     candidates = Award.objects.filter(
         status=Award.Status.ACTIVE, is_deleted=False
-    ).exclude(id__in=earned_ids)
+    ).prefetch_related("levels")
 
     newly_earned = []
     for award in candidates:
-        if metric_value(award.rule_type, loyalty) < award.threshold:
-            continue
-        _, created = UserAward.objects.get_or_create(user=loyalty.user, award=award)
-        if not created:
-            continue
-        if award.points_reward:
-            _record_points(
-                loyalty,
-                award.points_reward,
-                PointsReason.AWARD_BONUS,
-                note=f"Award: {award.name}",
-            )
-        _notify_award(loyalty, award)
-        newly_earned.append(award)
+        levels = award.ordered_levels()
+        if levels:
+            if _evaluate_leveled_award(loyalty, award, levels, existing.get(award.id)):
+                newly_earned.append(award)
+        elif _evaluate_flat_award(loyalty, award, existing.get(award.id)):
+            newly_earned.append(award)
     return newly_earned
+
+
+def _evaluate_flat_award(loyalty, award, user_award):
+    """Earn a single-threshold award. Returns True if newly earned."""
+    if user_award is not None or not award.threshold:
+        return False
+    if metric_value(award.rule_type, loyalty) < award.threshold:
+        return False
+    _, created = UserAward.objects.get_or_create(user=loyalty.user, award=award)
+    if not created:
+        return False
+    if award.points_reward:
+        _record_points(
+            loyalty,
+            award.points_reward,
+            PointsReason.AWARD_BONUS,
+            note=f"Award: {award.name}",
+        )
+    _notify_award(loyalty, award)
+    return True
+
+
+def _evaluate_leveled_award(loyalty, award, levels, user_award):
+    """Upgrade a multi-level award to the highest crossed level.
+
+    Returns True if a new level was reached.
+    """
+    current_rank = user_award.level.rank if user_award and user_award.level else 0
+    value = metric_value(award.rule_type, loyalty)
+    crossed = [
+        level
+        for level in levels
+        if level.rank > current_rank and value >= level.threshold
+    ]
+    if not crossed:
+        return False
+    top = crossed[-1]
+
+    if user_award is None:
+        user_award, created = UserAward.objects.get_or_create(
+            user=loyalty.user,
+            award=award,
+            defaults={"level": top},
+        )
+        if not created:
+            # Raced with a concurrent evaluation that already earned it.
+            return False
+    else:
+        # Compare-and-swap on the previous level so a concurrent evaluation
+        # can't double-grant the level bonus.
+        updated = UserAward.objects.filter(
+            pk=user_award.pk,
+            level=user_award.level,
+        ).update(level=top)
+        if not updated:
+            return False
+
+    bonus = sum(level.points_reward for level in crossed)
+    if bonus:
+        _record_points(
+            loyalty,
+            bonus,
+            PointsReason.AWARD_BONUS,
+            note=f"Award: {award.name} — {top.name}",
+        )
+    _notify_award(loyalty, award, level=top)
+    return True
 
 
 @transaction.atomic
@@ -159,14 +220,18 @@ def _should_notify(loyalty):
     return global_on and loyalty.notifications_enabled
 
 
-def _notify_award(loyalty, award):
+def _notify_award(loyalty, award, level=None):
     if not _should_notify(loyalty):
         return
     # Lazy import: awards.tasks imports this module, so importing it at the top
     # would create a circular import.
     from navi_backend.awards.tasks import send_award_earned_email  # noqa: PLC0415
 
-    send_award_earned_email.delay(str(loyalty.user_id), str(award.id))
+    send_award_earned_email.delay(
+        str(loyalty.user_id),
+        str(award.id),
+        str(level.id) if level else None,
+    )
 
 
 def _notify_tier(loyalty, tier):

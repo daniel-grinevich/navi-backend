@@ -53,7 +53,7 @@ class AwardViewSet(BaseModelViewSet):
     }
 
     def get_queryset(self):
-        qs = Award.objects.filter(is_deleted=False)
+        qs = Award.objects.filter(is_deleted=False).prefetch_related("levels")
         if self.request.user.is_staff:
             return qs
         return qs.filter(status=Award.Status.ACTIVE)
@@ -112,7 +112,11 @@ class MyAwardsViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return UserAward.objects.filter(user=self.request.user).select_related("award")
+        return (
+            UserAward.objects.filter(user=self.request.user)
+            .select_related("award", "level")
+            .prefetch_related("award__levels")
+        )
 
 
 class MyPointsTransactionViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -138,10 +142,14 @@ class AchievementViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        return Award.objects.filter(
-            status=Award.Status.ACTIVE,
-            is_deleted=False,
-        ).order_by("threshold", "name")
+        return (
+            Award.objects.filter(
+                status=Award.Status.ACTIVE,
+                is_deleted=False,
+            )
+            .prefetch_related("levels")
+            .order_by("threshold", "name")
+        )
 
     def list(self, request, *args, **kwargs):
         # The active-awards catalogue is identical for every caller and changes
@@ -159,20 +167,44 @@ class AchievementViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     def progress(self, request):
         loyalty = UserLoyalty.for_user(request.user)
         earned = {
-            ua.award_id: ua.earned_at
-            for ua in UserAward.objects.filter(user=request.user)
+            ua.award_id: ua
+            for ua in UserAward.objects.filter(user=request.user).select_related(
+                "level",
+            )
         }
         rows = []
         for award in self.get_queryset():
+            user_award = earned.get(award.id)
             current = int(metric_value(award.rule_type, loyalty))
-            target = award.threshold
+            levels = award.ordered_levels()
+            if levels:
+                current_rank = (
+                    user_award.level.rank if user_award and user_award.level else 0
+                )
+                next_level = next(
+                    (level for level in levels if level.rank > current_rank),
+                    None,
+                )
+                # Once maxed, target stays at the top level's threshold.
+                target = next_level.threshold if next_level else levels[-1].threshold
+                level_name = user_award.level.name if user_award else None
+                level_rank = user_award.level.rank if user_award else None
+                next_level_name = next_level.name if next_level else None
+            else:
+                target = award.threshold or 0
+                level_name = None
+                level_rank = None
+                next_level_name = None
             rows.append(
                 {
                     "id": award.slug,
                     "current": min(current, target) if target else current,
                     "target": target,
-                    "unlocked": award.id in earned,
-                    "unlocked_at": earned.get(award.id),
+                    "unlocked": user_award is not None,
+                    "unlocked_at": user_award.earned_at if user_award else None,
+                    "level": level_name,
+                    "level_rank": level_rank,
+                    "next_level": next_level_name,
                 },
             )
         return Response(AchievementProgressSerializer(rows, many=True).data)

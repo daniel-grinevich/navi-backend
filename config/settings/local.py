@@ -1,5 +1,6 @@
 from .base import *  # noqa: F403
 from .base import INSTALLED_APPS
+from .base import LOGGING
 from .base import MIDDLEWARE
 from .base import REDIS_URL
 from .base import env
@@ -104,11 +105,13 @@ CORS_ALLOW_METHODS = [
     "OPTIONS",
 ]
 
-CORS_ALLOW_HEADERS = [
-    "authorization",
-    "content-type",
-    "X-CSRFToken",
-]
+# CORS_ALLOW_HEADERS comes from base.py (default_headers + X-Request-ID +
+# Idempotency-Key)
+
+# LOGGING
+# ------------------------------------------------------------------------------
+# Human-readable one-liners in dev; staging/production keep base's JSON lines.
+LOGGING["handlers"]["console"]["formatter"] = "plain"  # type: ignore[index]
 
 # STORAGES (MinIO - S3-compatible object storage for local dev)
 # ------------------------------------------------------------------------------

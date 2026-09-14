@@ -6,6 +6,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from corsheaders.defaults import default_headers
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # navi_backend/
@@ -71,6 +72,9 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+# Workers use our dictConfig (see navi_backend/core/logging/celery.py);
+# backup for the setup_logging signal so Celery never reformats the root logger
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -174,6 +178,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#middleware
 MIDDLEWARE = [
+    # First so every log line is tagged with a request_id, and (response
+    # phase runs in reverse) the log context is cleared after everything else
+    "navi_backend.core.middleware.RequestLogContextMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -338,19 +345,36 @@ DJANGO_ADMIN_FORCE_ALLAUTH = env.bool("DJANGO_ADMIN_FORCE_ALLAUTH", default=Fals
 # https://docs.djangoproject.com/en/dev/ref/settings/#logging
 # See https://docs.djangoproject.com/en/dev/topics/logging for
 # more details on how to customize your logging configuration.
+# JSON lines to stdout (Loki-ready). All handlers live on the root logger;
+# app code just uses logging.getLogger(__name__) and propagation does the rest.
+# local.py swaps the formatter to "plain" for readable dev output.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "filters": {
+        "log_context": {"()": "navi_backend.core.logging.filters.LogContextFilter"},
+    },
     "formatters": {
-        "verbose": {
-            "format": "%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s",
+        "json": {
+            "()": "navi_backend.core.logging.formatters.JSONFormatter",
+            "fmt_keys": {
+                "level": "levelname",
+                "logger": "name",
+                "module": "module",
+                "line": "lineno",
+                "process": "process",
+            },
+        },
+        "plain": {
+            "format": "%(levelname)s %(asctime)s %(name)s req=%(request_id)s %(message)s",
         },
     },
     "handlers": {
         "console": {
-            "level": "DEBUG",
             "class": "logging.StreamHandler",
-            "formatter": "verbose",
+            "stream": "ext://sys.stdout",
+            "filters": ["log_context"],
+            "formatter": "json",
         },
     },
     "root": {"level": "INFO", "handlers": ["console"]},
@@ -425,6 +449,11 @@ REST_FRAMEWORK = {
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
 # CORS_URLS_REGEX = r"^/api/.*$"
+CORS_ALLOW_HEADERS = [
+    *default_headers,
+    "X-Request-ID",
+    "Idempotency-Key",
+]
 
 # By Default swagger ui is available only to admin user(s). You can change permission classes to change that
 # See more configuration options at https://drf-spectacular.readthedocs.io/en/latest/settings.html#settings
