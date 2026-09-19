@@ -21,6 +21,7 @@ from navi_backend.core.logging.context import get_log_ctx
 from navi_backend.core.logging.context import init_log_ctx
 from navi_backend.core.logging.context import set_log_ctx_key
 from navi_backend.core.logging.filters import LogContextFilter
+from navi_backend.core.logging.filters import StaticFieldsFilter
 from navi_backend.core.logging.formatters import JSONFormatter
 from navi_backend.core.middleware import RequestLogContextMiddleware
 
@@ -103,6 +104,20 @@ class TestLogContextFilter:
         record = make_record()
         LogContextFilter().filter(record)
         assert record.request_id == "-"
+
+
+class TestStaticFieldsFilter:
+    def test_stamps_environment_from_settings(self, settings):
+        settings.ENVIRONMENT = "production"
+        record = make_record()
+        assert StaticFieldsFilter().filter(record) is True
+        assert record.environment == "production"
+
+    def test_defaults_to_unknown_when_unset(self, settings):
+        del settings.ENVIRONMENT
+        record = make_record()
+        StaticFieldsFilter().filter(record)
+        assert record.environment == "unknown"
 
 
 class TestRequestLogContextMiddleware:

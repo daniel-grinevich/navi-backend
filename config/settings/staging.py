@@ -7,6 +7,10 @@ from .base import env
 
 DEBUG = True
 
+# Stamped onto every log line (see StaticFieldsFilter); LOGGING is inherited
+# from base, which reads this value.
+ENVIRONMENT = "staging"
+
 try:
     from pathlib import Path
 
