@@ -1,6 +1,6 @@
-import logging
+from navi_backend.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BaseService:
@@ -13,12 +13,11 @@ class BaseService:
             return {"success": True, "ctx": result}
         return {"success": False, "ctx": result}
 
-    def log_service_error(self, error, method):
+    def log_service_error(self, method):
         logger.exception(
-            "Failed in service %s, in method %s, with error: %s",
-            self.__class__.__name__,
-            method.__name__,
-            error,
+            "service_error",
+            service=self.__class__.__name__,
+            method=method.__name__,
         )
 
     def execute(self):
@@ -32,9 +31,9 @@ class BaseService:
             for method in methods:
                 try:
                     ctx = method(ctx)
-                except Exception as error:
+                except Exception:
                     success = False
-                    self.log_service_error(error, method)
+                    self.log_service_error(method)
                     raise
 
         self.result = self.return_result(success, ctx)

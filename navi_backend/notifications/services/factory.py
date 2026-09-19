@@ -13,9 +13,9 @@ channel by kind without importing the concrete class::
     ).send()
 """
 
-import logging
+from navi_backend.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class NotificationFactory:

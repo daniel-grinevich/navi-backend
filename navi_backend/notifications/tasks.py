@@ -1,15 +1,14 @@
-import logging
-
 from celery import shared_task
 from django.contrib.auth import get_user_model
 
+from navi_backend.core.logging import get_logger
 from navi_backend.notifications.models import NotificationCategory
 from navi_backend.notifications.models import NotificationKind
 from navi_backend.notifications.services import NotificationFactory
 from navi_backend.notifications.services import PDFAttachment
 from navi_backend.payments.models import Invoice
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 User = get_user_model()
 
@@ -23,10 +22,10 @@ def send_user_confirmation_email(self, user_id):
             .get(pk=user_id)
         )
     except User.DoesNotExist:
-        logger.warning("User %s not found for confirmation email", user_id)
+        logger.warning("confirmation_email_user_not_found", user_id=user_id)
         return
     if not user.email:
-        logger.warning("User %s has no email address: ", user_id)
+        logger.warning("confirmation_email_user_no_email", user_id=user_id)
         return
 
     # Opt-in is enforced centrally by the factory via user + category.
@@ -78,17 +77,17 @@ def send_invoice_email(self, user_id, invoice_id):
             .get(pk=user_id)
         )
     except User.DoesNotExist:
-        logger.warning("User %s has no email address", user_id)
+        logger.warning("invoice_email_user_not_found", user_id=user_id)
         return
 
     if not user.email:
-        logger.warning("User %s has no email address", user_id)
+        logger.warning("invoice_email_user_no_email", user_id=user_id)
         return
 
     try:
         invoice = Invoice.objects.get(pk=invoice_id)
     except Invoice.DoesNotExist:
-        logger.warning("Invoice with id of %s, does not exist", invoice_id)
+        logger.warning("invoice_email_invoice_not_found", invoice_id=invoice_id)
         return
 
     attachment = None

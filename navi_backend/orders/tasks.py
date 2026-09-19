@@ -1,20 +1,21 @@
-import logging
-
 from celery import shared_task
 from django.core.files.base import ContentFile
 from django.template.loader import render_to_string
 from weasyprint import HTML
 
+from navi_backend.core.logging import get_logger
 from navi_backend.notifications.tasks import send_invoice_email
 from navi_backend.orders.models import Order
 from navi_backend.payments.models import Invoice
 
+logger = get_logger(__name__)
+
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=5)
 def create_order_invoice(self, order_id):
-    logging.info("starting to create order invoice! ")
+    logger.info("order_invoice_create_started", order_id=order_id)
     if order_id is None:
-        logging.error("Order id was None.")
+        logger.error("order_invoice_missing_order_id")
         msg = "order_id cannot be None"
         raise ValueError(msg)
 
@@ -29,7 +30,7 @@ def create_order_invoice(self, order_id):
         defaults={"created_by": order.created_by, "updated_by": order.updated_by},
     )
 
-    logging.info(f"Created Invoice #{invoice.id}")  # NOQA: G004
+    logger.info("order_invoice_created", invoice_id=invoice.id, order_id=order.id)
 
     html = render_to_string(
         "invoices/order_pdf.html",

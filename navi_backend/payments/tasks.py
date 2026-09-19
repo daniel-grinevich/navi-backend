@@ -1,10 +1,9 @@
-import logging
-
 from celery import shared_task
 
+from navi_backend.core.logging import get_logger
 from navi_backend.payments.services import StripePaymentService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=5)
