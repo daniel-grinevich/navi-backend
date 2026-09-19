@@ -6,14 +6,14 @@ Django 5.2 / DRF backend for [navitascoffee.com](https://navitascoffee.com) — 
 
 ## Local development
 
-Everything runs in Docker Compose via the `Makefile`:
+Everything runs in Docker Compose via the `justfile` ([just](https://github.com/casey/just); `brew install just`). Run `just` to list all recipes.
 
 ```sh
-make up-d          # start the stack (Django, Postgres, Redis, Celery, mailpit, …)
-make migrate       # apply DB migrations
-make test          # full pytest suite
-make lint          # ruff check --fix + ruff format
-make shell         # Django shell
+just up-d          # start the stack (Django, Postgres, Redis, Celery, mailpit, …)
+just migrate       # apply DB migrations
+just test          # full pytest suite
+just lint          # ruff check --fix + ruff format
+just shell         # Django shell
 ```
 
 Create an admin user: `docker compose -f docker-compose.local.yml run --rm django python manage.py createsuperuser`
@@ -36,4 +36,4 @@ Watch the build in the GitHub Actions tab and the rollout in ArgoCD.
 
 ## Quality gates
 
-Ruff (lint + format), mypy (`django-stubs`), pytest (`--reuse-db`), pre-commit hooks, Trivy/TruffleHog scans in CI. Run `make lint` and `make test` before pushing.
+Ruff (lint + format), mypy (`django-stubs`), pytest (`--reuse-db`), pre-commit hooks, Trivy/TruffleHog scans in CI. Run `just lint` and `just test` before pushing.

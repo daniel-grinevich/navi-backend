@@ -46,7 +46,7 @@ mid-drink.
 
 ```bash
 # 1. Bring up the backend (and everything else).
-make up            # or: docker compose -f docker-compose.local.yml up
+just up            # or: docker compose -f docker-compose.local.yml up
 
 # 2. Register a simulator Pi + NaviPort and grab its device token.
 docker compose -f docker-compose.local.yml run --rm django \
