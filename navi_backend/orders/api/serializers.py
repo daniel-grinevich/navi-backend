@@ -88,6 +88,9 @@ class OrderSerializer(BaseModelSerializer):
     items = OrderItemSerializer(many=True, required=False)
     user = UserSerializer(read_only=True)
     qr_token = serializers.SerializerMethodField()
+    subtotal = serializers.SerializerMethodField()
+    tax = serializers.SerializerMethodField()
+    total = serializers.SerializerMethodField()
 
     show_only_to_admin_fields = ()
 
@@ -98,6 +101,9 @@ class OrderSerializer(BaseModelSerializer):
             "user",
             "navi_port",
             "price",
+            "subtotal",
+            "tax",
+            "total",
             "slug",
             "items",
             "order_status",
@@ -117,6 +123,22 @@ class OrderSerializer(BaseModelSerializer):
         if obj.order_status != "O":
             return None
         return make_qr_token(obj.id)
+
+    def get_subtotal(self, obj):
+        """Pre-tax total of the order's items."""
+        return obj.price
+
+    def get_tax(self, obj):
+        """Jurisdiction tax computed by Stripe Tax at order creation."""
+        if obj.payment:
+            return obj.payment.tax_amount
+        return None
+
+    def get_total(self, obj):
+        """Amount actually authorized on the card: subtotal + tax."""
+        if obj.payment:
+            return obj.payment.total_amount
+        return None
 
     def create(self, validated_data):
         service = CreateOrderService(

@@ -15,8 +15,15 @@ class Payment(UUIDModel, AuditModel):
 
     stripe_payment_intent_id = models.CharField(max_length=255, unique=True)
     amount_received = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     currency = models.CharField(max_length=10, default="usd")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    # Stripe Tax: the calculation is created at authorization time and converted
+    # into a recorded tax transaction once the payment is captured/succeeds.
+    stripe_tax_calculation_id = models.CharField(max_length=255, blank=True, default="")
+    stripe_tax_transaction_id = models.CharField(max_length=255, blank=True, default="")
 
     def __str__(self):
         return f"Payment {self.stripe_payment_intent_id} - {self.status}"
