@@ -38,8 +38,10 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
 
     def get_queryset(self):
         # Prefetch items + customizations: Order.price walks both, so lists
-        # would otherwise fan out into N+1s.
-        base = Order.objects.prefetch_related("items__customizations")
+        # would otherwise fan out into N+1s. payment carries tax/total.
+        base = Order.objects.select_related("payment").prefetch_related(
+            "items__customizations"
+        )
         if self.action == "list":
             # The client Orders screen is ALWAYS the caller's own orders, even
             # for staff. Admins view everyone's orders via /api/admin/orders/;
@@ -130,7 +132,9 @@ class AdminOrderViewSet(ReadOnlyModelViewSet):
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
-        qs = Order.objects.prefetch_related("items__customizations")
+        qs = Order.objects.select_related("payment").prefetch_related(
+            "items__customizations"
+        )
         status_filter = self.request.query_params.get("status")
         if status_filter:
             qs = qs.filter(order_status=status_filter)
