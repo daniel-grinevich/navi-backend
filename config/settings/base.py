@@ -64,6 +64,12 @@ if "POSTGRES_PASSWORD_FILE" in os.environ:
         logging.getLogger(__name__).warning("Failed to read password file: %s", e)
 
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
+# Thin wrapper around the postgresql engine that exports query/connection
+# metrics (django_db_*) to Prometheus
+DATABASES["default"]["ENGINE"] = "django_prometheus.db.backends.postgresql"
+# Don't touch the DB at import time to export migration state; the PreSync
+# migrate job owns that concern
+PROMETHEUS_EXPORT_MIGRATIONS = False
 
 # Celery config
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://redis:6379/0")
@@ -114,6 +120,7 @@ THIRD_PARTY_APPS = [
     "drf_spectacular",
     "django_celery_beat",
     "storages",
+    "django_prometheus",
 ]
 
 LOCAL_APPS = [
@@ -178,7 +185,10 @@ AUTH_PASSWORD_VALIDATORS = [
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#middleware
 MIDDLEWARE = [
-    # First so every log line is tagged with a request_id, and (response
+    # Outermost pair: Before starts the request timer, After (last in the
+    # list) records it — together they measure the whole stack
+    "django_prometheus.middleware.PrometheusBeforeMiddleware",
+    # Early so every log line is tagged with a request_id, and (response
     # phase runs in reverse) the log context is cleared after everything else
     "navi_backend.core.middleware.RequestLogContextMiddleware",
     "django.middleware.security.SecurityMiddleware",
@@ -192,6 +202,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
 
 # STATIC
@@ -390,7 +401,7 @@ REDIS_SSL = REDIS_URL.startswith("rediss://")
 # https://docs.djangoproject.com/en/dev/ref/settings/#caches
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "BACKEND": "django_prometheus.cache.backends.locmem.LocMemCache",
         "LOCATION": "",
     },
 }
