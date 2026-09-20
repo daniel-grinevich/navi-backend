@@ -342,6 +342,9 @@ DJANGO_ADMIN_FORCE_ALLAUTH = env.bool("DJANGO_ADMIN_FORCE_ALLAUTH", default=Fals
 
 # LOGGING
 # ------------------------------------------------------------------------------
+# Deployment environment stamped onto every log line (see StaticFieldsFilter)
+# and reused by Sentry later. Overridden in staging.py / production.py.
+ENVIRONMENT = "local"
 # https://docs.djangoproject.com/en/dev/ref/settings/#logging
 # See https://docs.djangoproject.com/en/dev/topics/logging for
 # more details on how to customize your logging configuration.
@@ -353,6 +356,9 @@ LOGGING = {
     "disable_existing_loggers": False,
     "filters": {
         "log_context": {"()": "navi_backend.core.logging.filters.LogContextFilter"},
+        "static_fields": {
+            "()": "navi_backend.core.logging.filters.StaticFieldsFilter",
+        },
     },
     "formatters": {
         "json": {
@@ -373,7 +379,7 @@ LOGGING = {
         "console": {
             "class": "logging.StreamHandler",
             "stream": "ext://sys.stdout",
-            "filters": ["log_context"],
+            "filters": ["log_context", "static_fields"],
             "formatter": "json",
         },
     },

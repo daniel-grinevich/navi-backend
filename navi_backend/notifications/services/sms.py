@@ -7,18 +7,18 @@ reports whether a real (non-console) backend is configured — the preferences
 API uses it so the frontend only shows SMS toggles once SMS actually sends.
 """
 
-import logging
 from abc import ABC
 from abc import abstractmethod
 
 from django.conf import settings
 
+from navi_backend.core.logging import get_logger
 from navi_backend.notifications.models import NotificationKind
 from navi_backend.notifications.models import TextLog
 from navi_backend.notifications.services.base import NotificationService
 from navi_backend.notifications.services.factory import NotificationFactory
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SMSBackend(ABC):
@@ -31,7 +31,7 @@ class ConsoleSMSBackend(SMSBackend):
     """Dev/default backend: logs the message instead of sending it."""
 
     def send(self, recipient, message):
-        logger.info("[SMS console] to %s: %s", recipient, message)
+        logger.info("sms_console_send", recipient=recipient, body=message)
 
 
 class TwilioSMSBackend(SMSBackend):

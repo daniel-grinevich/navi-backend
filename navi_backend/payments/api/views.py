@@ -1,5 +1,3 @@
-import logging
-
 import stripe
 from django.conf import settings
 from django.http import HttpResponse
@@ -10,12 +8,13 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAdminUser
 
 from navi_backend.core.api.mixins.track_user_mixin import TrackUserMixin
+from navi_backend.core.logging import get_logger
 from navi_backend.payments.api.serializers import PaymentCreateSerializer
 from navi_backend.payments.api.serializers import PaymentSerializer
 from navi_backend.payments.models import Payment
 from navi_backend.payments.services import StripePaymentService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PaymentViewSet(TrackUserMixin, viewsets.ModelViewSet):
@@ -50,10 +49,10 @@ class StripeWebhookView(View):
                 payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
             )
         except ValueError:
-            logger.warning("Stripe webhook: invalid payload")
+            logger.warning("stripe_webhook_invalid_payload")
             return HttpResponse(status=400)
         except stripe.error.SignatureVerificationError:
-            logger.warning("Stripe webhook: invalid signature")
+            logger.warning("stripe_webhook_invalid_signature")
             return HttpResponse(status=400)
 
         if event["type"] in self.HANDLED_EVENTS:

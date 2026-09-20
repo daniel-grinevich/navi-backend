@@ -51,6 +51,7 @@ TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore[index]
 
 # LOGGING
 # ------------------------------------------------------------------------------
+ENVIRONMENT = "test"
 # Keep test output quiet; tests that assert on logging build their own
 # handlers/formatters directly (see core/tests/test_logging.py).
 LOGGING = {
