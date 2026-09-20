@@ -36,11 +36,11 @@ def refresh_effective_tax_rates():
         try:
             rate = fetch_combined_rate(navi_port)
         except Exception:
-            logger.exception("Tax rate lookup failed for NaviPort %s", navi_port.pk)
+            logger.exception("tax_rate_lookup_failed", navi_port_id=navi_port.pk)
             continue
 
         if rate is None:
-            logger.warning("No tax rate returned for NaviPort %s", navi_port.pk)
+            logger.warning("tax_rate_missing", navi_port_id=navi_port.pk)
             continue
 
         EffectiveTaxRate.objects.update_or_create(
@@ -50,5 +50,5 @@ def refresh_effective_tax_rates():
         )
         updated += 1
 
-    logger.info("Refreshed effective tax rates for %s NaviPort(s)", updated)
+    logger.info("effective_tax_rates_refreshed", count=updated)
     return updated
