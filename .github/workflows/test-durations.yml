@@ -1,0 +1,49 @@
+name: Update test durations
+
+# Manually-run job that records per-test timings into .test_durations, which
+# pytest-split uses to balance the CI shards by measured duration (without it,
+# shards are split by test count and can be lopsided). Run this after notable
+# test changes, then download the artifact and commit .test_durations.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  durations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v6
+
+      - name: Create CI env files
+        run: |
+          mkdir -p .envs/.local
+          printf 'DJANGO_SETTINGS_MODULE=config.settings.test\n' > .envs/.local/.django
+          {
+            echo "POSTGRES_HOST=postgres"
+            echo "POSTGRES_PORT=5432"
+            echo "POSTGRES_DB=navi_backend"
+            echo "POSTGRES_USER=navi"
+            echo "POSTGRES_HOST_AUTH_METHOD=trust"
+            echo "DATABASE_URL=postgres://navi@postgres:5432/navi_backend"
+          } > .envs/.local/.postgres
+          touch .envs/.local/.stripe
+
+      - name: Build the Stack
+        run: docker compose -f docker-compose.local.yml build django
+
+      - name: Run DB Migrations
+        run: docker compose -f docker-compose.local.yml run --rm django python manage.py migrate
+
+      - name: Record test durations
+        run: docker compose -f docker-compose.local.yml run django pytest --store-durations
+
+      - name: Upload .test_durations
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-durations
+          path: .test_durations
+          retention-days: 7
+
+      - name: Tear down the Stack
+        run: docker compose -f docker-compose.local.yml down
