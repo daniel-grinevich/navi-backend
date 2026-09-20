@@ -3,11 +3,14 @@ from decimal import Decimal
 import stripe
 from django.conf import settings
 
+from navi_backend.core.logging import get_logger
 from navi_backend.orders.models import Order
 from navi_backend.orders.utils import notify_machines_queue_changed
 from navi_backend.payments.models import Payment
 
 stripe.api_key = settings.STRIPE_API_KEY
+
+logger = get_logger(__name__)
 
 
 class StripePaymentService:
@@ -46,6 +49,12 @@ class StripePaymentService:
             updated_by=order.user,
         )
 
+        logger.info(
+            "payment_intent_created",
+            order_id=order.id,
+            payment_intent_id=intent.id,
+            amount_cents=tax["total_cents"],
+        )
         return intent.client_secret, payment
 
     @staticmethod
@@ -147,6 +156,11 @@ class StripePaymentService:
             payment.status = intent.status
             payment.save()
             StripePaymentService._record_tax_transaction(payment)
+            logger.info(
+                "payment_captured",
+                payment_intent_id=payment_intent_id,
+                amount_received=payment.amount_received,
+            )
         except Payment.DoesNotExist:
             pass
 
@@ -163,6 +177,7 @@ class StripePaymentService:
             payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
             payment.status = intent.status
             payment.save()
+            logger.info("payment_canceled", payment_intent_id=payment_intent_id)
         except Payment.DoesNotExist:
             pass
 
@@ -187,10 +202,16 @@ class StripePaymentService:
             payment.amount_received = payment_intent["amount_received"] / 100
             payment.save(update_fields=["status", "amount_received"])
             StripePaymentService._record_tax_transaction(payment)
+            logger.info(
+                "payment_succeeded",
+                payment_intent_id=payment_intent_id,
+                amount_received=payment.amount_received,
+            )
 
         elif event_type == "payment_intent.payment_failed":
             payment.status = "failed"
             payment.save(update_fields=["status"])
+            logger.warning("payment_failed", payment_intent_id=payment_intent_id)
             cancelled = Order.objects.filter(payment=payment, order_status="O").update(
                 order_status="C"
             )
