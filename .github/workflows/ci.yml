@@ -54,7 +54,16 @@ jobs:
         run: |
           mkdir -p .envs/.local
           printf 'DJANGO_SETTINGS_MODULE=config.settings.test\n' > .envs/.local/.django
-          printf 'POSTGRES_HOST=postgres\nPOSTGRES_PORT=5432\nPOSTGRES_DB=navi_backend\nPOSTGRES_USER=navi\nPOSTGRES_PASSWORD=navi\nDATABASE_URL=postgres://navi:navi@postgres:5432/navi_backend\n' > .envs/.local/.postgres
+          # Ephemeral CI Postgres uses trust auth, so the URL carries no
+          # password (avoids tripping the secret scanner on a fake credential).
+          {
+            echo "POSTGRES_HOST=postgres"
+            echo "POSTGRES_PORT=5432"
+            echo "POSTGRES_DB=navi_backend"
+            echo "POSTGRES_USER=navi"
+            echo "POSTGRES_HOST_AUTH_METHOD=trust"
+            echo "DATABASE_URL=postgres://navi@postgres:5432/navi_backend"
+          } > .envs/.local/.postgres
           touch .envs/.local/.stripe
 
       - name: Build the Stack
