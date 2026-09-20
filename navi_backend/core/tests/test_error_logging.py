@@ -23,7 +23,7 @@ def _handle(exc):
     # Mirror DRF: the handler runs inside the active exception context.
     try:
         raise exc
-    except Exception as caught:  # noqa: BLE001
+    except Exception as caught:
         return custom_exception_handler(caught, {"view": _DummyView()})
 
 
