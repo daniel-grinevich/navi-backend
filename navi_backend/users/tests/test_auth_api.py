@@ -23,7 +23,7 @@ GUEST_URL = reverse("api:create-guest")
 ACCESS_COOKIE = dj_settings.SIMPLE_JWT["AUTH_COOKIE_ACCESS"]
 REFRESH_COOKIE = dj_settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"]
 
-PASSWORD = "s3cure-Pa55word!"  # noqa: S105
+PASSWORD = "s3cure-Pa55word!"
 
 
 @pytest.fixture

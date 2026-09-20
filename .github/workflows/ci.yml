@@ -50,8 +50,12 @@ jobs:
           cache-dependency-path: |
             uv.lock
 
-      - name: Create fake Stripe env file
-        run: mkdir -p .envs/.local && touch .envs/.local/.stripe
+      - name: Create CI env files
+        run: |
+          mkdir -p .envs/.local
+          printf 'DJANGO_SETTINGS_MODULE=config.settings.test\n' > .envs/.local/.django
+          printf 'POSTGRES_HOST=postgres\nPOSTGRES_PORT=5432\nPOSTGRES_DB=navi_backend\nPOSTGRES_USER=navi\nPOSTGRES_PASSWORD=navi\nDATABASE_URL=postgres://navi:navi@postgres:5432/navi_backend\n' > .envs/.local/.postgres
+          touch .envs/.local/.stripe
 
       - name: Build the Stack
         run: docker compose -f docker-compose.local.yml build django
