@@ -32,7 +32,7 @@ dependencies = [
   "pillow==12.3.0",
   "psycopg[c]==3.2.3",
   "python-slugify==8.0.4",
-  "redis==7.1.0",
+  "redis==8.1.0",
   "sentry-sdk[celery]>=2.0",
   "stripe>=12.0.0",
   "uvicorn[standard]==0.34.0",
