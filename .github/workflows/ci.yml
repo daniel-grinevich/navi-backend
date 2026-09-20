@@ -68,7 +68,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2]
+        group: [1, 2, 3, 4]
 
     steps:
       - name: Checkout Code Repository
@@ -105,8 +105,8 @@ jobs:
       - name: Run DB Migrations
         run: docker compose -f docker-compose.local.yml run --rm django python manage.py migrate
 
-      - name: Run Django Tests (shard ${{ matrix.group }}/2)
-        run: docker compose -f docker-compose.local.yml run django pytest --splits 2 --group ${{ matrix.group }}
+      - name: Run Django Tests (shard ${{ matrix.group }}/4)
+        run: docker compose -f docker-compose.local.yml run django pytest --splits 4 --group ${{ matrix.group }}
 
       - name: Tear down the Stack
         run: docker compose -f docker-compose.local.yml down
