@@ -1,3 +1,4 @@
+import stripe
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -19,7 +20,8 @@ from navi_backend.devices.models import NaviPort
 from navi_backend.orders.models import Order
 from navi_backend.orders.models import OrderCustomization
 from navi_backend.orders.models import OrderItem
-from navi_backend.payments.tasks import cancel_stripe_payment
+from navi_backend.payments.services import StripePaymentService
+from navi_backend.payments.tasks import cancel_stripe_setup_intent
 
 from .serializers import OrderCustomizationSerializer
 from .serializers import OrderItemSerializer
@@ -38,8 +40,10 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
 
     def get_queryset(self):
         # Prefetch items + customizations: Order.price walks both, so lists
-        # would otherwise fan out into N+1s.
-        base = Order.objects.prefetch_related("items__customizations")
+        # would otherwise fan out into N+1s. payment carries tax/total.
+        base = Order.objects.select_related("payment").prefetch_related(
+            "items__customizations"
+        )
         if self.action == "list":
             # The client Orders screen is ALWAYS the caller's own orders, even
             # for staff. Admins view everyone's orders via /api/admin/orders/;
@@ -63,9 +67,9 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
         except ValidationError as e:
             return Response({"detail": str(e)}, status=400)
 
-        if order.payment and order.payment.stripe_payment_intent_id:
-            cancel_stripe_payment.apply_async(
-                args=[order.payment.stripe_payment_intent_id],
+        if order.payment and order.payment.stripe_setup_intent_id:
+            cancel_stripe_setup_intent.apply_async(
+                args=[order.payment.stripe_setup_intent_id],
             )
 
         order.order_status = "C"
@@ -87,9 +91,20 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
 
         navi_port = get_object_or_404(NaviPort, id=request.data["naviportId"])
 
+        # Charge the saved card for this port's tax before marking the order
+        # sent, mirroring the machine scan flow. Don't dispatch on a decline.
         order.navi_port = navi_port
+        order.save(update_fields=["navi_port"])
+        try:
+            StripePaymentService.charge_order(order)
+        except (stripe.error.StripeError, ValueError) as e:
+            return Response(
+                {"detail": "Payment could not be completed.", "error": str(e)},
+                status=402,
+            )
+
         order.order_status = "S"
-        order.save(update_fields=["navi_port", "order_status"])
+        order.save(update_fields=["order_status"])
 
         serializer = self.get_serializer(order)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -130,7 +145,9 @@ class AdminOrderViewSet(ReadOnlyModelViewSet):
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
-        qs = Order.objects.prefetch_related("items__customizations")
+        qs = Order.objects.select_related("payment").prefetch_related(
+            "items__customizations"
+        )
         status_filter = self.request.query_params.get("status")
         if status_filter:
             qs = qs.filter(order_status=status_filter)

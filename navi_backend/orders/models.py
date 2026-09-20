@@ -78,8 +78,8 @@ class Order(
         if not self.payment:
             msg = "Order has no payment associated."
             raise ValidationError(msg)
-        if self.payment.status != "requires_capture":
-            msg = "Payment is not ready for capture."
+        if self.payment.status != "ready":
+            msg = "Payment method is not ready to charge."
             raise ValidationError(msg)
 
     def is_cancelable(self):

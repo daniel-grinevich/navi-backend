@@ -51,6 +51,7 @@ TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore[index]
 
 # LOGGING
 # ------------------------------------------------------------------------------
+ENVIRONMENT = "test"
 # Keep test output quiet; tests that assert on logging build their own
 # handlers/formatters directly (see core/tests/test_logging.py).
 LOGGING = {
@@ -62,6 +63,6 @@ LOGGING = {
 # MEDIA
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#media-url
-MEDIA_URL = "http://media.testserver"
+MEDIA_URL = "http://media.testserver/"
 # Your stuff...
 # ------------------------------------------------------------------------------

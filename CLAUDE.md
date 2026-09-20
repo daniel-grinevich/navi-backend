@@ -8,10 +8,10 @@ Guidance for AI agents (and humans) working in this repository. Keep it short, k
 
 ## Git & merge requests
 
-- **This repo (backend): open merge/pull requests against `development`** for most work (features, fixes, refactors).
-- **`master` is the protected release branch.** Don't target it for regular feature work — but **CI/CD changes (GitHub Actions, pipeline config) go straight to `master`.**
+- **This repo (backend): open ALL merge/pull requests against `development`** — features, fixes, refactors, and CI/CD/pipeline changes. Nothing is PR'd directly into `master`.
+- **`master` is the protected release branch.** It only advances by merging `development` into it at release time (see Releases & deployment) — never target it with a PR, and never commit to it directly.
+- Branch off `development`.
 - **Frontend repo: MRs target `production`.** (Noted here so agents working across both repos don't mix them up.)
-- Branch off the appropriate base; never commit directly to `master`.
 - Only commit or push when the user asks.
 
 ## Releases & deployment
@@ -44,17 +44,17 @@ Gotchas learned the hard way:
 
 ## Running things (Docker)
 
-Everything runs through the `Makefile`, which wraps `docker compose`. Default env is `local`.
+Everything runs through the `justfile` ([just](https://github.com/casey/just)), which wraps `docker compose`. Default env is `local`. Run `just` with no args to list recipes.
 
-- `make up` / `make up-d` — start the stack
-- `make migrate` / `make makemigrations` — DB migrations
-- `make test` — run the full pytest suite
-- `make testorders` — run just the `orders` app tests
-- `make coverage` — coverage run + HTML report
-- `make lint` — `ruff check --fix` then `ruff format`
-- `make shell` — Django shell
+- `just up` / `just up-d` — start the stack
+- `just migrate` / `just makemigrations` — DB migrations
+- `just test` — run the full pytest suite
+- `just testorders` — run just the `orders` app tests
+- `just coverage` — coverage run + HTML report
+- `just lint` — `ruff check --fix` then `ruff format`
+- `just shell` — Django shell
 
-Prefix with `ENV=stage` / `ENV=prod` to target other compose files.
+Prefix with `ENV=stage` / `ENV=prod` to target other compose files (e.g. `just ENV=stage up`).
 
 ## Code layout & where things go
 
@@ -99,10 +99,10 @@ We already run Celery, Redis, and Postgres — reach for them instead of reinven
 
 ## Tooling & quality gates
 
-- **Ruff** is the linter + formatter (config in `pyproject.toml`, `target-version = py314`). Run `make lint` before pushing.
+- **Ruff** is the linter + formatter (config in `pyproject.toml`, `target-version = py314`). Run `just lint` before pushing.
 - **mypy** with `django-stubs` / `djangorestframework-stubs` — keep type hints on new code; migrations are exempt.
 - **pytest** with `pytest-django` (`--reuse-db`); `asyncio_mode = auto` for async tests. Add tests for new behavior.
-- **pre-commit** hooks exist — `make pre-commit` runs them across all files.
+- **pre-commit** hooks exist — `just pre-commit` runs them across all files.
 - **djLint** for Django templates.
 
 ## Good references

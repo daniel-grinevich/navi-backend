@@ -10,7 +10,7 @@ from .factories import OrderFactory
 def admin_user(db):
     return User.objects.create_superuser(
         email="admin@email.com",
-        password="adminpass",  # noqa: S106
+        password="adminpass",
     )
 
 

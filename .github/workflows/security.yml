@@ -29,7 +29,10 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          extra_args: --results=verified,unknown
+          # Exclude CI workflow files: they hold no real secrets (those come
+          # from GitHub Secrets / the secrets manager), only throwaway
+          # ephemeral CI values that would otherwise flag as false positives.
+          extra_args: --results=verified,unknown --exclude-paths=.github/trufflehog-exclude.txt
 
   dependency-scan:
     name: Dependency & config scan (Trivy)

@@ -1,11 +1,10 @@
-import logging
-
 from celery import shared_task
 from django.apps import apps
 
 from navi_backend.core.helpers.geo_cache import geocode_address_fields
+from navi_backend.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=5)
@@ -23,7 +22,12 @@ def populate_address_from_geo(self, app_label, model_name, pk):
         .first()
     )
     if obj is None:
-        logger.warning("%s.%s %s not found for geocoding", app_label, model_name, pk)
+        logger.warning(
+            "geocode_target_not_found",
+            app_label=app_label,
+            model_name=model_name,
+            pk=pk,
+        )
         return
 
     if obj.latitude is None or obj.longitude is None:

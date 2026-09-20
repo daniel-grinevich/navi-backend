@@ -5,6 +5,7 @@ from .base import REDIS_URL
 from .base import SIMPLE_JWT
 from .base import SPECTACULAR_SETTINGS
 from .base import env
+from .sentry import init_sentry
 
 # GENERAL
 # ------------------------------------------------------------------------------
@@ -127,6 +128,7 @@ ANYMAIL = {
 
 # LOGGING
 # ------------------------------------------------------------------------------
+ENVIRONMENT = "production"
 # https://docs.djangoproject.com/en/dev/ref/settings/#logging
 # See https://docs.djangoproject.com/en/dev/topics/logging for
 # more details on how to customize your logging configuration.
@@ -139,6 +141,9 @@ LOGGING = {
     "filters": {
         "require_debug_false": {"()": "django.utils.log.RequireDebugFalse"},
         "log_context": {"()": "navi_backend.core.logging.filters.LogContextFilter"},
+        "static_fields": {
+            "()": "navi_backend.core.logging.filters.StaticFieldsFilter",
+        },
     },
     "formatters": {
         "json": {
@@ -161,7 +166,7 @@ LOGGING = {
         "console": {
             "class": "logging.StreamHandler",
             "stream": "ext://sys.stdout",
-            "filters": ["log_context"],
+            "filters": ["log_context", "static_fields"],
             "formatter": "json",
         },
     },
@@ -188,5 +193,18 @@ LOGGING = {
 SPECTACULAR_SETTINGS["SERVERS"] = [
     {"url": "https://navitascoffee.com", "description": "Production server"},
 ]
+
+# Sentry
+# ------------------------------------------------------------------------------
+# No-op unless SENTRY_DSN is set.
+SENTRY_DSN = env("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    init_sentry(
+        dsn=SENTRY_DSN,
+        environment=ENVIRONMENT,
+        release=env("SENTRY_RELEASE", default=""),
+        traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.1),
+    )
+
 # Your stuff...
 # ------------------------------------------------------------------------------

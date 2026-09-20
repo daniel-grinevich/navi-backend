@@ -5,10 +5,13 @@ from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
 from navi_backend.core.base_service import BaseService
+from navi_backend.core.logging import get_logger
 from navi_backend.menu.models import CustomizationGroup
 from navi_backend.orders.models import Order
 from navi_backend.orders.utils import notify_machines_queue_changed
 from navi_backend.payments.services import StripePaymentService
+
+logger = get_logger(__name__)
 
 
 class CreateOrderService(BaseService):
@@ -18,7 +21,7 @@ class CreateOrderService(BaseService):
             self.validate_customizations,
             self.save_order,
             self.save_order_items,
-            self.create_payment_intent,
+            self.create_setup_intent,
         ]
         super().__init__(**kwargs)
 
@@ -104,7 +107,9 @@ class CreateOrderService(BaseService):
         return ctx
 
     def save_order(self, ctx):
-        ctx["order"] = Order.objects.create(**ctx["validated_data"])
+        order = Order.objects.create(**ctx["validated_data"])
+        ctx["order"] = order
+        logger.info("order_created", order_id=order.id, user_id=order.user_id)
         # The new order enters every Pi's pending queue; tell them once the
         # surrounding transaction actually commits.
         transaction.on_commit(notify_machines_queue_changed)
@@ -154,9 +159,9 @@ class CreateOrderService(BaseService):
 
         return ctx
 
-    def create_payment_intent(self, ctx):
+    def create_setup_intent(self, ctx):
         order = ctx["order"]
-        client_secret, payment = StripePaymentService.create_payment_intent(order)
+        client_secret, payment = StripePaymentService.create_setup_intent(order)
         order.payment = payment
         order._stripe_client_secret = client_secret  # NOQA: SLF001
         order.save(update_fields=["payment"])

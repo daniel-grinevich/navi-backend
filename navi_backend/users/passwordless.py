@@ -56,7 +56,9 @@ def issue_sms_code(phone: str) -> str:
 def _consume(purpose: str, target: str, secret: str) -> bool:
     """Validate and burn the newest matching secret. True iff it was valid."""
     record = (
-        OneTimeLogin.objects.filter(purpose=purpose, target=target, used_at__isnull=True)
+        OneTimeLogin.objects.filter(
+            purpose=purpose, target=target, used_at__isnull=True
+        )
         .order_by("-created_at")
         .first()
     )

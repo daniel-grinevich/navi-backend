@@ -7,14 +7,14 @@ Preference gating is centralised here: when a caller passes ``user`` and
 and skips muted notifications, so no individual sender has to remember to.
 """
 
-import logging
 from abc import ABC
 from abc import abstractmethod
 from dataclasses import dataclass
 
+from navi_backend.core.logging import get_logger
 from navi_backend.notifications.services.preferences import should_send
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -41,10 +41,10 @@ class NotificationService(ABC):
             self.skipped = True
             self.is_sent = None
             logger.info(
-                "Skipping %s/%s notification to %s: user opted out",
-                self.kind,
-                self.category,
-                self.recipient,
+                "notification_skipped_opted_out",
+                kind=self.kind,
+                category=self.category,
+                recipient=self.recipient,
             )
             self._log()
             return False
@@ -54,7 +54,9 @@ class NotificationService(ABC):
             self.is_sent = True
         except Exception as e:
             logger.exception(
-                "Failed to send %s notification to %s", self.kind, self.recipient
+                "notification_send_failed",
+                kind=self.kind,
+                recipient=self.recipient,
             )
             self.error = str(e)
             self.is_sent = False

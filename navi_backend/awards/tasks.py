@@ -1,5 +1,3 @@
-import logging
-
 from celery import shared_task
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -11,12 +9,13 @@ from navi_backend.awards.models import Tier
 from navi_backend.awards.models import UserLoyalty
 from navi_backend.awards.services import points_service
 from navi_backend.awards.services.rules import invalidate_user_metrics
+from navi_backend.core.logging import get_logger
 from navi_backend.notifications.models import NotificationCategory
 from navi_backend.notifications.models import NotificationKind
 from navi_backend.notifications.services import NotificationFactory
 from navi_backend.orders.models import Order
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 User = get_user_model()
 
@@ -27,7 +26,7 @@ def process_order_awards(self, order_id):
     try:
         order = Order.objects.select_related("user").get(pk=order_id)
     except Order.DoesNotExist:
-        logger.warning("Order %s not found for awards processing", order_id)
+        logger.warning("awards_order_not_found", order_id=order_id)
         return
 
     points_service.process_order(order)
@@ -45,7 +44,7 @@ def evaluate_user_awards(self, user_id):
     try:
         user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
-        logger.warning("User %s not found for award evaluation", user_id)
+        logger.warning("awards_user_not_found", user_id=user_id)
         return
 
     invalidate_user_metrics(user.id)
@@ -70,10 +69,10 @@ def send_award_earned_email(self, user_id, award_id, level_id=None):
             .get(pk=user_id)
         )
     except User.DoesNotExist:
-        logger.warning("User %s not found for award email", user_id)
+        logger.warning("award_email_user_not_found", user_id=user_id)
         return
     if not user.email:
-        logger.warning("User %s has no email address for award email", user_id)
+        logger.warning("award_email_user_no_email", user_id=user_id)
         return
 
     # Re-check the program-wide kill-switch at send time; the user's own opt-in
@@ -84,7 +83,7 @@ def send_award_earned_email(self, user_id, award_id, level_id=None):
     try:
         award = Award.objects.get(pk=award_id)
     except Award.DoesNotExist:
-        logger.warning("Award %s not found for award email", award_id)
+        logger.warning("award_email_award_not_found", award_id=award_id)
         return
 
     level = None
@@ -119,10 +118,10 @@ def send_tier_reached_email(self, user_id, tier_id):
             .get(pk=user_id)
         )
     except User.DoesNotExist:
-        logger.warning("User %s not found for tier email", user_id)
+        logger.warning("tier_email_user_not_found", user_id=user_id)
         return
     if not user.email:
-        logger.warning("User %s has no email address for tier email", user_id)
+        logger.warning("tier_email_user_no_email", user_id=user_id)
         return
 
     if not _loyalty_notifications_on():
@@ -131,7 +130,7 @@ def send_tier_reached_email(self, user_id, tier_id):
     try:
         tier = Tier.objects.get(pk=tier_id)
     except Tier.DoesNotExist:
-        logger.warning("Tier %s not found for tier email", tier_id)
+        logger.warning("tier_email_tier_not_found", tier_id=tier_id)
         return
 
     notification = NotificationFactory.create(

@@ -5,9 +5,9 @@ future channels) can ask "is this user opted in?" without importing the users
 app's models directly.
 """
 
-import logging
+from navi_backend.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def should_send(user, kind: str, category: str) -> bool:

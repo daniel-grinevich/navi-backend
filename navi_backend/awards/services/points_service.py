@@ -6,7 +6,6 @@ evaluates awards and recomputes the tier — all in one transaction and
 idempotent per order.
 """
 
-import logging
 from decimal import Decimal
 
 from django.db import transaction
@@ -20,8 +19,9 @@ from navi_backend.awards.models import UserAward
 from navi_backend.awards.models import UserLoyalty
 from navi_backend.awards.services.rules import invalidate_user_metrics
 from navi_backend.awards.services.rules import metric_value
+from navi_backend.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _record_points(loyalty, points, reason, order=None, note=""):
@@ -179,7 +179,7 @@ def process_order(order):
         reason=PointsReason.ORDER,
     ).exists()
     if already_processed:
-        logger.info("Order %s already processed for awards; skipping.", order.id)
+        logger.info("awards_order_already_processed", order_id=order.id)
         return None
 
     settings = LoyaltySettings.load()

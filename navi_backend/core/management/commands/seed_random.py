@@ -341,8 +341,8 @@ LOCATIONS = [
 ORDER_STATUS_PLAN = {
     OrderStatus.DONE: (70, "succeeded"),
     OrderStatus.CANCELLED: (12, "canceled"),
-    OrderStatus.SENT: (8, "requires_capture"),
-    OrderStatus.ORDERED: (10, "requires_capture"),
+    OrderStatus.SENT: (8, "succeeded"),
+    OrderStatus.ORDERED: (10, "ready"),
 }
 
 SEED_DAYS = 120  # spread history over the last ~4 months
