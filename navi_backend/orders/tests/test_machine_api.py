@@ -9,6 +9,7 @@ from datetime import timedelta
 from unittest import mock
 
 import pytest
+import stripe
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -69,6 +70,15 @@ def mock_notify():
         yield m
 
 
+@pytest.fixture(autouse=True)
+def mock_charge():
+    """Stub the off-session charge fired at scan so tests don't hit Stripe."""
+    with mock.patch(
+        "navi_backend.orders.api.machine_views.StripePaymentService.charge_order"
+    ) as m:
+        yield m
+
+
 class TestQrToken:
     def test_round_trip(self, order):
         assert read_qr_token(make_qr_token(order.id)) == str(order.id)
@@ -108,6 +118,36 @@ class TestScan:
         assert order.claimed_by == pi
         assert order.claimed_at is not None
         mock_broadcast.assert_called_once_with(order.id, "S")
+
+    def test_scan_charges_saved_card(
+        self, machine_client, navi_port, order, mock_broadcast, mock_charge
+    ):
+        machine_client.post(
+            SCAN_URL, {"qr_token": make_qr_token(order.id)}, format="json"
+        )
+        # Charge fires at scan with the order now stamped to the scanning port.
+        charged_order = mock_charge.call_args.args[0]
+        assert charged_order.id == order.id
+        assert charged_order.navi_port == navi_port
+
+    def test_declined_card_releases_claim(
+        self, machine_client, navi_port, order, mock_broadcast, mock_charge
+    ):
+        mock_charge.side_effect = stripe.error.CardError(
+            "Your card was declined.", param=None, code="card_declined"
+        )
+
+        response = machine_client.post(
+            SCAN_URL, {"qr_token": make_qr_token(order.id)}, format="json"
+        )
+
+        assert response.status_code == 402
+        order.refresh_from_db()
+        # Claim released, order back in the queue, no drink made.
+        assert order.order_status == "O"
+        assert order.claimed_by is None
+        assert order.claimed_at is None
+        mock_broadcast.assert_not_called()
 
     def test_missing_token(self, machine_client, navi_port):
         response = machine_client.post(SCAN_URL, {}, format="json")
@@ -308,9 +348,6 @@ class TestComplete:
         url = reverse("api:machine-order-complete", args=[claimed_order.id])
         with (
             mock.patch(
-                "navi_backend.orders.api.machine_views.capture_stripe_payment"
-            ) as capture,
-            mock.patch(
                 "navi_backend.orders.api.machine_views.create_order_invoice"
             ) as invoice,
             mock.patch(
@@ -324,7 +361,7 @@ class TestComplete:
         assert claimed_order.order_status == "D"
         assert claimed_order.claimed_by is None
         assert claimed_order.claimed_at is None
-        capture.apply_async.assert_called_once()
+        # Payment was already taken at scan; completion no longer captures.
         invoice.apply_async.assert_called_once()
         awards.apply_async.assert_called_once()
         mock_broadcast.assert_called_once_with(claimed_order.id, "D")

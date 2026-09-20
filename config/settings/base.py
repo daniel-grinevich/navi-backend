@@ -6,6 +6,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 from corsheaders.defaults import default_headers
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
@@ -81,6 +82,13 @@ CELERY_TIMEZONE = TIME_ZONE
 # Workers use our dictConfig (see navi_backend/core/logging/celery.py);
 # backup for the setup_logging signal so Celery never reformats the root logger
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+CELERY_BEAT_SCHEDULE = {
+    "refresh-effective-tax-rates": {
+        "task": "navi_backend.payments.tasks.refresh_effective_tax_rates",
+        # Nightly at 03:00; jurisdiction rates change rarely, so daily is ample.
+        "schedule": crontab(hour="3", minute="0"),
+    },
+}
 
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -171,6 +179,11 @@ STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 STRIPE_PUBLISHABLE_KEY = env("STRIPE_PUBLISHABLE_KEY", default="")
+
+# Tax rates are pulled per NaviPort jurisdiction from TaxJar by a nightly job
+# and cached in the EffectiveTaxRate table; the scan-time charge reads the
+# cached rate instead of calling a tax API in the Pi's critical path.
+TAXJAR_API_KEY = env("TAXJAR_API_KEY", default="")
 # https://docs.djangoproject.com/en/dev/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
     {
