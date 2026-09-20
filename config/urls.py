@@ -11,6 +11,10 @@ from navi_backend.payments.api.views import StripeWebhookView
 urlpatterns = [
     path("", lambda response: JsonResponse({"status": "ok"}), name="ro"),
     path("health/", lambda response: JsonResponse({"status": "ok"}), name="health"),
+    # Prometheus scrape target (/metrics). Cluster-internal only: the k8s
+    # ServiceMonitor scrapes the service directly; the public ingress in
+    # rainbow-road must not route this path.
+    path("", include("django_prometheus.urls")),
     # Django Admin
     path(settings.ADMIN_URL, admin.site.urls),
     path("accounts/", include("allauth.urls")),

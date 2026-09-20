@@ -28,7 +28,8 @@ ADMIN_URL = env("DJANGO_ADMIN_URL")
 # stop being shared. The local stack already runs Redis.
 CACHES = {
     "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
+        # django_redis wrapped with Prometheus cache hit/miss metrics
+        "BACKEND": "django_prometheus.cache.backends.redis.RedisCache",
         "LOCATION": REDIS_URL,
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
