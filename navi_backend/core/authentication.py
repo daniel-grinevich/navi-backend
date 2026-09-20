@@ -3,6 +3,8 @@ from rest_framework.authentication import CSRFCheck
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from navi_backend.core.logging.context import set_log_ctx_key
+
 
 class CSRFPermissionDeniedError(PermissionDenied):
     default_code = "csrf_permission_denied"
@@ -27,7 +29,11 @@ class JWTCookieAuthentication(JWTAuthentication):
 
         validated_token = self.get_validated_token(raw_token)
 
-        return self.get_user(validated_token), validated_token
+        user = self.get_user(validated_token)
+        # DRF auth runs before the view body, so in-view logs carry user_id;
+        # the middleware response phase covers session-authenticated requests.
+        set_log_ctx_key("user_id", user.pk)
+        return user, validated_token
 
     def enforce_csrf(self, request):
         def dummy_get_response(_):

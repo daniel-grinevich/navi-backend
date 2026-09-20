@@ -7,6 +7,7 @@ from django.utils.translation import gettext_lazy as _
 from .forms import UserAdminChangeForm
 from .forms import UserAdminCreationForm
 from .models import User
+from .models import UserPreferences
 
 if settings.DJANGO_ADMIN_FORCE_ALLAUTH:
     # Force the `admin` sign in process to go through the `django-allauth` workflow:
@@ -49,3 +50,11 @@ class UserAdmin(auth_admin.UserAdmin):
             },
         ),
     )
+
+
+@admin.register(UserPreferences)
+class UserPreferencesAdmin(admin.ModelAdmin):
+    list_display = ["user", "theme", "language", "updated_at"]
+    search_fields = ["user__email", "user__name"]
+    readonly_fields = ["created_at", "updated_at"]
+    autocomplete_fields = ["user"]

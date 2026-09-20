@@ -4,17 +4,14 @@
 # Required
 version: 2
 
-# Set the version of Python and other tools you might need
+# Dependencies are managed with uv (pyproject.toml + uv.lock). uv provisions
+# Python 3.14 (per requires-python) and installs the locked deps, including the
+# dev group that provides Sphinx.
 build:
-  os: ubuntu-22.04
+  os: ubuntu-24.04
   tools:
     python: '3.12'
-
-# Build documentation in the docs/ directory with Sphinx
-sphinx:
-  configuration: docs/conf.py
-
-# Python requirements required to build your docs
-python:
-  install:
-    - requirements: requirements/local.txt
+  commands:
+    - pip install uv
+    - uv sync --frozen
+    - uv run sphinx-build -b html docs $READTHEDOCS_OUTPUT/html

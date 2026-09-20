@@ -2,6 +2,7 @@ import stripe
 from django.conf import settings
 
 from navi_backend.orders.models import Order
+from navi_backend.orders.utils import notify_machines_queue_changed
 from navi_backend.payments.models import Payment
 
 stripe.api_key = settings.STRIPE_API_KEY
@@ -92,16 +93,20 @@ class StripePaymentService:
         elif event_type == "payment_intent.payment_failed":
             payment.status = "failed"
             payment.save(update_fields=["status"])
-            Order.objects.filter(payment=payment, order_status="O").update(
+            cancelled = Order.objects.filter(payment=payment, order_status="O").update(
                 order_status="C"
             )
+            if cancelled:
+                notify_machines_queue_changed()
 
         elif event_type == "payment_intent.canceled":
             payment.status = "canceled"
             payment.save(update_fields=["status"])
-            Order.objects.filter(payment=payment, order_status="O").update(
+            cancelled = Order.objects.filter(payment=payment, order_status="O").update(
                 order_status="C"
             )
+            if cancelled:
+                notify_machines_queue_changed()
 
     @staticmethod
     def get_or_create_stripe_customer(user):

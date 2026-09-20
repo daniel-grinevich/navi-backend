@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from .base import *  # noqa: F403
 from .base import DATABASES
 from .base import INSTALLED_APPS
@@ -34,7 +33,8 @@ DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
 # ------------------------------------------------------------------------------
 CACHES = {
     "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
+        # django_redis wrapped with Prometheus cache hit/miss metrics
+        "BACKEND": "django_prometheus.cache.backends.redis.RedisCache",
         "LOCATION": REDIS_URL,
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
@@ -59,7 +59,8 @@ SESSION_COOKIE_NAME = "__Secure-sessionid"
 CSRF_COOKIE_SECURE = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#csrf-cookie-name
 CSRF_COOKIE_NAME = "__Secure-csrftoken"
-# JWT auth cookies must only travel over HTTPS in production.
+# Ensure the JWT access/refresh cookies get the Secure flag too — base.py
+# defaults this to False for local HTTP dev.
 SIMPLE_JWT["AUTH_COOKIE_SECURE"] = True
 # https://docs.djangoproject.com/en/dev/topics/security/#ssl-https
 # https://docs.djangoproject.com/en/dev/ref/settings/#secure-hsts-seconds
@@ -129,16 +130,26 @@ ANYMAIL = {
 # https://docs.djangoproject.com/en/dev/ref/settings/#logging
 # See https://docs.djangoproject.com/en/dev/topics/logging for
 # more details on how to customize your logging configuration.
-# A sample logging configuration. The only tangible logging
-# performed by this configuration is to send an email to
-# the site admins on every HTTP 500 error when DEBUG=False.
+# Same JSON-lines console setup as base, plus mail_admins for 500s.
+# The named-logger handler attachments below are a deliberate, temporary
+# deviation from "handlers on root only" — Sentry will replace mail_admins.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "filters": {"require_debug_false": {"()": "django.utils.log.RequireDebugFalse"}},
+    "filters": {
+        "require_debug_false": {"()": "django.utils.log.RequireDebugFalse"},
+        "log_context": {"()": "navi_backend.core.logging.filters.LogContextFilter"},
+    },
     "formatters": {
-        "verbose": {
-            "format": "%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s",
+        "json": {
+            "()": "navi_backend.core.logging.formatters.JSONFormatter",
+            "fmt_keys": {
+                "level": "levelname",
+                "logger": "name",
+                "module": "module",
+                "line": "lineno",
+                "process": "process",
+            },
         },
     },
     "handlers": {
@@ -148,9 +159,10 @@ LOGGING = {
             "class": "django.utils.log.AdminEmailHandler",
         },
         "console": {
-            "level": "DEBUG",
             "class": "logging.StreamHandler",
-            "formatter": "verbose",
+            "stream": "ext://sys.stdout",
+            "filters": ["log_context"],
+            "formatter": "json",
         },
     },
     "root": {"level": "INFO", "handlers": ["console"]},
@@ -160,9 +172,11 @@ LOGGING = {
             "level": "ERROR",
             "propagate": True,
         },
+        # No console handler here (root already prints it once via
+        # propagation) so host-scanner noise isn't double-logged.
         "django.security.DisallowedHost": {
             "level": "ERROR",
-            "handlers": ["console", "mail_admins"],
+            "handlers": ["mail_admins"],
             "propagate": True,
         },
     },

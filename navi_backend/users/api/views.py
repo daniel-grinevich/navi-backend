@@ -22,7 +22,9 @@ from navi_backend.core.api import BaseModelViewSet
 from navi_backend.core.permissions import IsOwner
 from navi_backend.users.jwt import delete_token_cookies
 from navi_backend.users.jwt import set_token_cookies
+from navi_backend.users.models import UserPreferences
 
+from .serializers import UserPreferencesSerializer
 from .serializers import UserSerializer
 
 User = get_user_model()
@@ -49,6 +51,21 @@ class UserViewSet(BaseModelViewSet):
     @action(detail=False)
     def me(self, request):
         serializer = self.get_serializer(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["get", "patch"])
+    def preferences(self, request):
+        prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+
+        if request.method == "PATCH":
+            serializer = UserPreferencesSerializer(
+                prefs, data=request.data, partial=True
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        serializer = UserPreferencesSerializer(prefs)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -158,9 +175,13 @@ class CreateGuestView(APIView):
             },
         )
         if not created:
-            # Never hand out a session for an existing account: knowing an
-            # email must not be enough to take over its orders/history.
-            return Response(status=status.HTTP_200_OK, data={"redirect": "login"})
+            # An account already exists for this email. Never reset its
+            # password or mint tokens for the caller — that would let anyone
+            # who knows a guest's email take over the session. Registered
+            # users are pointed at login; existing guests get no new session.
+            if not user.is_guest:
+                return Response(status=status.HTTP_200_OK, data={"redirect": "login"})
+            return Response(status=status.HTTP_409_CONFLICT, data={"redirect": "login"})
 
         user.set_password(str(uuid.uuid4()))
         user.save()

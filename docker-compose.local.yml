@@ -144,3 +144,26 @@ services:
       mc anonymous set download local/navi-local-media;
       exit 0;
       "
+
+  # Simulated NaviPort Raspberry Pi. Built from Balena's ARM64 Pi base image and
+  # pinned to linux/arm64 so it runs under QEMU emulation on an x86 dev machine
+  # -- a faithful stand-in for a real Pi. Queue UI at http://localhost:9002.
+  # Set NAVI_DEVICE_TOKEN to a RaspberryPi.device_token (see `manage.py
+  # register_sim_pi`) before starting.
+  pi:
+    build:
+      context: ./pi
+      dockerfile: Dockerfile
+    image: navi_backend_local_pi
+    container_name: navi_pi
+    platform: linux/arm64
+    depends_on:
+      - django
+    environment:
+      - NAVI_API_URL=http://django:8000/api
+      - NAVI_DEVICE_TOKEN=${NAVI_DEVICE_TOKEN:-}
+      - NAVI_DEVICE_NAME=${NAVI_DEVICE_NAME:-Simulated NaviPort Pi}
+      - NAVI_POLL_INTERVAL=${NAVI_POLL_INTERVAL:-3}
+      - NAVI_BREW_SECONDS=${NAVI_BREW_SECONDS:-5}
+    ports:
+      - "9002:9000"

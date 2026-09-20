@@ -6,6 +6,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from corsheaders.defaults import default_headers
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # navi_backend/
@@ -63,6 +64,12 @@ if "POSTGRES_PASSWORD_FILE" in os.environ:
         logging.getLogger(__name__).warning("Failed to read password file: %s", e)
 
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
+# Thin wrapper around the postgresql engine that exports query/connection
+# metrics (django_db_*) to Prometheus
+DATABASES["default"]["ENGINE"] = "django_prometheus.db.backends.postgresql"
+# Don't touch the DB at import time to export migration state; the PreSync
+# migrate job owns that concern
+PROMETHEUS_EXPORT_MIGRATIONS = False
 
 # Celery config
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://redis:6379/0")
@@ -71,6 +78,9 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+# Workers use our dictConfig (see navi_backend/core/logging/celery.py);
+# backup for the setup_logging signal so Celery never reformats the root logger
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -110,6 +120,7 @@ THIRD_PARTY_APPS = [
     "drf_spectacular",
     "django_celery_beat",
     "storages",
+    "django_prometheus",
 ]
 
 LOCAL_APPS = [
@@ -120,6 +131,7 @@ LOCAL_APPS = [
     "navi_backend.orders",
     "navi_backend.notifications.apps.NotificationsConfig",
     "navi_backend.devices",
+    "navi_backend.awards.apps.AwardsConfig",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -173,6 +185,12 @@ AUTH_PASSWORD_VALIDATORS = [
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#middleware
 MIDDLEWARE = [
+    # Outermost pair: Before starts the request timer, After (last in the
+    # list) records it — together they measure the whole stack
+    "django_prometheus.middleware.PrometheusBeforeMiddleware",
+    # Early so every log line is tagged with a request_id, and (response
+    # phase runs in reverse) the log context is cleared after everything else
+    "navi_backend.core.middleware.RequestLogContextMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -184,6 +202,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
 
 # STATIC
@@ -275,6 +294,32 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_USE_CSRF": True,
 }
 
+# GOOGLE OAUTH
+# ------------------------------------------------------------------------------
+# Credentials from the Google Cloud Console OAuth 2.0 client (Web application).
+# REDIRECT_URI must exactly match an "Authorized redirect URI" registered there
+# and point at this backend's callback. FRONTEND_URL is where the callback
+# sends the browser after setting the auth cookies.
+GOOGLE_OAUTH_CLIENT_ID = env("GOOGLE_OAUTH_CLIENT_ID", default="")
+GOOGLE_OAUTH_CLIENT_SECRET = env("GOOGLE_OAUTH_CLIENT_SECRET", default="")
+GOOGLE_OAUTH_REDIRECT_URI = env(
+    "GOOGLE_OAUTH_REDIRECT_URI",
+    default="http://localhost:8000/api/oauth/google/callback/",
+)
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
+# Public origin of THIS backend -- used to build absolute magic-link URLs that
+# the browser opens to have cookies set before redirecting to FRONTEND_URL.
+BACKEND_URL = env("BACKEND_URL", default="http://localhost:8000")
+
+# SMS (passwordless OTP + notifications)
+# ------------------------------------------------------------------------------
+# "console" (default) just logs the message -- fine for local dev. Set to
+# "twilio" and provide the credentials below to actually send texts.
+SMS_BACKEND = env("SMS_BACKEND", default="console")
+TWILIO_ACCOUNT_SID = env("TWILIO_ACCOUNT_SID", default="")
+TWILIO_AUTH_TOKEN = env("TWILIO_AUTH_TOKEN", default="")
+TWILIO_FROM_NUMBER = env("TWILIO_FROM_NUMBER", default="")
+
 # EMAIL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
@@ -286,6 +331,13 @@ EMAIL_HOST = env("EMAIL_HOST", default="localhost")
 EMAIL_PORT = env("EMAIL_PORT", default="587")
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-timeout
 EMAIL_TIMEOUT = 5
+
+# SMS
+# ------------------------------------------------------------------------------
+# Selects the SMS delivery backend (see notifications.services.sms). "console"
+# just logs (dev default); "twilio" sends for real and marks SMS "available" so
+# the frontend surfaces the SMS notification toggles.
+SMS_BACKEND = env("SMS_BACKEND", default="console")
 
 # ADMIN
 # ------------------------------------------------------------------------------
@@ -304,19 +356,36 @@ DJANGO_ADMIN_FORCE_ALLAUTH = env.bool("DJANGO_ADMIN_FORCE_ALLAUTH", default=Fals
 # https://docs.djangoproject.com/en/dev/ref/settings/#logging
 # See https://docs.djangoproject.com/en/dev/topics/logging for
 # more details on how to customize your logging configuration.
+# JSON lines to stdout (Loki-ready). All handlers live on the root logger;
+# app code just uses logging.getLogger(__name__) and propagation does the rest.
+# local.py swaps the formatter to "plain" for readable dev output.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "filters": {
+        "log_context": {"()": "navi_backend.core.logging.filters.LogContextFilter"},
+    },
     "formatters": {
-        "verbose": {
-            "format": "%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s",
+        "json": {
+            "()": "navi_backend.core.logging.formatters.JSONFormatter",
+            "fmt_keys": {
+                "level": "levelname",
+                "logger": "name",
+                "module": "module",
+                "line": "lineno",
+                "process": "process",
+            },
+        },
+        "plain": {
+            "format": "%(levelname)s %(asctime)s %(name)s req=%(request_id)s %(message)s",
         },
     },
     "handlers": {
         "console": {
-            "level": "DEBUG",
             "class": "logging.StreamHandler",
-            "formatter": "verbose",
+            "stream": "ext://sys.stdout",
+            "filters": ["log_context"],
+            "formatter": "json",
         },
     },
     "root": {"level": "INFO", "handlers": ["console"]},
@@ -324,6 +393,18 @@ LOGGING = {
 
 REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
 REDIS_SSL = REDIS_URL.startswith("rediss://")
+
+# CACHES
+# ------------------------------------------------------------------------------
+# Safe default so caching works in every environment. `production` overrides this
+# with a shared Redis cache and `test` swaps in a dummy cache for isolation.
+# https://docs.djangoproject.com/en/dev/ref/settings/#caches
+CACHES = {
+    "default": {
+        "BACKEND": "django_prometheus.cache.backends.locmem.LocMemCache",
+        "LOCATION": "",
+    },
+}
 
 # Django Channels
 # ------------------------------------------------------------------------------
@@ -379,6 +460,11 @@ REST_FRAMEWORK = {
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
 # CORS_URLS_REGEX = r"^/api/.*$"
+CORS_ALLOW_HEADERS = [
+    *default_headers,
+    "X-Request-ID",
+    "Idempotency-Key",
+]
 
 # By Default swagger ui is available only to admin user(s). You can change permission classes to change that
 # See more configuration options at https://drf-spectacular.readthedocs.io/en/latest/settings.html#settings

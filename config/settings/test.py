@@ -21,6 +21,25 @@ TEST_RUNNER = "django.test.runner.DiscoverRunner"
 # https://docs.djangoproject.com/en/dev/ref/settings/#password-hashers
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
+# CACHES
+# ------------------------------------------------------------------------------
+# Dummy cache in tests: cache code paths still run (get is always a miss, set is
+# a no-op) so nothing leaks between tests via a shared in-process LocMemCache.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.dummy.DummyCache",
+    },
+}
+
+# CHANNELS
+# ------------------------------------------------------------------------------
+# In-memory layer so websocket consumers are testable without Redis.
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
+
 # EMAIL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
@@ -29,6 +48,16 @@ EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 # DEBUGGING FOR TEMPLATES
 # ------------------------------------------------------------------------------
 TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore[index]
+
+# LOGGING
+# ------------------------------------------------------------------------------
+# Keep test output quiet; tests that assert on logging build their own
+# handlers/formatters directly (see core/tests/test_logging.py).
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "root": {"level": "CRITICAL", "handlers": []},
+}
 
 # MEDIA
 # ------------------------------------------------------------------------------

@@ -7,6 +7,7 @@ from rest_framework.exceptions import ValidationError
 from navi_backend.core.base_service import BaseService
 from navi_backend.menu.models import CustomizationGroup
 from navi_backend.orders.models import Order
+from navi_backend.orders.utils import notify_machines_queue_changed
 from navi_backend.payments.services import StripePaymentService
 
 
@@ -104,6 +105,9 @@ class CreateOrderService(BaseService):
 
     def save_order(self, ctx):
         ctx["order"] = Order.objects.create(**ctx["validated_data"])
+        # The new order enters every Pi's pending queue; tell them once the
+        # surrounding transaction actually commits.
+        transaction.on_commit(notify_machines_queue_changed)
         return ctx
 
     def save_order_items(self, ctx):

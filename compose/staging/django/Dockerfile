@@ -10,15 +10,18 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY --from=ghcr.io/astral-sh/uv:0.6.3 /uv /usr/local/bin/uv
-
 RUN apt-get update && apt-get install --no-install-recommends -y \
   build-essential \
   libpq-dev
 
-COPY ./requirements .
+# uv is the single source of truth for dependencies (pyproject.toml + uv.lock).
+RUN pip install --no-cache-dir uv
+
+COPY pyproject.toml uv.lock ./
+# Staging installs runtime deps only (no dev group).
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system -r ${BUILD_ENVIRONMENT}.txt
+    uv export --frozen --no-emit-project --no-hashes --no-dev -o requirements.txt \
+    && uv pip install --system -r requirements.txt
 
 # --- Runner stage ---
 FROM python AS runner

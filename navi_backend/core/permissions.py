@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.permissions import BasePermission
 
@@ -14,25 +15,38 @@ class ActionBasedPermission(BasePermission):
         "destroy": "delete",
     }
 
-    def has_permission(self, request, view):
+    def _permissions_for(self, view):
         action = getattr(view, "action", None)
         action_permissions = getattr(view, "action_permissions", {})
-        action_permissions = getattr(
-            view, "action_permissions", action_permissions.get("default", [])
-        )
-
-        if request.user and request.user.is_staff:
-            return True
-
-        permissions = action_permissions.get(
+        return action_permissions.get(
             action,
             action_permissions.get("default", []),
         )
+
+    def has_permission(self, request, view):
+        if request.user and request.user.is_staff:
+            return True
+
+        permissions = self._permissions_for(view)
 
         if not permissions:
             return False
 
         return all(p().has_permission(request, view) for p in permissions)
+
+    def has_object_permission(self, request, view, obj):
+        # DRF calls has_object_permission on the classes in permission_classes
+        # (this class), not on the nested action permissions. Delegate down so
+        # object-level checks like IsOwner are actually enforced on detail routes.
+        if request.user and request.user.is_staff:
+            return True
+
+        permissions = self._permissions_for(view)
+
+        if not permissions:
+            return False
+
+        return all(p().has_object_permission(request, view, obj) for p in permissions)
 
 
 class IsOwner(BasePermission):
@@ -54,4 +68,7 @@ class IsMachineAuthenticated(BasePermission):
         rpi = RaspberryPi.objects.filter(device_token=token, is_connected=True).first()
         if rpi:
             request.raspberry_pi = rpi
+            # Presence heartbeat: any authenticated machine request counts as
+            # a check-in (queryset update skips save() side effects).
+            RaspberryPi.objects.filter(pk=rpi.pk).update(last_seen=timezone.now())
         return rpi is not None

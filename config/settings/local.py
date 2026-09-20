@@ -1,6 +1,8 @@
 from .base import *  # noqa: F403
 from .base import INSTALLED_APPS
+from .base import LOGGING
 from .base import MIDDLEWARE
+from .base import REDIS_URL
 from .base import env
 
 # GENERAL
@@ -21,10 +23,17 @@ ADMIN_URL = env("DJANGO_ADMIN_URL")
 # CACHES
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#caches
+# Redis, matching staging/production: LocMem is per-process, so with more
+# than one worker (or Celery) cache invalidation and stampede locks silently
+# stop being shared. The local stack already runs Redis.
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "",
+        # django_redis wrapped with Prometheus cache hit/miss metrics
+        "BACKEND": "django_prometheus.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
     },
 }
 
@@ -97,11 +106,13 @@ CORS_ALLOW_METHODS = [
     "OPTIONS",
 ]
 
-CORS_ALLOW_HEADERS = [
-    "authorization",
-    "content-type",
-    "X-CSRFToken",
-]
+# CORS_ALLOW_HEADERS comes from base.py (default_headers + X-Request-ID +
+# Idempotency-Key)
+
+# LOGGING
+# ------------------------------------------------------------------------------
+# Human-readable one-liners in dev; staging/production keep base's JSON lines.
+LOGGING["handlers"]["console"]["formatter"] = "plain"  # type: ignore[index]
 
 # STORAGES (MinIO - S3-compatible object storage for local dev)
 # ------------------------------------------------------------------------------

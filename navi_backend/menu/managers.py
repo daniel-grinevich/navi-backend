@@ -1,4 +1,3 @@
-from django.core.cache import cache
 from django.db import models
 from django.utils import timezone
 
@@ -43,22 +42,6 @@ class MenuItemManager(models.Manager):
             queryset = queryset.filter(price__lte=max_price)
 
         return queryset
-
-    # TODO add more functionality to get cache
-    def get_cached(self, slug):
-        cache_key = f"menuitem:slug:{slug}"
-        cached_item = cache.get(cache_key)
-
-        if cached_item is None:
-            try:
-                item = self.get(slug=slug)
-                cache.set(cache_key, item, timeout=3600)
-            except self.model.DoesNotExist:
-                return None
-            else:
-                return item
-
-        return cached_item
 
     def search(self, query):
         return (
