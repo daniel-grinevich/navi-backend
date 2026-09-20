@@ -18,9 +18,12 @@ class PaymentFactory(
     class Meta:
         model = Payment
 
+    stripe_setup_intent_id = factory.LazyFunction(
+        lambda: f"seti_{uuid.uuid4().hex[:24]}"
+    )
     stripe_payment_intent_id = factory.LazyFunction(
         lambda: f"pi_{uuid.uuid4().hex[:24]}"
     )
     amount_received = factory.LazyFunction(lambda: Decimal("5.00"))
     currency = "usd"
-    status = "requires_capture"
+    status = "ready"

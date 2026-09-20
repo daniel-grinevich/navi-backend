@@ -3,14 +3,17 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pytest
+from django.utils import timezone
 
 from navi_backend.devices.tests.factories import NaviPortFactory
 from navi_backend.orders.tests.factories import OrderFactory
 from navi_backend.orders.tests.factories import OrderItemFactory
+from navi_backend.payments.models import EffectiveTaxRate
 from navi_backend.payments.services import StripePaymentService
 from navi_backend.payments.tests.factories import PaymentFactory
 
 SERVICE = "navi_backend.payments.services.stripe"
+TAX_TASK = "navi_backend.payments.tasks.record_stripe_tax_transaction"
 
 
 class TestNaviPortTaxAddress:
@@ -101,17 +104,11 @@ class TestCalculateTax:
 
 
 @pytest.mark.django_db
-class TestCreatePaymentIntent:
-    def test_charges_taxed_total_and_persists_breakdown(self):
-        port = NaviPortFactory(postal_code="98101")
-        order = OrderFactory(navi_port=port, payment=None)
-        OrderItemFactory(order=order, quantity=1, unit_price=Decimal("10.00"))
+class TestCreateSetupIntent:
+    def test_saves_card_without_charging_or_taxing(self):
+        order = OrderFactory(payment=None)
 
-        fake_calc = SimpleNamespace(
-            id="taxcalc_123", tax_amount_exclusive=87, amount_total=1087
-        )
-        fake_intent = SimpleNamespace(id="pi_abc123", client_secret="secret_abc")
-
+        fake_intent = SimpleNamespace(id="seti_123", client_secret="seti_secret")
         with (
             mock.patch(SERVICE) as stripe,
             mock.patch.object(
@@ -120,62 +117,171 @@ class TestCreatePaymentIntent:
                 return_value="cus_123",
             ),
         ):
+            stripe.SetupIntent.create.return_value = fake_intent
+            client_secret, payment = StripePaymentService.create_setup_intent(order)
+            # No money moves and no tax is computed at checkout.
+            stripe.PaymentIntent.create.assert_not_called()
+            stripe.tax.Calculation.create.assert_not_called()
+
+        assert client_secret == "seti_secret"
+        payment.refresh_from_db()
+        assert payment.stripe_setup_intent_id == "seti_123"
+        assert payment.status == "requires_setup"
+
+
+@pytest.mark.django_db
+class TestChargeOrder:
+    def _order(self, **payment_kwargs):
+        port = NaviPortFactory(postal_code="98101")
+        payment = PaymentFactory(stripe_payment_intent_id=None, **payment_kwargs)
+        order = OrderFactory(navi_port=port, payment=payment)
+        OrderItemFactory(order=order, quantity=1, unit_price=Decimal("10.00"))
+        return order, payment
+
+    def test_charges_saved_card_off_session_and_records_async(self):
+        order, payment = self._order(stripe_payment_method_id="pm_123", status="ready")
+
+        fake_calc = SimpleNamespace(
+            id="taxcalc_123", tax_amount_exclusive=87, amount_total=1087
+        )
+        fake_intent = SimpleNamespace(
+            id="pi_abc123", status="succeeded", amount_received=1087
+        )
+        with (
+            mock.patch(SERVICE) as stripe,
+            mock.patch(TAX_TASK) as record_task,
+            mock.patch.object(
+                StripePaymentService,
+                "get_or_create_stripe_customer",
+                return_value="cus_123",
+            ),
+        ):
+            # No cached rate for this port -> falls back to a live calculation.
             stripe.tax.Calculation.create.return_value = fake_calc
             stripe.PaymentIntent.create.return_value = fake_intent
+            StripePaymentService.charge_order(order)
 
-            client_secret, payment = StripePaymentService.create_payment_intent(order)
+            _, kwargs = stripe.PaymentIntent.create.call_args
+            assert kwargs["amount"] == 1087
+            assert kwargs["off_session"] is True
+            assert kwargs["confirm"] is True
+            assert kwargs["payment_method"] == "pm_123"
+            # Tax recording happens asynchronously, off the scan path.
+            record_task.apply_async.assert_called_once_with(args=[str(order.id)])
 
-        # Amount authorized must be the taxed total, in cents.
-        _, kwargs = stripe.PaymentIntent.create.call_args
-        assert kwargs["amount"] == 1087
-        assert kwargs["metadata"]["tax_calculation_id"] == "taxcalc_123"
-
-        assert client_secret == "secret_abc"
         payment.refresh_from_db()
-        assert payment.subtotal == Decimal("10.00")
+        assert payment.stripe_payment_intent_id == "pi_abc123"
         assert payment.tax_amount == Decimal("0.87")
         assert payment.total_amount == Decimal("10.87")
-        assert payment.stripe_tax_calculation_id == "taxcalc_123"
-        assert payment.status == "requires_capture"
+        assert payment.amount_received == Decimal("10.87")
+        assert payment.status == "succeeded"
+
+    def test_uses_cached_rate_without_calling_stripe_tax(self):
+        order, payment = self._order(stripe_payment_method_id="pm_123", status="ready")
+        EffectiveTaxRate.objects.create(
+            navi_port=order.navi_port,
+            rate=Decimal("0.1000"),
+            effective_date=timezone.localdate(),
+        )
+        fake_intent = SimpleNamespace(
+            id="pi_abc123", status="succeeded", amount_received=1100
+        )
+        with (
+            mock.patch(SERVICE) as stripe,
+            mock.patch(TAX_TASK),
+            mock.patch.object(
+                StripePaymentService,
+                "get_or_create_stripe_customer",
+                return_value="cus_123",
+            ),
+        ):
+            stripe.PaymentIntent.create.return_value = fake_intent
+            StripePaymentService.charge_order(order)
+
+            # Cached rate -> no live tax API call in the scan path.
+            stripe.tax.Calculation.create.assert_not_called()
+            _, kwargs = stripe.PaymentIntent.create.call_args
+            assert kwargs["amount"] == 1100  # $10.00 + 10%
+
+        payment.refresh_from_db()
+        assert payment.tax_amount == Decimal("1.00")
+        assert payment.total_amount == Decimal("11.00")
+
+    def test_resolves_payment_method_from_setup_intent(self):
+        order, payment = self._order(
+            stripe_setup_intent_id="seti_123",
+            stripe_payment_method_id="",
+            status="ready",
+        )
+
+        fake_calc = SimpleNamespace(
+            id="taxcalc_1", tax_amount_exclusive=0, amount_total=1000
+        )
+        fake_intent = SimpleNamespace(
+            id="pi_abc123", status="succeeded", amount_received=1000
+        )
+        with (
+            mock.patch(SERVICE) as stripe,
+            mock.patch(TAX_TASK),
+            mock.patch.object(
+                StripePaymentService,
+                "get_or_create_stripe_customer",
+                return_value="cus_123",
+            ),
+        ):
+            stripe.SetupIntent.retrieve.return_value = SimpleNamespace(
+                payment_method="pm_from_setup"
+            )
+            stripe.tax.Calculation.create.return_value = fake_calc
+            stripe.PaymentIntent.create.return_value = fake_intent
+            StripePaymentService.charge_order(order)
+
+            _, kwargs = stripe.PaymentIntent.create.call_args
+            assert kwargs["payment_method"] == "pm_from_setup"
+
+        payment.refresh_from_db()
+        assert payment.stripe_payment_method_id == "pm_from_setup"
 
 
 @pytest.mark.django_db
 class TestRecordTaxTransaction:
-    def test_records_transaction_once(self):
+    def _succeeded_order(self, **payment_kwargs):
+        port = NaviPortFactory(postal_code="98101")
         payment = PaymentFactory(
-            stripe_payment_intent_id="pi_abc123",
-            stripe_tax_calculation_id="taxcalc_123",
             status="succeeded",
+            stripe_payment_intent_id="pi_abc123",
+            subtotal=Decimal("10.00"),
+            **payment_kwargs,
         )
+        order = OrderFactory(navi_port=port, payment=payment)
+        return order, payment
+
+    def test_records_transaction(self):
+        order, payment = self._succeeded_order(stripe_tax_transaction_id="")
 
         with mock.patch(SERVICE) as stripe:
+            stripe.tax.Calculation.create.return_value = SimpleNamespace(id="taxcalc_9")
             stripe.tax.Transaction.create_from_calculation.return_value = (
-                SimpleNamespace(id="taxtxn_123")
+                SimpleNamespace(id="taxtxn_9")
             )
-            StripePaymentService._record_tax_transaction(payment)
+            StripePaymentService.record_tax_transaction(order.id)
 
         payment.refresh_from_db()
-        assert payment.stripe_tax_transaction_id == "taxtxn_123"
+        assert payment.stripe_tax_calculation_id == "taxcalc_9"
+        assert payment.stripe_tax_transaction_id == "taxtxn_9"
 
-    def test_noop_without_calculation(self):
-        payment = PaymentFactory(
-            stripe_payment_intent_id="pi_abc123",
-            stripe_tax_calculation_id="",
-            status="succeeded",
-        )
+    def test_noop_when_not_succeeded(self):
+        port = NaviPortFactory(postal_code="98101")
+        payment = PaymentFactory(status="ready", subtotal=Decimal("10.00"))
+        order = OrderFactory(navi_port=port, payment=payment)
 
         with mock.patch(SERVICE) as stripe:
-            StripePaymentService._record_tax_transaction(payment)
-            stripe.tax.Transaction.create_from_calculation.assert_not_called()
+            StripePaymentService.record_tax_transaction(order.id)
+            stripe.tax.Calculation.create.assert_not_called()
 
     def test_noop_when_already_recorded(self):
-        payment = PaymentFactory(
-            stripe_payment_intent_id="pi_abc123",
-            stripe_tax_calculation_id="taxcalc_123",
-            stripe_tax_transaction_id="taxtxn_existing",
-            status="succeeded",
-        )
+        order, _ = self._succeeded_order(stripe_tax_transaction_id="taxtxn_existing")
 
         with mock.patch(SERVICE) as stripe:
-            StripePaymentService._record_tax_transaction(payment)
-            stripe.tax.Transaction.create_from_calculation.assert_not_called()
+            StripePaymentService.record_tax_transaction(order.id)
+            stripe.tax.Calculation.create.assert_not_called()

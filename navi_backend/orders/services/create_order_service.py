@@ -21,7 +21,7 @@ class CreateOrderService(BaseService):
             self.validate_customizations,
             self.save_order,
             self.save_order_items,
-            self.create_payment_intent,
+            self.create_setup_intent,
         ]
         super().__init__(**kwargs)
 
@@ -159,9 +159,9 @@ class CreateOrderService(BaseService):
 
         return ctx
 
-    def create_payment_intent(self, ctx):
+    def create_setup_intent(self, ctx):
         order = ctx["order"]
-        client_secret, payment = StripePaymentService.create_payment_intent(order)
+        client_secret, payment = StripePaymentService.create_setup_intent(order)
         order.payment = payment
         order._stripe_client_secret = client_secret  # NOQA: SLF001
         order.save(update_fields=["payment"])

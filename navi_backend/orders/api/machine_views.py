@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+import stripe
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -15,7 +16,7 @@ from navi_backend.orders.qr import read_qr_token
 from navi_backend.orders.tasks import create_order_invoice
 from navi_backend.orders.utils import broadcast_order_status
 from navi_backend.orders.utils import notify_machines_queue_changed
-from navi_backend.payments.tasks import capture_stripe_payment
+from navi_backend.payments.services import StripePaymentService
 
 from .serializers import MachineOrderSerializer
 
@@ -144,6 +145,23 @@ def _start_order(request, order_id):
             status=409,
         )
 
+    # We won the claim, so the order now carries this port -> its tax
+    # jurisdiction. Charge the saved card before making the drink; if the charge
+    # is declined, release the claim so nothing is dispensed for free.
+    order.refresh_from_db()
+    try:
+        StripePaymentService.charge_order(order)
+    except (stripe.error.StripeError, ValueError) as exc:
+        Order.objects.filter(pk=order_id, claimed_by=request.raspberry_pi).update(
+            order_status="O", claimed_by=None, claimed_at=None
+        )
+        # Order is back in the queue for another attempt; let machines know.
+        notify_machines_queue_changed()
+        return Response(
+            {"detail": "Payment could not be completed.", "error": str(exc)},
+            status=402,
+        )
+
     order.refresh_from_db()
     broadcast_order_status(order.id, "S")
     notify_machines_queue_changed()
@@ -178,10 +196,9 @@ class MachineOrderCompleteView(APIView):
             )
 
         if outcome == "complete":
+            # Payment was already taken at scan (start), so completion just
+            # finalizes the order and kicks off invoicing + awards.
             broadcast_order_status(order.id, "D")
-            capture_stripe_payment.apply_async(
-                args=[order.payment.stripe_payment_intent_id],
-            )
             create_order_invoice.apply_async(args=[order.id], queue="invoice")
             process_order_awards.apply_async(args=[str(order.id)])
         else:
