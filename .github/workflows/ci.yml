@@ -31,7 +31,39 @@ jobs:
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
 
+  # Build the django image once (with layer caching) and hand it to the test
+  # shards as an artifact, so N shards don't each rebuild it from scratch.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build django image (cached)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./compose/local/django/Dockerfile
+          tags: navi_backend_local_django:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/django-image.tar
+
+      - name: Upload django image
+        uses: actions/upload-artifact@v4
+        with:
+          name: django-image
+          path: /tmp/django-image.tar
+          retention-days: 1
+
+      - name: Build the docs
+        run: docker compose -f docker-compose.docs.yml build docs
+
   pytest:
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -42,13 +74,14 @@ jobs:
       - name: Checkout Code Repository
         uses: actions/checkout@v6
 
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Download django image
+        uses: actions/download-artifact@v4
         with:
-          python-version: '3.14'
-          cache-dependency-path: |
-            uv.lock
+          name: django-image
+          path: /tmp
+
+      - name: Load django image
+        run: docker load -i /tmp/django-image.tar
 
       - name: Create CI env files
         run: |
@@ -65,13 +98,6 @@ jobs:
             echo "DATABASE_URL=postgres://navi@postgres:5432/navi_backend"
           } > .envs/.local/.postgres
           touch .envs/.local/.stripe
-
-      - name: Build the Stack
-        run: docker compose -f docker-compose.local.yml build django
-
-
-      - name: Build the docs
-        run: docker compose -f docker-compose.docs.yml build docs
 
       - name: Check DB Migrations
         run: docker compose -f docker-compose.local.yml run --rm django python manage.py makemigrations --check
