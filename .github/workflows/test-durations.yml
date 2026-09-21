@@ -39,7 +39,7 @@ jobs:
         run: docker compose -f docker-compose.local.yml run django pytest --store-durations
 
       - name: Upload .test_durations
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-durations
           path: .test_durations
