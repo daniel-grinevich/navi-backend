@@ -628,7 +628,7 @@ mfa = [
 
 [[package]]
 name = "django-anymail"
-version = "14.0"
+version = "15.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "django" },
@@ -636,9 +636,9 @@ dependencies = [
     { name = "requests" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f4/cb/25aa288f7ce37331d0ebe0321f3a3079add297b037d6d4b4b363bf080e0b/django_anymail-14.0.tar.gz", hash = "sha256:ca42e52da62d2c96ce92412f9d68ef6d2067d96a384096b6e932d6a247e9fd61", size = 106257, upload-time = "2025-12-18T01:36:07.944Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0b/f9/7fb704db13b2de283d51f1524861e37a87d1e4c345068c90dd578047404f/django_anymail-15.2.tar.gz", hash = "sha256:65b26b1c99e6a09051b71b012ac4dfdd75a33aeb057315944dd9fb872cae57cf", size = 110533, upload-time = "2026-09-05T23:04:17.67Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/81/83/6d92a06dba4ef471aa1bbbe2e1461103800beea6a4bf95ac5f3d0f21e167/django_anymail-14.0-py3-none-any.whl", hash = "sha256:98e5575bcff231952a92117b7d0a4dd37fab582333a343de302d415a31dc72b1", size = 146119, upload-time = "2025-12-18T01:36:06.612Z" },
+    { url = "https://files.pythonhosted.org/packages/bc/5a/fe84e7afa8297f86b95b0120e3e635d045719d217fbca321cf56d363286e/django_anymail-15.2-py3-none-any.whl", hash = "sha256:866ed547e9d3110210e6fad343a2311eead55dbd4d544195fb628d06ae25d737", size = 150759, upload-time = "2026-09-05T23:04:16.007Z" },
 ]
 
 [[package]]
@@ -1574,7 +1574,7 @@ requires-dist = [
     { name = "crispy-bootstrap5", specifier = "==2025.6" },
     { name = "django", specifier = "==5.2.13" },
     { name = "django-allauth", extras = ["mfa"], specifier = "==65.13.1" },
-    { name = "django-anymail", extras = ["mailgun"], specifier = "==14.0" },
+    { name = "django-anymail", extras = ["mailgun"], specifier = "==15.2" },
     { name = "django-celery-beat", specifier = "==2.8.1" },
     { name = "django-cors-headers", specifier = "==4.6.0" },
     { name = "django-crispy-forms", specifier = "==2.3" },
@@ -1683,7 +1683,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess", marker = "platform_python_implementation != 'PyPy' or sys_platform != 'win32'" },
+    { name = "ptyprocess" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
