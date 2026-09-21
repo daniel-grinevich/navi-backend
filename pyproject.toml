@@ -30,7 +30,7 @@ dependencies = [
   "hiredis==3.1.0",
   "httpx2==2.12.0",
   "pillow==12.3.0",
-  "psycopg[c]==3.2.3",
+  "psycopg[c]==3.3.6",
   "python-slugify==8.0.4",
   "redis==7.1.0",
   "sentry-sdk[celery]>=2.0",
