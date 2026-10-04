@@ -1,9 +1,5 @@
 name: CI
 
-env:
-  DOCKER_BUILDKIT: 1
-  COMPOSE_DOCKER_CLI_BUILD: 1
-
 on:
   pull_request:
     branches: ['master', 'main', 'development']
@@ -31,8 +27,9 @@ jobs:
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
 
-  # Build the django image once (with layer caching) and hand it to the test
-  # shards as an artifact, so N shards don't each rebuild it from scratch.
+  # Proves the image we actually ship still builds (catches missing system libs,
+  # e.g. WeasyPrint -> pango). Runs in parallel with the tests; nothing waits on it.
+  # The layer cache is only written on pushes, so PRs don't pay the ~60s upload.
   build:
     runs-on: ubuntu-latest
     steps:
@@ -42,74 +39,72 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build django image (cached)
+      - name: Build production django image (cached)
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./compose/local/django/Dockerfile
-          tags: navi_backend_local_django:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          outputs: type=docker,dest=/tmp/django-image.tar
+          file: ./compose/production/django/Dockerfile
+          push: false
+          cache-from: type=gha,scope=django-production
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,scope=django-production,mode=max' || '' }}
 
-      - name: Upload django image
-        uses: actions/upload-artifact@v4
-        with:
-          name: django-image
-          path: /tmp/django-image.tar
-          retention-days: 1
-
+  # Tests run directly on the runner (uv + service containers) instead of inside
+  # the docker image, so shards start immediately instead of waiting for a build.
   pytest:
-    needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         group: [1, 2, 3, 4]
 
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: navi
+          POSTGRES_DB: navi_backend
+          # Ephemeral CI database: trust auth, so no fake password in the repo.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U navi"
+          --health-interval 2s --health-timeout 5s --health-retries 15
+      redis:
+        image: redis:6
+        ports: ['6379:6379']
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DATABASE_URL: postgres://navi@localhost:5432/navi_backend
+      REDIS_URL: redis://localhost:6379/0
+      CELERY_BROKER_URL: redis://localhost:6379/0
+      CELERY_RESULT_BACKEND: redis://localhost:6379/0
+
     steps:
       - name: Checkout Code Repository
         uses: actions/checkout@v6
 
-      - name: Download django image
-        uses: actions/download-artifact@v4
-        with:
-          name: django-image
-          path: /tmp
-
-      - name: Load django image
-        run: docker load -i /tmp/django-image.tar
-
-      - name: Create CI env files
+      # Same runtime libs as the Dockerfile (psycopg[c] builds against libpq;
+      # WeasyPrint needs pango at import). Usually preinstalled on the runner.
+      - name: Ensure system libraries
         run: |
-          mkdir -p .envs/.local
-          printf 'DJANGO_SETTINGS_MODULE=config.settings.test\n' > .envs/.local/.django
-          # Ephemeral CI Postgres uses trust auth, so the URL carries no
-          # password (avoids tripping the secret scanner on a fake credential).
-          {
-            echo "POSTGRES_HOST=postgres"
-            echo "POSTGRES_PORT=5432"
-            echo "POSTGRES_DB=navi_backend"
-            echo "POSTGRES_USER=navi"
-            echo "POSTGRES_HOST_AUTH_METHOD=trust"
-            echo "DATABASE_URL=postgres://navi@postgres:5432/navi_backend"
-          } > .envs/.local/.postgres
-          touch .envs/.local/.stripe
+          pkgs="libpq-dev libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 shared-mime-info"
+          dpkg -s $pkgs >/dev/null 2>&1 || { sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends $pkgs; }
 
-      # Tests only need postgres + redis (test settings use filesystem storage),
-      # so start those explicitly and run django with --no-deps. Keeps CI off
-      # MinIO/Mailpit images entirely -- a registry outage there can't break tests.
-      - name: Start Postgres and Redis
-        run: docker compose -f docker-compose.local.yml up -d postgres redis
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.14'
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
-      - name: Check DB Migrations
-        run: docker compose -f docker-compose.local.yml run --rm --no-deps django python manage.py makemigrations --check
+      - name: Install dependencies
+        run: uv sync --frozen
 
-      - name: Run DB Migrations
-        run: docker compose -f docker-compose.local.yml run --rm --no-deps django python manage.py migrate
+      - name: Check for missing migrations
+        if: matrix.group == 1
+        run: uv run python manage.py makemigrations --check --dry-run
 
+      # pytest-django builds the test DB by running migrations itself.
       - name: Run Django Tests (shard ${{ matrix.group }}/4)
-        run: docker compose -f docker-compose.local.yml run --no-deps django pytest --splits 4 --group ${{ matrix.group }}
-
-      - name: Tear down the Stack
-        run: docker compose -f docker-compose.local.yml down
+        run: uv run pytest -p no:sugar --splits 4 --group ${{ matrix.group }}
