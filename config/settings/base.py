@@ -177,7 +177,6 @@ PASSWORD_HASHERS = [
 # Payment
 STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-
 STRIPE_PUBLISHABLE_KEY = env("STRIPE_PUBLISHABLE_KEY", default="")
 
 # Tax rates are pulled per NaviPort jurisdiction from TaxJar by a nightly job
@@ -238,6 +237,25 @@ STATICFILES_FINDERS = [
 MEDIA_ROOT = str(APPS_DIR / "media")
 # https://docs.djangoproject.com/en/dev/ref/settings/#media-url
 MEDIA_URL = "/media/"
+
+# OBJECT STORAGE (S3-compatible)
+# ------------------------------------------------------------------------------
+# S3-compatible storage for user media/uploads. All values come from the env so
+# the same code targets Cloudflare R2 (production) and in-cluster MinIO (staging).
+# staging.py / production.py set STORAGES["default"] = S3_MEDIA_STORAGE; local and
+# test keep filesystem storage. Buckets are PRIVATE, so files are served via
+# short-lived presigned URLs (AWS_QUERYSTRING_AUTH).
+AWS_ACCESS_KEY_ID = env("S3_ACCESS_KEY_ID", default="")
+AWS_SECRET_ACCESS_KEY = env("S3_SECRET_ACCESS_KEY", default="")
+AWS_STORAGE_BUCKET_NAME = env("S3_BUCKET_NAME", default="")
+AWS_S3_ENDPOINT_URL = env("S3_ENDPOINT_URL", default="")
+AWS_S3_REGION_NAME = env("S3_REGION", default="auto")
+AWS_S3_SIGNATURE_VERSION = "s3v4"
+AWS_S3_ADDRESSING_STYLE = "path"  # R2 and MinIO both prefer path-style URLs
+AWS_DEFAULT_ACL = None  # private bucket; no per-object ACLs
+AWS_QUERYSTRING_AUTH = True  # serve media via signed, expiring URLs
+AWS_QUERYSTRING_EXPIRE = env.int("S3_QUERYSTRING_EXPIRE", default=3600)
+S3_MEDIA_STORAGE = {"BACKEND": "storages.backends.s3.S3Storage"}
 
 # TEMPLATES
 # ------------------------------------------------------------------------------

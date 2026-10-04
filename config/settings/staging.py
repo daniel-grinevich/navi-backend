@@ -1,7 +1,7 @@
 from .base import *  # noqa: F403
 from .base import DATABASES
-from .base import INSTALLED_APPS
 from .base import REDIS_URL
+from .base import S3_MEDIA_STORAGE
 from .base import SIMPLE_JWT
 from .base import env
 from .sentry import init_sentry
@@ -12,17 +12,10 @@ DEBUG = True
 # from base, which reads this value.
 ENVIRONMENT = "staging"
 
-try:
-    from pathlib import Path
-
-    with Path(env("DJANGO_SECRET_KEY_FILE")).open() as f:
-        SECRET_KEY = f.read().strip()
-except OSError:
-    # This should only be used during build/CI processes
-    import logging
-
-    logging.getLogger(__name__).warning("Using temporary build key")
-    SECRET_KEY = "temporary-build-only-key"  # noqa: S105
+# Secret key comes from the environment (Infisical -> ESO -> envFrom at runtime).
+# The throwaway default lets build/CI steps that import settings without the real
+# secret (e.g. collectstatic) succeed; it is never used to serve real requests.
+SECRET_KEY = env("DJANGO_SECRET_KEY", default="temporary-build-only-key")
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")
 
@@ -57,9 +50,8 @@ CACHES = {
 }
 
 STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
+    # User media/uploads -> in-cluster MinIO (S3-compatible; R2 is prod-only)
+    "default": S3_MEDIA_STORAGE,
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
@@ -82,16 +74,18 @@ SPECTACULAR_SETTINGS = {
 
 ADMIN_URL = env("DJANGO_ADMIN_URL")
 
-if env.bool("USE_MAILGUN", default=False):
-    INSTALLED_APPS += ["anymail"]
-    EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
-    ANYMAIL = {
-        "MAILGUN_API_KEY": env("MAILGUN_API_KEY"),
-        "MAILGUN_SENDER_DOMAIN": env("MAILGUN_DOMAIN"),
-        "MAILGUN_API_URL": env("MAILGUN_API_URL", default="https://api.mailgun.net/v3"),
-    }
-else:
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# EMAIL -> Mailpit (in-cluster SMTP catcher)
+# ------------------------------------------------------------------------------
+# Mailpit accepts all mail on :1025 (no auth/TLS) and shows it in its web UI, so
+# staging never sends real email to customers. See rainbow-road/mailpit.
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = env("EMAIL_HOST", default="mailpit.mailpit.svc")
+EMAIL_PORT = env.int("EMAIL_PORT", default=1025)
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
+DEFAULT_FROM_EMAIL = env(
+    "DJANGO_DEFAULT_FROM_EMAIL",
+    default="Navi Staging <noreply@staging.navitascoffee.com>",
+)
 
 ENVIRONMENT_NAME = "Staging"
 
