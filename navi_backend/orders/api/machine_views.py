@@ -199,7 +199,7 @@ class MachineOrderCompleteView(APIView):
             # Payment was already taken at scan (start), so completion just
             # finalizes the order and kicks off invoicing + awards.
             broadcast_order_status(order.id, "D")
-            create_order_invoice.apply_async(args=[order.id], queue="invoice")
+            create_order_invoice.apply_async(args=[order.id])
             process_order_awards.apply_async(args=[str(order.id)])
         else:
             MachineErrorLog.objects.create(

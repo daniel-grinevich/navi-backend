@@ -6,6 +6,4 @@ set -o nounset
 
 cd /app
 
-# Consume every queue tasks are routed to (same as local/staging). Magic-link and
-# invoice emails go to "email" (apply_async(queue=...)); without it they're never sent.
-exec celery -A config.celery worker -l INFO -Q celery,invoice,email
+exec celery -A config.celery worker -l INFO

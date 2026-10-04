@@ -34,7 +34,6 @@ class TestMagicLinkRequestView:
         backend = settings.BACKEND_URL.rstrip("/")
         assert link.startswith(f"{backend}/api/auth/magic/verify/?")
         assert "token=" in link
-        assert kwargs["queue"] == "email"
         assert kwargs["expires"] == MAGIC_LINK_EXPIRES_SECONDS
 
     @patch(

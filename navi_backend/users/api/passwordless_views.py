@@ -59,7 +59,6 @@ class MagicLinkRequestView(APIView):
         # is worthless -- drop it rather than deliver a dead link.
         send_magic_link_email.apply_async(
             args=[email, link],
-            queue="email",
             expires=15 * 60,
         )
 
