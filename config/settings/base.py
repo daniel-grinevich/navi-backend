@@ -378,7 +378,8 @@ SMS_BACKEND = env("SMS_BACKEND", default="console")
 # Django Admin URL.
 ADMIN_URL = "admin/"
 # https://docs.djangoproject.com/en/dev/ref/settings/#admins
-ADMINS = [("""James Ridgeway""", "jamesaridgeway@gmail.com")]
+# Empty on purpose: errors are logged, not emailed (it burned the Brevo quota).
+ADMINS: list[tuple[str, str]] = []
 # https://docs.djangoproject.com/en/dev/ref/settings/#managers
 MANAGERS = ADMINS
 # https://cookiecutter-django.readthedocs.io/en/latest/settings.html#other-environment-settings

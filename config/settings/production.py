@@ -14,6 +14,11 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["navitascoffee.com"])
 
+# Prometheus scrapes /metrics at the pod IP, so the Host header is that IP.
+# POD_IP comes from the Downward API (rainbow-road navi/base/navi-api.yaml).
+if POD_IP := env("POD_IP", default=""):
+    ALLOWED_HOSTS.append(POD_IP)
+
 # CORS / CSRF
 # ------------------------------------------------------------------------------
 CORS_ALLOWED_ORIGINS = env.list(
@@ -127,63 +132,8 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")  # Brevo SMTP key
 # LOGGING
 # ------------------------------------------------------------------------------
 ENVIRONMENT = "production"
-# https://docs.djangoproject.com/en/dev/ref/settings/#logging
-# See https://docs.djangoproject.com/en/dev/topics/logging for
-# more details on how to customize your logging configuration.
-# Same JSON-lines console setup as base, plus mail_admins for 500s.
-# The named-logger handler attachments below are a deliberate, temporary
-# deviation from "handlers on root only" — Sentry will replace mail_admins.
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "filters": {
-        "require_debug_false": {"()": "django.utils.log.RequireDebugFalse"},
-        "log_context": {"()": "navi_backend.core.logging.filters.LogContextFilter"},
-        "static_fields": {
-            "()": "navi_backend.core.logging.filters.StaticFieldsFilter",
-        },
-    },
-    "formatters": {
-        "json": {
-            "()": "navi_backend.core.logging.formatters.JSONFormatter",
-            "fmt_keys": {
-                "level": "levelname",
-                "logger": "name",
-                "module": "module",
-                "line": "lineno",
-                "process": "process",
-            },
-        },
-    },
-    "handlers": {
-        "mail_admins": {
-            "level": "ERROR",
-            "filters": ["require_debug_false"],
-            "class": "django.utils.log.AdminEmailHandler",
-        },
-        "console": {
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stdout",
-            "filters": ["log_context", "static_fields"],
-            "formatter": "json",
-        },
-    },
-    "root": {"level": "INFO", "handlers": ["console"]},
-    "loggers": {
-        "django.request": {
-            "handlers": ["mail_admins"],
-            "level": "ERROR",
-            "propagate": True,
-        },
-        # No console handler here (root already prints it once via
-        # propagation) so host-scanner noise isn't double-logged.
-        "django.security.DisallowedHost": {
-            "level": "ERROR",
-            "handlers": ["mail_admins"],
-            "propagate": True,
-        },
-    },
-}
+# LOGGING is inherited from base (JSON lines to stdout). No mail_admins:
+# emailing errors burned the Brevo quota; errors are in the pod logs.
 
 # django-rest-framework
 # -------------------------------------------------------------------------------
