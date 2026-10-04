@@ -342,6 +342,10 @@ SIMPLE_JWT = {
 # REDIRECT_URI must exactly match an "Authorized redirect URI" registered there
 # and point at this backend's callback. FRONTEND_URL is where the callback
 # sends the browser after setting the auth cookies.
+# This pod's own IP, via the Downward API (rainbow-road navi/base/navi-api.yaml).
+# Prometheus scrapes /metrics at it; see navi_backend.core.views.internal_metrics.
+POD_IP = env("POD_IP", default="")
+
 GOOGLE_OAUTH_CLIENT_ID = env("GOOGLE_OAUTH_CLIENT_ID", default="")
 GOOGLE_OAUTH_CLIENT_SECRET = env("GOOGLE_OAUTH_CLIENT_SECRET", default="")
 GOOGLE_OAUTH_REDIRECT_URI = env(
