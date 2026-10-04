@@ -6,4 +6,4 @@ set -o nounset
 
 cd /app
 
-celery -A config.celery worker -l INFO
+exec celery -A config.celery worker -l INFO
