@@ -1,0 +1,65 @@
+name: Update test durations
+
+# Manually-run job that records per-test timings into .test_durations, which
+# pytest-split uses to balance the CI shards by measured duration (without it,
+# shards are split by test count and can be lopsided). Run this after notable
+# test changes, then download the artifact and commit .test_durations.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  durations:
+    runs-on: ubuntu-latest
+
+    # Same native setup as the CI pytest job.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: navi
+          POSTGRES_DB: navi_backend
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U navi"
+          --health-interval 2s --health-timeout 5s --health-retries 15
+      redis:
+        image: redis:6
+        ports: ['6379:6379']
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DATABASE_URL: postgres://navi@localhost:5432/navi_backend
+      REDIS_URL: redis://localhost:6379/0
+      CELERY_BROKER_URL: redis://localhost:6379/0
+      CELERY_RESULT_BACKEND: redis://localhost:6379/0
+
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v6
+
+      - name: Ensure system libraries
+        run: |
+          pkgs="libpq-dev libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 shared-mime-info"
+          dpkg -s $pkgs >/dev/null 2>&1 || { sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends $pkgs; }
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.14'
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Record test durations
+        run: uv run pytest -p no:sugar --store-durations
+
+      - name: Upload .test_durations
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-durations
+          path: .test_durations
+          retention-days: 7

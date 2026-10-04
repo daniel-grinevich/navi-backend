@@ -1,7 +1,7 @@
 from .base import *  # noqa: F403
 from .base import DATABASES
-from .base import INSTALLED_APPS
 from .base import REDIS_URL
+from .base import S3_MEDIA_STORAGE
 from .base import SIMPLE_JWT
 from .base import SPECTACULAR_SETTINGS
 from .base import env
@@ -82,9 +82,9 @@ SECURE_CONTENT_TYPE_NOSNIFF = env.bool(
 # STATIC & MEDIA
 # ------------------------
 STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
+    # User media/uploads -> Cloudflare R2 (private bucket, presigned URLs)
+    "default": S3_MEDIA_STORAGE,
+    # Static assets stay on WhiteNoise (served by the app)
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
@@ -111,19 +111,17 @@ ACCOUNT_EMAIL_SUBJECT_PREFIX = EMAIL_SUBJECT_PREFIX
 # Django Admin URL regex.
 ADMIN_URL = env("DJANGO_ADMIN_URL")
 
-# Anymail
+# EMAIL -> Brevo SMTP relay
 # ------------------------------------------------------------------------------
-# https://anymail.readthedocs.io/en/stable/installation/#installing-anymail
-INSTALLED_APPS += ["anymail"]
-# https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
-# https://anymail.readthedocs.io/en/stable/installation/#anymail-settings-reference
-# https://anymail.readthedocs.io/en/stable/esps/mailgun/
-EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
-ANYMAIL = {
-    "MAILGUN_API_KEY": env("MAILGUN_API_KEY"),
-    "MAILGUN_SENDER_DOMAIN": env("MAILGUN_DOMAIN"),
-    "MAILGUN_API_URL": env("MAILGUN_API_URL", default="https://api.mailgun.net/v3"),
-}
+# Uses Django's built-in SMTP backend (no Anymail). Same backend as staging's
+# Mailpit — only host/port/creds differ. EMAIL_HOST_PASSWORD is the Brevo SMTP
+# KEY (SMTP & API -> SMTP), NOT the API key.
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = env("EMAIL_HOST", default="smtp-relay.brevo.com")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")  # Brevo SMTP login
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")  # Brevo SMTP key
 
 
 # LOGGING

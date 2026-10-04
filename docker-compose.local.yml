@@ -113,8 +113,11 @@ services:
       - "1025:1025"   # SMTP
       - "8025:8025"   # Web UI
 
+  # MinIO stopped publishing community images (quay.io/minio/* and Docker Hub
+  # minio/* now 401), so use PGSTY's maintained drop-in fork. Same CLI, API,
+  # MINIO_* env vars, and /minio/health/live endpoint; tags pinned for repeatability.
   minio:
-    image: quay.io/minio/minio:latest
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: minio
     ports:
       - "9000:9000"
@@ -132,7 +135,7 @@ services:
       retries: 5
 
   minio-init:
-    image: quay.io/minio/mc:latest
+    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
     container_name: minio-init
     depends_on:
       minio:

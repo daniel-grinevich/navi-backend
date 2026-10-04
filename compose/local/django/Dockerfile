@@ -15,7 +15,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
   libpq-dev
 
 # uv is the single source of truth for dependencies (pyproject.toml + uv.lock).
-RUN pip install --no-cache-dir uv
+# Pull the prebuilt uv binary instead of pip-installing it (faster, no resolve).
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 COPY pyproject.toml uv.lock ./
 # Local image includes the dev group (pytest, ruff, debugpy, ...).

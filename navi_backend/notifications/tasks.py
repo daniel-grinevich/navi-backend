@@ -16,11 +16,10 @@ User = get_user_model()
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=5)
 def send_user_confirmation_email(self, user_id):
     try:
-        user = (
-            User.objects.select_related("preferences")
-            .only("id", "email", "name")
-            .get(pk=user_id)
-        )
+        # NB: don't combine .only(...) with select_related("preferences") — Django
+        # raises FieldError ("cannot be both deferred and traversed"). We need
+        # preferences loaded for the opt-in check, so fetch the full row.
+        user = User.objects.select_related("preferences").get(pk=user_id)
     except User.DoesNotExist:
         logger.warning("confirmation_email_user_not_found", user_id=user_id)
         return
@@ -71,11 +70,10 @@ def send_sms_otp(self, phone, message):
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=5)
 def send_invoice_email(self, user_id, invoice_id):
     try:
-        user = (
-            User.objects.select_related("preferences")
-            .only("id", "email", "name")
-            .get(pk=user_id)
-        )
+        # NB: don't combine .only(...) with select_related("preferences") — Django
+        # raises FieldError ("cannot be both deferred and traversed"). We need
+        # preferences loaded for the opt-in check, so fetch the full row.
+        user = User.objects.select_related("preferences").get(pk=user_id)
     except User.DoesNotExist:
         logger.warning("invoice_email_user_not_found", user_id=user_id)
         return
