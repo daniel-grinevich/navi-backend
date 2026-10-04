@@ -378,7 +378,8 @@ SMS_BACKEND = env("SMS_BACKEND", default="console")
 # Django Admin URL.
 ADMIN_URL = "admin/"
 # https://docs.djangoproject.com/en/dev/ref/settings/#admins
-ADMINS = [("""James Ridgeway""", "jamesaridgeway@gmail.com")]
+# Comma-separated emails. Only mailed when DJANGO_ERROR_EMAILS is on (production).
+ADMINS = [(email, email) for email in env.list("DJANGO_ADMINS", default=[])]
 # https://docs.djangoproject.com/en/dev/ref/settings/#managers
 MANAGERS = ADMINS
 # https://cookiecutter-django.readthedocs.io/en/latest/settings.html#other-environment-settings
@@ -429,6 +430,12 @@ LOGGING = {
         },
     },
     "root": {"level": "INFO", "handlers": ["console"]},
+    "loggers": {
+        # Replaces Django's default "django" logger, which mails ADMINS on every
+        # error; records still reach root's console. Production opts back in to
+        # 500 emails via DJANGO_ERROR_EMAILS.
+        "django": {"handlers": [], "level": "INFO"},
+    },
 }
 
 REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")

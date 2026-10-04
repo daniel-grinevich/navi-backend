@@ -19,6 +19,11 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", default="temporary-build-only-key")
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")
 
+# Prometheus scrapes /metrics at the pod IP, so the Host header is that IP.
+# POD_IP comes from the Downward API (rainbow-road navi/base/navi-api.yaml).
+if POD_IP := env("POD_IP", default=""):
+    ALLOWED_HOSTS.append(POD_IP)
+
 CORS_ALLOWED_ORIGINS = env.list("DJANGO_CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS")
