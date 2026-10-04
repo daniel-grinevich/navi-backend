@@ -82,6 +82,9 @@ CELERY_TIMEZONE = TIME_ZONE
 # Workers use our dictConfig (see navi_backend/core/logging/celery.py);
 # backup for the setup_logging signal so Celery never reformats the root logger
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+# All tasks use the single default queue; every worker consumes it. If a task
+# ever needs isolation (dedicated workers), add CELERY_TASK_QUEUES/ROUTES here
+# rather than queue= at call sites or -Q in start scripts.
 CELERY_BEAT_SCHEDULE = {
     "refresh-effective-tax-rates": {
         "task": "navi_backend.payments.tasks.refresh_effective_tax_rates",

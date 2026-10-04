@@ -44,4 +44,4 @@ def create_order_invoice(self, order_id):
         save=True,
     )
 
-    send_invoice_email.apply_async(args=[order.user.id, invoice.id], queue="email")
+    send_invoice_email.apply_async(args=[order.user.id, invoice.id])
