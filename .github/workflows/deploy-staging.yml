@@ -21,7 +21,7 @@ jobs:
       short-sha: ${{ steps.sha.outputs.short-sha }}
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Get short SHA
         id: sha
@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout rainbow-road
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: daniel-grinevich/rainbow-road
           token: ${{ secrets.RAINBOW_ROAD_PAT }}
