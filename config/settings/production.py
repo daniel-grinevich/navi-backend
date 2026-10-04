@@ -1,5 +1,6 @@
 from .base import *  # noqa: F403
 from .base import DATABASES
+from .base import LOGGING
 from .base import REDIS_URL
 from .base import S3_MEDIA_STORAGE
 from .base import SIMPLE_JWT
@@ -132,8 +133,28 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")  # Brevo SMTP key
 # LOGGING
 # ------------------------------------------------------------------------------
 ENVIRONMENT = "production"
-# LOGGING is inherited from base (JSON lines to stdout). No mail_admins:
-# emailing errors burned the Brevo quota; errors are in the pod logs.
+# JSON lines to stdout, inherited from base. 500 emails to ADMINS are opt-in
+# (they burned the Brevo free tier once); Sentry is the main error alerting.
+# Only django.request (500s) mails -- never DisallowedHost, which is scanner noise.
+if env.bool("DJANGO_ERROR_EMAILS", default=False):
+    LOGGING = {
+        **LOGGING,
+        "handlers": {
+            **LOGGING["handlers"],
+            "mail_admins": {
+                "level": "ERROR",
+                "class": "django.utils.log.AdminEmailHandler",
+            },
+        },
+        "loggers": {
+            **LOGGING["loggers"],
+            "django.request": {
+                "handlers": ["mail_admins"],
+                "level": "ERROR",
+                "propagate": True,
+            },
+        },
+    }
 
 # django-rest-framework
 # -------------------------------------------------------------------------------
