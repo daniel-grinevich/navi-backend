@@ -58,6 +58,9 @@ CACHES = {
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # https://docs.djangoproject.com/en/dev/ref/settings/#secure-ssl-redirect
 SECURE_SSL_REDIRECT = env.bool("DJANGO_SECURE_SSL_REDIRECT", default=True)
+# Prometheus scrapes /metrics over plain HTTP at the pod IP (TLS ends at
+# Cloudflare), so redirecting it to https breaks the scrape.
+SECURE_REDIRECT_EXEMPT = [r"^metrics$"]
 # https://docs.djangoproject.com/en/dev/ref/settings/#session-cookie-secure
 SESSION_COOKIE_SECURE = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#session-cookie-name
