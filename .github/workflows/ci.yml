@@ -91,22 +91,15 @@ jobs:
           pkgs="libpq-dev libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 shared-mime-info"
           dpkg -s $pkgs >/dev/null 2>&1 || { sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends $pkgs; }
 
-      # Use the runner's regular CPython build: psycopg[c] fails to compile
-      # against uv's standalone Python headers ("must have a working 64-bit
-      # integer datatype"). The Docker image uses the official build too.
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.14'
-
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
         with:
+          python-version: '3.14'
           enable-cache: true
           cache-dependency-glob: uv.lock
 
       - name: Install dependencies
-        run: uv sync --frozen --python "$(which python)"
+        run: uv sync --frozen
 
       - name: Check for missing migrations
         if: matrix.group == 1
