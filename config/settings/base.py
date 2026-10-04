@@ -82,6 +82,14 @@ CELERY_TIMEZONE = TIME_ZONE
 # Workers use our dictConfig (see navi_backend/core/logging/celery.py);
 # backup for the setup_logging signal so Celery never reformats the root logger
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+# Without these, each worker forks one child per *node* CPU (it can't see the
+# pod's CPU limit), i.e. 4+ copies of Django per pod -> OOM at the 512Mi limit.
+CELERY_WORKER_CONCURRENCY = env.int("CELERY_WORKER_CONCURRENCY", default=2)
+# Recycle a child once its RSS passes this many KiB (WeasyPrint PDFs bloat it).
+CELERY_WORKER_MAX_MEMORY_PER_CHILD = env.int(
+    "CELERY_WORKER_MAX_MEMORY_PER_CHILD",
+    default=200_000,
+)
 # All tasks use the single default queue; every worker consumes it. If a task
 # ever needs isolation (dedicated workers), add CELERY_TASK_QUEUES/ROUTES here
 # rather than queue= at call sites or -Q in start scripts.
