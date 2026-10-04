@@ -627,21 +627,6 @@ mfa = [
 ]
 
 [[package]]
-name = "django-anymail"
-version = "14.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "django" },
-    { name = "idna" },
-    { name = "requests" },
-    { name = "urllib3" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f4/cb/25aa288f7ce37331d0ebe0321f3a3079add297b037d6d4b4b363bf080e0b/django_anymail-14.0.tar.gz", hash = "sha256:ca42e52da62d2c96ce92412f9d68ef6d2067d96a384096b6e932d6a247e9fd61", size = 106257, upload-time = "2025-12-18T01:36:07.944Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/81/83/6d92a06dba4ef471aa1bbbe2e1461103800beea6a4bf95ac5f3d0f21e167/django_anymail-14.0-py3-none-any.whl", hash = "sha256:98e5575bcff231952a92117b7d0a4dd37fab582333a343de302d415a31dc72b1", size = 146119, upload-time = "2025-12-18T01:36:06.612Z" },
-]
-
-[[package]]
 name = "django-appconf"
 version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1509,7 +1494,6 @@ dependencies = [
     { name = "crispy-bootstrap5" },
     { name = "django" },
     { name = "django-allauth", extra = ["mfa"] },
-    { name = "django-anymail" },
     { name = "django-celery-beat" },
     { name = "django-cors-headers" },
     { name = "django-crispy-forms" },
@@ -1574,7 +1558,6 @@ requires-dist = [
     { name = "crispy-bootstrap5", specifier = "==2025.6" },
     { name = "django", specifier = "==5.2.13" },
     { name = "django-allauth", extras = ["mfa"], specifier = "==65.13.1" },
-    { name = "django-anymail", extras = ["mailgun"], specifier = "==14.0" },
     { name = "django-celery-beat", specifier = "==2.8.1" },
     { name = "django-cors-headers", specifier = "==4.6.0" },
     { name = "django-crispy-forms", specifier = "==2.3" },

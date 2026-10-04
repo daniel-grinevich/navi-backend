@@ -3,6 +3,7 @@ from .base import INSTALLED_APPS
 from .base import LOGGING
 from .base import MIDDLEWARE
 from .base import REDIS_URL
+from .base import S3_MEDIA_STORAGE
 from .base import env
 
 # GENERAL
@@ -37,13 +38,19 @@ CACHES = {
     },
 }
 
-# EMAIL
+# EMAIL -> Mailpit (docker-compose.local.yml)
 # ------------------------------------------------------------------------------
+# SMTP to the local Mailpit container (catches all mail, web UI at :8025), same
+# backend as staging/production. Override DJANGO_EMAIL_BACKEND=...console... if
+# you'd rather have emails printed to the runserver output instead.
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
 EMAIL_BACKEND = env(
     "DJANGO_EMAIL_BACKEND",
-    default="django.core.mail.backends.console.EmailBackend",
+    default="django.core.mail.backends.smtp.EmailBackend",
 )
+EMAIL_HOST = env("EMAIL_HOST", default="mailpit")
+EMAIL_PORT = env.int("EMAIL_PORT", default=1025)
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
 
 # WhiteNoise
 # ------------------------------------------------------------------------------
@@ -114,22 +121,18 @@ CORS_ALLOW_METHODS = [
 # Human-readable one-liners in dev; staging/production keep base's JSON lines.
 LOGGING["handlers"]["console"]["formatter"] = "plain"  # type: ignore[index]
 
-# STORAGES (MinIO - S3-compatible object storage for local dev)
+# STORAGES -> local MinIO (S3-compatible), matching staging/production
 # ------------------------------------------------------------------------------
+# Same backend + settings as base/staging/prod (private bucket, presigned URLs via
+# base's AWS_QUERYSTRING_AUTH=True) — just pointed at the docker-compose MinIO with
+# local defaults. Keeps dev/prod parity so signed-URL behavior is exercised locally.
+AWS_ACCESS_KEY_ID = env("S3_ACCESS_KEY_ID", default="minioadmin")
+AWS_SECRET_ACCESS_KEY = env("S3_SECRET_ACCESS_KEY", default="minioadmin")
+AWS_STORAGE_BUCKET_NAME = env("S3_BUCKET_NAME", default="navi-local-media")
+AWS_S3_ENDPOINT_URL = env("S3_ENDPOINT_URL", default="http://minio:9000")
+AWS_S3_REGION_NAME = env("S3_REGION", default="us-east-1")
 STORAGES = {
-    "default": {
-        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-        "OPTIONS": {
-            "access_key": env("MINIO_ACCESS_KEY"),
-            "secret_key": env("MINIO_SECRET_KEY"),
-            "bucket_name": env("MINIO_BUCKET_NAME", default="navi-local-media"),
-            "endpoint_url": env("MINIO_ENDPOINT_URL", default="http://minio:9000"),
-            "custom_domain": None,
-            "default_acl": None,
-            "file_overwrite": False,
-            "querystring_auth": False,
-        },
-    },
+    "default": S3_MEDIA_STORAGE,
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
