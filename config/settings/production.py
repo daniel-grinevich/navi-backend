@@ -1,6 +1,7 @@
 from .base import *  # noqa: F403
 from .base import DATABASES
 from .base import LOGGING
+from .base import POD_IP
 from .base import REDIS_URL
 from .base import S3_MEDIA_STORAGE
 from .base import SIMPLE_JWT
@@ -16,8 +17,7 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["navitascoffee.com"])
 
 # Prometheus scrapes /metrics at the pod IP, so the Host header is that IP.
-# POD_IP comes from the Downward API (rainbow-road navi/base/navi-api.yaml).
-if POD_IP := env("POD_IP", default=""):
+if POD_IP:
     ALLOWED_HOSTS.append(POD_IP)
 
 # CORS / CSRF
