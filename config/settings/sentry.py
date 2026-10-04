@@ -6,6 +6,7 @@ import sentry_sdk
 from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
+from sentry_sdk.integrations.logging import ignore_logger
 from sentry_sdk.integrations.redis import RedisIntegration
 
 
@@ -31,3 +32,5 @@ def init_sentry(
         # Auth lives in HttpOnly cookies — never ship cookies/PII to Sentry.
         send_default_pii=False,
     )
+    # Bad Host headers come from scanners, not bugs; keep them out of the quota.
+    ignore_logger("django.security.DisallowedHost")

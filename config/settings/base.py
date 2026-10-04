@@ -82,6 +82,14 @@ CELERY_TIMEZONE = TIME_ZONE
 # Workers use our dictConfig (see navi_backend/core/logging/celery.py);
 # backup for the setup_logging signal so Celery never reformats the root logger
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+# Without these, each worker forks one child per *node* CPU (it can't see the
+# pod's CPU limit), i.e. 4+ copies of Django per pod -> OOM at the 512Mi limit.
+CELERY_WORKER_CONCURRENCY = env.int("CELERY_WORKER_CONCURRENCY", default=2)
+# Recycle a child once its RSS passes this many KiB (WeasyPrint PDFs bloat it).
+CELERY_WORKER_MAX_MEMORY_PER_CHILD = env.int(
+    "CELERY_WORKER_MAX_MEMORY_PER_CHILD",
+    default=200_000,
+)
 # All tasks use the single default queue; every worker consumes it. If a task
 # ever needs isolation (dedicated workers), add CELERY_TASK_QUEUES/ROUTES here
 # rather than queue= at call sites or -Q in start scripts.
@@ -378,7 +386,8 @@ SMS_BACKEND = env("SMS_BACKEND", default="console")
 # Django Admin URL.
 ADMIN_URL = "admin/"
 # https://docs.djangoproject.com/en/dev/ref/settings/#admins
-ADMINS = [("""James Ridgeway""", "jamesaridgeway@gmail.com")]
+# Comma-separated emails. Only mailed when DJANGO_ERROR_EMAILS is on (production).
+ADMINS = [(email, email) for email in env.list("DJANGO_ADMINS", default=[])]
 # https://docs.djangoproject.com/en/dev/ref/settings/#managers
 MANAGERS = ADMINS
 # https://cookiecutter-django.readthedocs.io/en/latest/settings.html#other-environment-settings
@@ -429,6 +438,12 @@ LOGGING = {
         },
     },
     "root": {"level": "INFO", "handlers": ["console"]},
+    "loggers": {
+        # Replaces Django's default "django" logger, which mails ADMINS on every
+        # error; records still reach root's console. Production opts back in to
+        # 500 emails via DJANGO_ERROR_EMAILS.
+        "django": {"handlers": [], "level": "INFO"},
+    },
 }
 
 REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
