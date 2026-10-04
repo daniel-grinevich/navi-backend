@@ -11,32 +11,51 @@ on:
 jobs:
   durations:
     runs-on: ubuntu-latest
+
+    # Same native setup as the CI pytest job.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: navi
+          POSTGRES_DB: navi_backend
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U navi"
+          --health-interval 2s --health-timeout 5s --health-retries 15
+      redis:
+        image: redis:6
+        ports: ['6379:6379']
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DATABASE_URL: postgres://navi@localhost:5432/navi_backend
+      REDIS_URL: redis://localhost:6379/0
+      CELERY_BROKER_URL: redis://localhost:6379/0
+      CELERY_RESULT_BACKEND: redis://localhost:6379/0
+
     steps:
       - name: Checkout Code Repository
         uses: actions/checkout@v6
 
-      - name: Create CI env files
+      - name: Ensure system libraries
         run: |
-          mkdir -p .envs/.local
-          printf 'DJANGO_SETTINGS_MODULE=config.settings.test\n' > .envs/.local/.django
-          {
-            echo "POSTGRES_HOST=postgres"
-            echo "POSTGRES_PORT=5432"
-            echo "POSTGRES_DB=navi_backend"
-            echo "POSTGRES_USER=navi"
-            echo "POSTGRES_HOST_AUTH_METHOD=trust"
-            echo "DATABASE_URL=postgres://navi@postgres:5432/navi_backend"
-          } > .envs/.local/.postgres
-          touch .envs/.local/.stripe
+          pkgs="libpq-dev libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 shared-mime-info"
+          dpkg -s $pkgs >/dev/null 2>&1 || { sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends $pkgs; }
 
-      - name: Build the Stack
-        run: docker compose -f docker-compose.local.yml build django
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.14'
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
-      - name: Run DB Migrations
-        run: docker compose -f docker-compose.local.yml run --rm django python manage.py migrate
+      - name: Install dependencies
+        run: uv sync --frozen
 
       - name: Record test durations
-        run: docker compose -f docker-compose.local.yml run django pytest --store-durations
+        run: uv run pytest -p no:sugar --store-durations
 
       - name: Upload .test_durations
         uses: actions/upload-artifact@v4
@@ -44,6 +63,3 @@ jobs:
           name: test-durations
           path: .test_durations
           retention-days: 7
-
-      - name: Tear down the Stack
-        run: docker compose -f docker-compose.local.yml down
