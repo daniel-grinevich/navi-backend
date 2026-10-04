@@ -6,11 +6,11 @@ env:
 
 on:
   pull_request:
-    branches: ['master', 'main']
+    branches: ['master', 'main', 'development']
     paths-ignore: ['docs/**']
 
   push:
-    branches: ['master', 'main']
+    branches: ['master', 'main', 'development']
     paths-ignore: ['docs/**']
 
 concurrency:
@@ -96,14 +96,20 @@ jobs:
           } > .envs/.local/.postgres
           touch .envs/.local/.stripe
 
+      # Tests only need postgres + redis (test settings use filesystem storage),
+      # so start those explicitly and run django with --no-deps. Keeps CI off
+      # MinIO/Mailpit images entirely -- a registry outage there can't break tests.
+      - name: Start Postgres and Redis
+        run: docker compose -f docker-compose.local.yml up -d postgres redis
+
       - name: Check DB Migrations
-        run: docker compose -f docker-compose.local.yml run --rm django python manage.py makemigrations --check
+        run: docker compose -f docker-compose.local.yml run --rm --no-deps django python manage.py makemigrations --check
 
       - name: Run DB Migrations
-        run: docker compose -f docker-compose.local.yml run --rm django python manage.py migrate
+        run: docker compose -f docker-compose.local.yml run --rm --no-deps django python manage.py migrate
 
       - name: Run Django Tests (shard ${{ matrix.group }}/4)
-        run: docker compose -f docker-compose.local.yml run django pytest --splits 4 --group ${{ matrix.group }}
+        run: docker compose -f docker-compose.local.yml run --no-deps django pytest --splits 4 --group ${{ matrix.group }}
 
       - name: Tear down the Stack
         run: docker compose -f docker-compose.local.yml down
