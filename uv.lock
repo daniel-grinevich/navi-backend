@@ -1576,7 +1576,7 @@ requires-dist = [
     { name = "hiredis", specifier = "==3.1.0" },
     { name = "httpx2", specifier = "==2.12.0" },
     { name = "pillow", specifier = "==12.3.0" },
-    { name = "psycopg", extras = ["c"], specifier = "==3.2.3" },
+    { name = "psycopg", extras = ["c"], specifier = "==3.2.13" },
     { name = "python-slugify", specifier = "==8.0.4" },
     { name = "redis", specifier = "==7.1.0" },
     { name = "sentry-sdk", extras = ["celery"], specifier = ">=2.0" },
@@ -1771,14 +1771,14 @@ wheels = [
 
 [[package]]
 name = "psycopg"
-version = "3.2.3"
+version = "3.2.13"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d1/ad/7ce016ae63e231575df0498d2395d15f005f05e32d3a2d439038e1bd0851/psycopg-3.2.3.tar.gz", hash = "sha256:a5764f67c27bec8bfac85764d23c534af2c27b893550377e37ce59c12aac47a2", size = 155550, upload-time = "2024-09-29T21:27:25.456Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/44/05/d4a05988f15fcf90e0088c735b1f2fc04a30b7fc65461d6ec278f5f2f17a/psycopg-3.2.13.tar.gz", hash = "sha256:309adaeda61d44556046ec9a83a93f42bbe5310120b1995f3af49ab6d9f13c1d", size = 160626, upload-time = "2025-11-21T22:34:32.328Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ce/21/534b8f5bd9734b7a2fcd3a16b1ee82ef6cad81a4796e95ebf4e0c6a24119/psycopg-3.2.3-py3-none-any.whl", hash = "sha256:644d3973fe26908c73d4be746074f6e5224b03c1101d302d9a53bf565ad64907", size = 197934, upload-time = "2024-09-29T21:21:19.623Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/14/f2724bd1986158a348316e86fdd0837a838b14a711df3f00e47fba597447/psycopg-3.2.13-py3-none-any.whl", hash = "sha256:a481374514f2da627157f767a9336705ebefe93ea7a0522a6cbacba165da179a", size = 206797, upload-time = "2025-11-21T22:29:39.733Z" },
 ]
 
 [package.optional-dependencies]
@@ -1788,9 +1788,9 @@ c = [
 
 [[package]]
 name = "psycopg-c"
-version = "3.2.3"
+version = "3.2.13"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/53/ba/74caf4eab78d95a173e65cb81507a589365aeafb1d9c84f374002b51dc53/psycopg_c-3.2.3.tar.gz", hash = "sha256:06ae7db8eaec1a3845960fa7f997f4ccdb1a7a7ab8dc593a680bcc74e1359671", size = 598888, upload-time = "2024-09-29T21:27:27.856Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/82/d4/f471e7f87c0a75de96a3f17a532412b8866a888383289d54ddb6adb5b54e/psycopg_c-3.2.13.tar.gz", hash = "sha256:3f8d69a563f198198aaf3333e3830c68368a4e45cd60faeabca9949f958f6480", size = 624372, upload-time = "2025-11-21T22:34:34.084Z" }
 
 [[package]]
 name = "ptyprocess"
