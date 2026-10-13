@@ -59,6 +59,8 @@ class Order(
         help_text=_("Raspberry Pi that currently holds this order."),
     )
     claimed_at = models.DateTimeField(null=True, blank=True)
+    # Why a cancelled order was cancelled (machine failure, staff refund, ...).
+    cancel_reason = models.TextField(blank=True, default="")
 
     def __str__(self):
         return f"{self.user} (v{self.created_at})"

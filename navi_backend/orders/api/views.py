@@ -1,9 +1,12 @@
 import stripe
+from django.db import transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import APIException
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAdminUser
 from rest_framework.permissions import IsAuthenticated
@@ -20,12 +23,27 @@ from navi_backend.devices.models import NaviPort
 from navi_backend.orders.models import Order
 from navi_backend.orders.models import OrderCustomization
 from navi_backend.orders.models import OrderItem
+from navi_backend.orders.services.refund_order_service import AlreadyRefundedError
+from navi_backend.orders.services.refund_order_service import NotChargedError
+from navi_backend.orders.services.refund_order_service import RefundOrderService
 from navi_backend.payments.services import StripePaymentService
 from navi_backend.payments.tasks import cancel_stripe_setup_intent
 
 from .serializers import OrderCustomizationSerializer
 from .serializers import OrderItemSerializer
 from .serializers import OrderSerializer
+from .serializers import RefundRequestSerializer
+
+
+class RefundConflict(APIException):
+    status_code = status.HTTP_409_CONFLICT
+    default_code = "refund_conflict"
+
+
+class RefundFailed(APIException):
+    status_code = status.HTTP_502_BAD_GATEWAY
+    default_detail = "Refund could not be completed."
+    default_code = "refund_failed"
 
 
 class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
@@ -132,12 +150,15 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
         super().perform_create(serializer)
 
 
+# The refund action calls Stripe; a request-wide transaction would roll back
+# local state after the money already moved. RefundOrderService commits itself.
+@method_decorator(transaction.non_atomic_requests, name="dispatch")
 class AdminOrderViewSet(ReadOnlyModelViewSet):
     """Every user's orders, for the admin panel table.
 
     Explicitly admin-only and unscoped — this is the counterpart to the client
-    OrderViewSet, whose list is always scoped to the caller. Read-only: order
-    lifecycle actions (dispatch/cancel) stay on OrderViewSet.
+    OrderViewSet, whose list is always scoped to the caller. Read-only apart
+    from the staff refund action; dispatch/cancel stay on OrderViewSet.
     """
 
     serializer_class = OrderSerializer
@@ -152,6 +173,36 @@ class AdminOrderViewSet(ReadOnlyModelViewSet):
         if status_filter:
             qs = qs.filter(order_status=status_filter)
         return qs.order_by("-created_at")
+
+    @action(detail=True, methods=["post"], url_path="refund")
+    def refund(self, request, pk=None):
+        """Fully refund a charged order and cancel it."""
+        order = self.get_object()
+        serializer = RefundRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            result = RefundOrderService.refund(
+                order.pk, serializer.validated_data["reason"]
+            )
+        except NotChargedError as exc:
+            msg = "Order has not been charged."
+            raise RefundConflict(msg) from exc
+        except AlreadyRefundedError as exc:
+            msg = "Order has already been refunded."
+            raise RefundConflict(msg) from exc
+        except stripe.error.StripeError as exc:
+            raise RefundFailed from exc
+
+        return Response(
+            {
+                "order_id": result.order_id,
+                "order_status": result.order_status,
+                "payment_status": result.payment_status,
+                "refund_id": result.refund_id,
+                "amount": f"{result.amount:.2f}",
+            }
+        )
 
 
 class OrderItemViewSet(UserScopedQuerySetMixin, BaseModelViewSet):

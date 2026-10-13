@@ -3,6 +3,7 @@ from decimal import Decimal
 
 import stripe
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 
 from navi_backend.core.logging import get_logger
@@ -12,6 +13,17 @@ from navi_backend.payments.models import Payment
 stripe.api_key = settings.STRIPE_API_KEY
 
 logger = get_logger(__name__)
+
+# Statuses a late/out-of-order webhook must never overwrite.
+FINAL_PAYMENT_STATUSES = {"succeeded", "refunded"}
+
+
+def charge_idempotency_key(order):
+    return f"order-{order.id}-charge"
+
+
+def refund_idempotency_key(order):
+    return f"order-{order.id}-refund"
 
 
 class StripePaymentService:
@@ -56,8 +68,27 @@ class StripePaymentService:
 
         Raises ``stripe.error.CardError`` if the off-session charge is declined
         or needs authentication, so the caller can refuse to start the order.
+
+        Charges at most once per order: a no-op (returns None) if a succeeded
+        PaymentIntent is already recorded, and the Stripe call carries a fixed
+        idempotency key so a retry after a timeout/lost response gets the
+        original PaymentIntent back instead of creating a second charge.
         """
         payment = order.payment
+        if payment is None:
+            msg = "Order has no payment to charge."
+            raise ValueError(msg)
+        if payment.status == "refunded":
+            msg = "Order was already refunded."
+            raise ValueError(msg)
+        if payment.is_charged:
+            logger.info(
+                "order_charge_skipped_already_charged",
+                order_id=order.id,
+                payment_intent_id=payment.stripe_payment_intent_id,
+            )
+            return None
+
         customer = StripePaymentService.get_or_create_stripe_customer(order.user)
         payment_method = StripePaymentService._resolve_payment_method(payment)
         tax = StripePaymentService.calculate_tax(order)
@@ -73,6 +104,7 @@ class StripePaymentService:
                 "order_id": order.id,
                 "tax_calculation_id": tax["calculation_id"] or "",
             },
+            idempotency_key=charge_idempotency_key(order),
         )
 
         payment.stripe_payment_intent_id = intent.id
@@ -100,9 +132,33 @@ class StripePaymentService:
                 record_stripe_tax_transaction,
             )
 
-            record_stripe_tax_transaction.apply_async(args=[str(order.id)])
+            order_id = str(order.id)
+            transaction.on_commit(
+                lambda: record_stripe_tax_transaction.apply_async(args=[order_id])
+            )
 
         return intent
+
+    @staticmethod
+    def refund_payment(payment, idempotency_key):
+        """Fully refund a payment's PaymentIntent at Stripe.
+
+        Only talks to Stripe; the caller (``RefundOrderService``) records the
+        result. The idempotency key makes concurrent or retried refunds of the
+        same order resolve to the one Refund.
+        """
+        refund = stripe.Refund.create(
+            payment_intent=payment.stripe_payment_intent_id,
+            idempotency_key=idempotency_key,
+        )
+        logger.info(
+            "payment_refunded",
+            payment_intent_id=payment.stripe_payment_intent_id,
+            refund_id=refund.id,
+            amount=refund.amount,
+            status=refund.status,
+        )
+        return refund
 
     @staticmethod
     def _resolve_payment_method(payment):
@@ -286,6 +342,10 @@ class StripePaymentService:
     def handle_webhook_event(event):
         """
         Process a verified Stripe webhook event and update local state.
+
+        Webhooks can arrive late or out of order, so handlers never move a
+        payment backwards (e.g. a delayed ``payment_intent.succeeded`` must not
+        undo a refund).
         """
         event_type = event["type"]
         obj = event["data"]["object"]
@@ -294,14 +354,20 @@ class StripePaymentService:
             StripePaymentService._handle_setup_succeeded(obj)
             return
 
+        if event_type == "charge.refunded":
+            StripePaymentService._handle_charge_refunded(obj)
+            return
+
         try:
             payment = Payment.objects.get(stripe_payment_intent_id=obj["id"])
         except Payment.DoesNotExist:
             return
 
         if event_type == "payment_intent.succeeded":
+            if payment.status == "refunded":
+                return
             payment.status = "succeeded"
-            payment.amount_received = obj["amount_received"] / 100
+            payment.amount_received = Decimal(obj["amount_received"]) / 100
             payment.save(update_fields=["status", "amount_received"])
             logger.info(
                 "payment_succeeded",
@@ -310,9 +376,18 @@ class StripePaymentService:
             )
 
         elif event_type == "payment_intent.payment_failed":
+            if payment.status in FINAL_PAYMENT_STATUSES:
+                return
             payment.status = "failed"
             payment.save(update_fields=["status"])
             logger.warning("payment_failed", payment_intent_id=obj["id"])
+
+        elif event_type == "payment_intent.canceled":
+            if payment.status in FINAL_PAYMENT_STATUSES:
+                return
+            payment.status = "canceled"
+            payment.save(update_fields=["status"])
+            logger.info("payment_intent_canceled", payment_intent_id=obj["id"])
 
     @staticmethod
     def _handle_setup_succeeded(setup_intent):
@@ -322,10 +397,50 @@ class StripePaymentService:
         except Payment.DoesNotExist:
             return
 
-        payment.status = "ready"
+        update_fields = []
         if setup_intent.get("payment_method"):
             payment.stripe_payment_method_id = setup_intent["payment_method"]
-        payment.save(update_fields=["status", "stripe_payment_method_id"])
+            update_fields.append("stripe_payment_method_id")
+        # Only promote a fresh payment; a late webhook mustn't reset a charged
+        # or refunded one back to "ready".
+        if payment.status == "requires_setup":
+            payment.status = "ready"
+            update_fields.append("status")
+        if update_fields:
+            payment.save(update_fields=update_fields)
+
+    @staticmethod
+    def _handle_charge_refunded(charge):
+        """Sync refunds made outside the app (e.g. the Stripe dashboard).
+
+        A full refund marks the payment refunded; a partial one only records
+        the refunded amount. Order status is left alone -- a dashboard refund
+        is a money decision, not a statement about whether the drink was made.
+        """
+        payment_intent_id = charge.get("payment_intent")
+        if not payment_intent_id:
+            return
+        try:
+            payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
+        except Payment.DoesNotExist:
+            return
+
+        payment.amount_refunded = Decimal(charge.get("amount_refunded", 0)) / 100
+        update_fields = ["amount_refunded"]
+        if charge.get("refunded"):
+            payment.status = "refunded"
+            update_fields.append("status")
+            refunds = (charge.get("refunds") or {}).get("data") or []
+            if refunds and not payment.stripe_refund_id:
+                payment.stripe_refund_id = refunds[0]["id"]
+                update_fields.append("stripe_refund_id")
+        payment.save(update_fields=update_fields)
+        logger.info(
+            "charge_refunded_synced",
+            payment_intent_id=payment_intent_id,
+            amount_refunded=payment.amount_refunded,
+            fully_refunded=bool(charge.get("refunded")),
+        )
 
     @staticmethod
     def get_or_create_stripe_customer(user):
