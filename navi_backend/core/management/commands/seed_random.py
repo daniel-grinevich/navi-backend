@@ -2,7 +2,10 @@
 
 Creates a curated coffee menu, a handful of physical NaviPort locations, a big
 pool of customers, and a rich order history (orders + items + customizations +
-payments + invoices) spread over the last few months.
+payments + invoices) spread over the last few months. Loyalty tiers and badges
+are seeded too, and every customer's points / badge levels are replayed from
+their completed orders so the achievements UI shows a realistic spread of
+partial progress.
 
 Usage::
 
@@ -27,10 +30,22 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth.hashers import make_password
+from django.core.cache import cache
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
+from navi_backend.awards.models import ACHIEVEMENTS_LIST_CACHE_KEY
+from navi_backend.awards.models import Award
+from navi_backend.awards.models import AwardLevel
+from navi_backend.awards.models import LoyaltySettings
+from navi_backend.awards.models import PointsReason
+from navi_backend.awards.models import PointsTransaction
+from navi_backend.awards.models import RuleType
+from navi_backend.awards.models import Tier
+from navi_backend.awards.models import UserAward
+from navi_backend.awards.models import UserAwardLevel
+from navi_backend.awards.models import UserLoyalty
 from navi_backend.devices.models import EspressoMachine
 from navi_backend.devices.models import MachineType
 from navi_backend.devices.models import NaviPort
@@ -347,6 +362,100 @@ ORDER_STATUS_PLAN = {
 
 SEED_DAYS = 120  # spread history over the last ~4 months
 
+# Share of all orders placed by demo@navi.test, so the demo login lands
+# mid-ladder on most badges (a couple of levels in, more to go).
+DEMO_ORDER_SHARE = 0.005
+
+# Each tier: slug, name, threshold points, rank, color, benefits.
+TIERS = [
+    ("bronze", "Bronze", 0, 1, "#cd7f32", "Earn 1 point per dollar."),
+    ("silver", "Silver", 100, 2, "#c0c0c0", "Free size upgrade once a month."),
+    ("gold", "Gold", 300, 3, "#ffd700", "A free drink every month."),
+    ("platinum", "Platinum", 750, 4, "#e5e4e2", "Priority queue and a free drink."),
+]
+
+# (slug, name, description, rule type, category, icon, flat threshold, points
+#  reward, [(level name, threshold, points reward), ...])
+AWARDS = [
+    (
+        "first-sip",
+        "First Sip",
+        "Complete your first order.",
+        RuleType.ORDERS_COMPLETED,
+        "habits",
+        "sparkles",
+        1,
+        5,
+        [],
+    ),
+    (
+        "regular",
+        "Regular",
+        "Keep coming back for more.",
+        RuleType.ORDERS_COMPLETED,
+        "habits",
+        "coffee",
+        None,
+        0,
+        [("Bronze", 3, 10), ("Silver", 10, 25), ("Gold", 25, 50)],
+    ),
+    (
+        "devotee",
+        "Devotee",
+        "Fifty orders. You basically live here.",
+        RuleType.ORDERS_COMPLETED,
+        "habits",
+        "heart",
+        50,
+        100,
+        [],
+    ),
+    (
+        "explorer",
+        "Explorer",
+        "Try different drinks from the menu.",
+        RuleType.DISTINCT_ITEMS,
+        "exploration",
+        "compass",
+        None,
+        0,
+        [("Bronze", 3, 10), ("Silver", 8, 20), ("Gold", 15, 40)],
+    ),
+    (
+        "mix-master",
+        "Mix Master",
+        "Make your drinks your own with customizations.",
+        RuleType.CUSTOMIZATIONS,
+        "exploration",
+        "sliders",
+        None,
+        0,
+        [("Bronze", 5, 10), ("Silver", 15, 20), ("Gold", 40, 40)],
+    ),
+    (
+        "big-spender",
+        "Big Spender",
+        "Total spend across all your orders.",
+        RuleType.TOTAL_SPENT,
+        "loyalty",
+        "wallet",
+        None,
+        0,
+        [("Bronze", 25, 10), ("Silver", 100, 25), ("Gold", 250, 50)],
+    ),
+    (
+        "point-collector",
+        "Point Collector",
+        "Rack up lifetime loyalty points.",
+        RuleType.TOTAL_POINTS,
+        "loyalty",
+        "star",
+        None,
+        0,
+        [("Bronze", 50, 0), ("Silver", 200, 0), ("Gold", 500, 0)],
+    ),
+]
+
 
 class Command(BaseCommand):
     help = "Seed the local db with a large, realistic demo dataset."
@@ -392,7 +501,12 @@ class Command(BaseCommand):
             admin, users = self._seed_users(n_users)
             categories = self._seed_menu(admin)
             self._seed_devices(admin)
-            self._seed_orders(users, categories, n_orders)
+            orders, items, order_custs = self._seed_orders(users, categories, n_orders)
+            awards = self._seed_loyalty_catalog(admin)
+            self._seed_loyalty_history(users, awards, orders, items, order_custs)
+
+        # The seed bypasses most signals; drop the cached badge catalogue.
+        cache.delete(ACHIEVEMENTS_LIST_CACHE_KEY)
 
         self._print_summary(n_users)
 
@@ -401,6 +515,13 @@ class Command(BaseCommand):
         self.stdout.write("Clearing existing data...")
         # child -> parent order so FKs never block a delete
         for model in (
+            PointsTransaction,
+            UserAwardLevel,
+            UserAward,
+            UserLoyalty,
+            AwardLevel,
+            Award,
+            Tier,
             OrderCustomization,
             OrderItem,
             MachineErrorLog,
@@ -646,8 +767,17 @@ class Command(BaseCommand):
             cust_by_category[cat.id] = list(
                 Customization.objects.filter(group__category=cat).distinct()
             )
-        # weighted, non-guest customers place most orders
+        # Order volume per customer is heavy-tailed (a few regulars, a long
+        # tail of occasional visitors) so loyalty progress is spread out.
         customers = [u for u in users if not u.is_superuser]
+        weights = [random.paretovariate(1.2) for _ in customers]
+        demo_idx = next(
+            (i for i, u in enumerate(customers) if u.email == "demo@navi.test"),
+            None,
+        )
+        if demo_idx is not None:
+            weights[demo_idx] = sum(weights) * DEMO_ORDER_SHARE
+        order_users = random.choices(customers, weights=weights, k=n_orders)
 
         statuses = list(ORDER_STATUS_PLAN)
         status_weights = [ORDER_STATUS_PLAN[s][0] for s in statuses]
@@ -659,8 +789,7 @@ class Command(BaseCommand):
         invoice_ref = Invoice.last_reference_number()
         next_ref = (invoice_ref.reference_number + 1) if invoice_ref else 1
 
-        for _ in range(n_orders):
-            user = random.choice(customers)
+        for user in order_users:
             port = random.choice(ports)
             status = random.choices(statuses, weights=status_weights)[0]
             pay_status = ORDER_STATUS_PLAN[status][1]
@@ -783,6 +912,164 @@ class Command(BaseCommand):
                 f"{len(error_logs)} error logs"
             )
         )
+        # _backdate set each order's created_at in memory, so the loyalty
+        # replay can walk orders chronologically.
+        return orders, items, order_custs
+
+    # ---------------------------------------------------------------- loyalty
+    def _seed_loyalty_catalog(self, admin):
+        self.stdout.write("Creating loyalty tiers and badges...")
+        audit = {"created_by": admin, "updated_by": admin}
+        for slug, name, min_points, rank, color, benefits in TIERS:
+            Tier.objects.create(
+                slug=slug,
+                name=name,
+                threshold_points=min_points,
+                rank=rank,
+                color=color,
+                benefits=benefits,
+                **audit,
+            )
+
+        awards = []
+        for (
+            slug,
+            name,
+            description,
+            rule_type,
+            category,
+            icon,
+            threshold,
+            points_reward,
+            levels,
+        ) in AWARDS:
+            award = Award.objects.create(
+                slug=slug,
+                name=name,
+                description=description,
+                rule_type=rule_type,
+                category=category,
+                icon=icon,
+                threshold=threshold,
+                points_reward=points_reward,
+                **audit,
+            )
+            for rank, (level_name, level_threshold, level_points) in enumerate(
+                levels,
+                start=1,
+            ):
+                AwardLevel.objects.create(
+                    award=award,
+                    rank=rank,
+                    name=level_name,
+                    threshold=level_threshold,
+                    points_reward=level_points,
+                )
+            awards.append(award)
+
+        self.stdout.write(
+            self.style.SUCCESS(f"✅ {len(TIERS)} tiers, {len(awards)} badges")
+        )
+        return awards
+
+    def _seed_loyalty_history(self, users, awards, orders, items, order_custs):
+        """Replay every customer's completed orders through the loyalty rules.
+
+        Mirrors ``points_service.process_order`` (points per dollar/order,
+        badge levels, bonus points, tier) but in memory and bulk-inserted, with
+        each badge level stamped at the order that unlocked it.
+        """
+        self.stdout.write("Replaying order history into loyalty progress...")
+        settings = LoyaltySettings.load()
+        ladders = {
+            award.id: list(award.levels.order_by("rank")) or [None] for award in awards
+        }
+        tiers = list(Tier.objects.order_by("threshold_points"))
+
+        order_items: dict[uuid.UUID, list[OrderItem]] = {}
+        for item in items:
+            order_items.setdefault(item.order_id, []).append(item)
+        item_custs = Counter(oc.order_item_id for oc in order_custs)
+        cust_totals: dict[uuid.UUID, Decimal] = {}
+        for oc in order_custs:
+            cust_totals[oc.order_item_id] = (
+                cust_totals.get(oc.order_item_id, Decimal("0.00")) + oc.unit_price
+            )
+
+        done_by_user: dict[int, list[Order]] = {}
+        for order in orders:
+            if order.order_status == OrderStatus.DONE:
+                done_by_user.setdefault(order.user_id, []).append(order)
+
+        loyalties, ledger, ledger_dates = [], [], []
+        user_awards, award_dates = [], []
+        level_rows: list[UserAwardLevel] = []
+        for user in users:
+            state = _LoyaltyReplay(user)
+            for order in sorted(done_by_user.get(user.id, []), key=_created):
+                lines = order_items.get(order.id, [])
+                total = sum(
+                    (
+                        i.unit_price * i.quantity + cust_totals.get(i.id, 0)
+                        for i in lines
+                    ),
+                    Decimal("0.00"),
+                )
+                state.orders += 1
+                state.spent += total
+                state.drinks.update(i.menu_item_id for i in lines)
+                state.customizations += sum(item_custs[i.id] for i in lines)
+                points = (
+                    int(total * settings.points_per_dollar) + settings.points_per_order
+                )
+                if points:
+                    state.add_points(
+                        points, PointsReason.ORDER, order.created_at, order=order
+                    )
+                state.evaluate(awards, ladders, order.created_at)
+
+            if not state.orders:
+                continue
+            tier = next(
+                (t for t in reversed(tiers) if t.threshold_points <= state.points),
+                None,
+            )
+            loyalties.append(
+                UserLoyalty(
+                    user=user,
+                    lifetime_points=state.points,
+                    balance_points=state.points,
+                    orders_completed=state.orders,
+                    total_spent=state.spent,
+                    current_tier=tier,
+                )
+            )
+            ledger.extend(state.ledger)
+            ledger_dates.extend(state.ledger_dates)
+            for award, (level, earned_at, history) in state.earned.items():
+                user_award = UserAward(user=user, award=award, level=level)
+                user_awards.append(user_award)
+                award_dates.append(earned_at)
+                level_rows.extend(
+                    UserAwardLevel(user_award=user_award, level=lvl, earned_at=at)
+                    for lvl, at in history
+                )
+
+        UserLoyalty.objects.bulk_create(loyalties, batch_size=1000)
+        PointsTransaction.objects.bulk_create(ledger, batch_size=2000)
+        UserAward.objects.bulk_create(user_awards, batch_size=1000)
+        UserAwardLevel.objects.bulk_create(level_rows, batch_size=2000)
+        self._backdate(PointsTransaction, ledger, ledger_dates)
+        for user_award, earned_at in zip(user_awards, award_dates, strict=True):
+            user_award.earned_at = earned_at
+        UserAward.objects.bulk_update(user_awards, ["earned_at"], batch_size=1000)
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"✅ Loyalty: {len(loyalties)} members, {len(user_awards)} badges "
+                f"earned, {len(ledger)} ledger entries"
+            )
+        )
 
     def _backdate(self, model, objs, dates):
         """Push created_at into the past. bulk_update leaves auto_now_add alone."""
@@ -814,8 +1101,91 @@ class Command(BaseCommand):
         self.stdout.write("   Log in with any seeded account:")
         self.stdout.write(f"     admin@navi.test    / {DEMO_PASSWORD}  (superuser)")
         self.stdout.write(f"     barista@navi.test  / {DEMO_PASSWORD}  (staff)")
-        self.stdout.write(f"     demo@navi.test     / {DEMO_PASSWORD}  (customer)")
+        self.stdout.write(
+            f"     demo@navi.test     / {DEMO_PASSWORD}  (customer, mid-way "
+            "through most badges)"
+        )
         self.stdout.write(
             f"   ...and {n_users - 3} more customers, all with password "
             f"'{DEMO_PASSWORD}'."
         )
+
+
+def _created(order):
+    return order.created_at
+
+
+class _LoyaltyReplay:
+    """In-memory loyalty state for one user while replaying their orders."""
+
+    def __init__(self, user):
+        self.user = user
+        self.orders = 0
+        self.spent = Decimal("0.00")
+        self.points = 0
+        self.drinks = set()
+        self.customizations = 0
+        self.ledger = []
+        self.ledger_dates = []
+        # award -> (top level or None, first earned_at, [(level, earned_at)])
+        self.earned = {}
+
+    def metric(self, rule_type):
+        return {
+            RuleType.ORDERS_COMPLETED: self.orders,
+            RuleType.TOTAL_SPENT: self.spent,
+            RuleType.TOTAL_POINTS: self.points,
+            RuleType.DISTINCT_ITEMS: len(self.drinks),
+            RuleType.CUSTOMIZATIONS: self.customizations,
+        }.get(rule_type, 0)
+
+    def add_points(self, points, reason, at, order=None, note=""):
+        self.points += points
+        self.ledger.append(
+            PointsTransaction(
+                user=self.user,
+                points=points,
+                reason=reason,
+                order=order,
+                balance_after=self.points,
+                note=note or "Order completed",
+            )
+        )
+        self.ledger_dates.append(at)
+
+    def evaluate(self, awards, ladders, at):
+        # Bonus points can unlock TOTAL_POINTS badges; loop until stable.
+        # Evaluate every award each pass (no short-circuit), repeat if any moved.
+        while sum(self._evaluate_award(a, ladders[a.id], at) for a in awards):
+            pass
+
+    def _evaluate_award(self, award, ladder, at):
+        value = self.metric(award.rule_type)
+        top, first_at, history = self.earned.get(award, (None, None, []))
+        if ladder == [None]:
+            if award in self.earned or not award.threshold:
+                return False
+            if value < award.threshold:
+                return False
+            self.earned[award] = (None, at, [])
+            self._bonus(award.points_reward, f"Award: {award.name}", at)
+            return True
+
+        current_rank = top.rank if top else 0
+        crossed = [
+            lvl for lvl in ladder if lvl.rank > current_rank and value >= lvl.threshold
+        ]
+        if not crossed:
+            return False
+        history = history + [(lvl, at) for lvl in crossed]
+        self.earned[award] = (crossed[-1], first_at or at, history)
+        self._bonus(
+            sum(lvl.points_reward for lvl in crossed),
+            f"Award: {award.name} — {crossed[-1].name}",
+            at,
+        )
+        return True
+
+    def _bonus(self, points, note, at):
+        if points:
+            self.add_points(points, PointsReason.AWARD_BONUS, at, note=note)

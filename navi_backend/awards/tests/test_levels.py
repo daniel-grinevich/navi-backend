@@ -120,6 +120,7 @@ class TestLeveledAwards:
         user,
         loyalty_settings,
         monkeypatch,
+        django_capture_on_commit_callbacks,
     ):
         _, bronze, *_ = _leveled_award()
 
@@ -130,7 +131,8 @@ class TestLeveledAwards:
             lambda *a, **k: sent.append(a),
         )
 
-        points_service.process_order(_completed_order(user))
+        with django_capture_on_commit_callbacks(execute=True):
+            points_service.process_order(_completed_order(user))
 
         assert len(sent) == 1
         assert sent[0][2] == str(bronze.id)
