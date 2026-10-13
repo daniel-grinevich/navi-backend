@@ -115,6 +115,15 @@ class OrderSerializer(BaseModelSerializer):
             "partial_update": ["navi_port", "items", "order_status"],
         }
 
+    def validate(self, attrs):
+        # Orders are always placed at a specific NaviPort: it scopes which Pi
+        # may see and claim the order, and sets the tax jurisdiction.
+        if self.instance is None and not attrs.get("navi_port"):
+            raise serializers.ValidationError(
+                {"navi_port": "Choose a NaviPort location for this order."}
+            )
+        return super().validate(attrs)
+
     def get_qr_token(self, obj):
         """Signed token the phone renders as a QR for the Pi to scan.
 
@@ -122,7 +131,7 @@ class OrderSerializer(BaseModelSerializer):
         """
         if obj.order_status != "O":
             return None
-        return make_qr_token(obj.id)
+        return make_qr_token(obj)
 
     def get_subtotal(self, obj):
         """Pre-tax total of the order's items."""

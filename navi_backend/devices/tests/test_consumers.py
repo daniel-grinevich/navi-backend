@@ -12,8 +12,9 @@ from channels.testing import WebsocketCommunicator
 
 from navi_backend.devices.consumers import MachineConsumer
 from navi_backend.devices.models import RaspberryPi
+from navi_backend.devices.tests.factories import NaviPortFactory
 from navi_backend.devices.tests.factories import RaspberryPiFactory
-from navi_backend.orders.utils import notify_machines_queue_changed
+from navi_backend.orders.utils import notify_port_queue_changed
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -23,6 +24,11 @@ def _make_pi(**kwargs):
     kwargs.setdefault("is_connected", True)
     kwargs.setdefault("last_seen", None)
     return RaspberryPiFactory(**kwargs)
+
+
+@database_sync_to_async
+def _make_port(pi):
+    return NaviPortFactory(raspberry_pi=pi)
 
 
 @database_sync_to_async
@@ -81,16 +87,23 @@ class TestMachineConsumer:
         assert await _last_seen(pi) >= first_seen
         await communicator.disconnect()
 
-    async def test_queue_changed_nudge_reaches_pi(self):
+    async def test_queue_changed_nudge_reaches_only_that_ports_pi(self):
         pi = await _make_pi()
+        other_pi = await _make_pi()
+        port = await _make_port(pi)
+        await _make_port(other_pi)
         communicator = _communicator(pi.device_token)
-        await communicator.connect()
-        await communicator.receive_json_from()  # connected
+        other = _communicator(other_pi.device_token)
+        for c in (communicator, other):
+            await c.connect()
+            await c.receive_json_from()  # connected
 
         # The sync util used by views/services; run it off the event loop.
-        await sync_to_async(notify_machines_queue_changed, thread_sensitive=False)()
+        await sync_to_async(notify_port_queue_changed, thread_sensitive=False)(port)
         assert await communicator.receive_json_from() == {"type": "queue.changed"}
+        assert await other.receive_nothing()
         await communicator.disconnect()
+        await other.disconnect()
 
     async def test_full_asgi_route_without_origin_header(self):
         """Device clients send no Origin header; the machine route must not be

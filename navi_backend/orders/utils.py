@@ -1,7 +1,10 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
-from navi_backend.devices.consumers import MACHINES_GROUP
+
+def pi_group(pi_id) -> str:
+    """Channels group holding a single Pi's websocket(s) (see devices/consumers)."""
+    return f"pi_{pi_id}"
 
 
 def broadcast_order_status(order_id, status, error=None):
@@ -12,9 +15,15 @@ def broadcast_order_status(order_id, status, error=None):
     async_to_sync(channel_layer.group_send)(f"order_{order_id}", payload)
 
 
-def notify_machines_queue_changed():
-    """Nudge every connected Pi to refetch its queue (notify-then-fetch)."""
+def notify_port_queue_changed(navi_port):
+    """Nudge the Pi at ``navi_port`` to refetch its queue (notify-then-fetch).
+
+    Only that port's Pi is told: other Pis never see this port's orders, so
+    they have nothing to refetch.
+    """
+    if navi_port is None or navi_port.raspberry_pi_id is None:
+        return
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
-        MACHINES_GROUP, {"type": "machine.queue.changed"}
+        pi_group(navi_port.raspberry_pi_id), {"type": "machine.queue.changed"}
     )

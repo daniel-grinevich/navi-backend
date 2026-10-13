@@ -91,7 +91,7 @@ class Command(BaseCommand):
         self.stdout.write(
             f"QR token for order {order.id} (status {order.order_status}):"
         )
-        self.stdout.write(self.style.WARNING(make_qr_token(order.id)))
+        self.stdout.write(self.style.WARNING(make_qr_token(order)))
 
     def _system_user(self):
         actor = User.objects.filter(is_superuser=True).order_by("date_joined").first()
