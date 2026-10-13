@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 
+from navi_backend.core.cache import bump_version
 from navi_backend.core.models import UUIDModel
 
 
@@ -79,3 +80,97 @@ class EmailTemplate(UUIDModel):
 
     def __str__(self):
         return self.subject
+
+
+NOTIFICATION_SETTINGS_CACHE_NAMESPACE = "notification_settings"
+
+# Categories admins may never switch off globally: login links, OTPs and
+# security notices must always go out.
+ALWAYS_ON_CATEGORIES = frozenset({NotificationCategory.ACCOUNT})
+
+
+class NotificationSettings(models.Model):
+    """Singleton of global notification kill switches, editable without a deploy.
+
+    Layered ABOVE user preferences: a disabled channel or category blocks every
+    send regardless of what the user opted into. Each switch is a
+    ``<channel|category>_enabled`` field so the admin form is plain checkboxes;
+    categories in :data:`ALWAYS_ON_CATEGORIES` deliberately have no field.
+    Read through ``services.global_settings`` (cached), not directly.
+    """
+
+    email_enabled = models.BooleanField(default=True)
+    sms_enabled = models.BooleanField(default=True)
+    order_updates_enabled = models.BooleanField(default=True)
+    marketing_enabled = models.BooleanField(default=True)
+    rewards_enabled = models.BooleanField(default=True)
+
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    class Meta:
+        verbose_name = "Notification settings"
+        verbose_name_plural = "Notification settings"
+
+    def __str__(self):
+        return "Notification settings"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+        # Read on every send; orphan the cached copy so the switch is immediate.
+        bump_version(NOTIFICATION_SETTINGS_CACHE_NAMESPACE)
+
+    @classmethod
+    def load(cls):
+        obj, _created = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @staticmethod
+    def channel_field(kind: str) -> str:
+        return f"{kind}_enabled"
+
+    @staticmethod
+    def category_field(category: str) -> str | None:
+        if category in ALWAYS_ON_CATEGORIES:
+            return None
+        return f"{category}_enabled"
+
+    def channel_enabled(self, kind: str) -> bool:
+        return getattr(self, self.channel_field(kind), True)
+
+    def category_enabled(self, category: str) -> bool:
+        field = self.category_field(category)
+        return True if field is None else getattr(self, field, True)
+
+
+class NotificationSettingsChange(UUIDModel):
+    """Audit trail for :class:`NotificationSettings`: who flipped what, when."""
+
+    class Source(models.TextChoices):
+        API = "api", "Admin API"
+        DJANGO_ADMIN = "django_admin", "Django admin"
+
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    changed_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    source = models.CharField(max_length=32, choices=Source.choices)
+    # e.g. {"channels": {"sms": {"old": true, "new": false}}}
+    changes = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["-changed_at"]
+
+    def __str__(self):
+        return f"Notification settings change at {self.changed_at:%Y-%m-%d %H:%M}"

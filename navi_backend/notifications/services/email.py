@@ -77,9 +77,5 @@ class EmailNotificationService(NotificationService):
             error=self.error,
             is_sent=self.is_sent,
             kind=self.kind,
-            meta={
-                "subject": self.subject,
-                "template": self.template,
-                "skipped": self.skipped,
-            },
+            meta=self._meta(subject=self.subject, template=self.template),
         )

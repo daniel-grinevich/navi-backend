@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.core.cache import cache
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from navi_backend.core.models import AuditModel
@@ -159,6 +160,16 @@ class Award(UUIDModel, NamedModel, SlugifiedModel, AuditModel):
         default=0,
         help_text=_("Bonus points granted when this award is earned."),
     )
+    category = models.SlugField(
+        _("category"),
+        max_length=32,
+        blank=True,
+        default="",
+        help_text=_(
+            'Grouping shown in the achievements UI, e.g. "habits". Leave '
+            "blank to derive it from the rule type."
+        ),
+    )
 
     class Meta:
         ordering = ["rule_type", "threshold"]
@@ -277,6 +288,17 @@ class UserLoyalty(UUIDModel):
         obj, _created = cls.objects.get_or_create(user=user)
         return obj
 
+    @classmethod
+    def for_user_locked(cls, user):
+        """Like :meth:`for_user` but row-locked (``SELECT ... FOR UPDATE``).
+
+        Must be called inside a transaction. Serializes concurrent loyalty
+        updates for the same user so counters and point balances never lose
+        writes and award evaluation can't double-grant.
+        """
+        cls.objects.get_or_create(user=user)
+        return cls.objects.select_for_update().get(user=user)
+
 
 class PointsTransaction(UUIDModel):
     """Immutable ledger entry for every point movement."""
@@ -346,3 +368,36 @@ class UserAward(UUIDModel):
 
     def __str__(self):
         return f"{self.user} earned {self.award}"
+
+
+class UserAwardLevel(UUIDModel):
+    """When a user reached each level of a multi-level award.
+
+    ``UserAward`` only tracks the highest level; this is the per-level history
+    the progress UI needs (every crossed level gets a row, so skipping straight
+    to Gold records Bronze and Silver at the same instant).
+    """
+
+    user_award = models.ForeignKey(
+        UserAward,
+        on_delete=models.CASCADE,
+        related_name="level_history",
+    )
+    level = models.ForeignKey(
+        AwardLevel,
+        on_delete=models.CASCADE,
+        related_name="user_history",
+    )
+    earned_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["user_award", "earned_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user_award", "level"],
+                name="unique_user_award_level",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user_award} — {self.level.name}"
