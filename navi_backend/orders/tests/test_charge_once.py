@@ -80,7 +80,7 @@ def order(navi_port):
     )
     order = OrderFactory(
         order_status="O",
-        navi_port=None,
+        navi_port=navi_port,
         payment=payment,
         user=UserFactory(stripe_customer_id="cus_123"),
     )
@@ -118,7 +118,7 @@ def quiet_tasks():
 
 
 def _scan(client, order):
-    return client.post(SCAN_URL, {"qr_token": make_qr_token(order.id)}, format="json")
+    return client.post(SCAN_URL, {"qr_token": make_qr_token(order)}, format="json")
 
 
 def _fail(client, order, message="grinder jammed"):
@@ -271,6 +271,10 @@ class TestMachineErrorRefund:
         _scan(machine_client, order)
         _fail(machine_client, order)
 
+        # The cancel rotated the QR nonce, so the scanned code is dead...
+        assert _scan(machine_client, order).status_code == 400
+        # ...and even a freshly minted token can't restart a cancelled order.
+        order.refresh_from_db()
         response = _scan(machine_client, order)
 
         assert response.status_code == 409

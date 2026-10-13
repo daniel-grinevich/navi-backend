@@ -8,9 +8,13 @@ from rest_framework.views import APIView
 
 from navi_backend.awards.tasks import process_order_awards
 from navi_backend.core.permissions import IsMachineAuthenticated
+from navi_backend.devices.models import DeviceEvent
+from navi_backend.devices.services.events import record_event
+from navi_backend.devices.services.port_status import PORT_PAUSED_MESSAGE
 from navi_backend.orders.models import Order
 from navi_backend.orders.qr import InvalidQrTokenError
 from navi_backend.orders.qr import read_qr_token
+from navi_backend.orders.qr import rotate_qr_nonce
 from navi_backend.orders.services.fail_order_service import OrderNotClaimedError
 from navi_backend.orders.services.fail_order_service import fail_order
 from navi_backend.orders.services.scan_order_service import OrderNotAvailableError
@@ -19,7 +23,7 @@ from navi_backend.orders.services.scan_order_service import WrongLocationError
 from navi_backend.orders.services.scan_order_service import start_order
 from navi_backend.orders.tasks import create_order_invoice
 from navi_backend.orders.utils import broadcast_order_status
-from navi_backend.orders.utils import notify_machines_queue_changed
+from navi_backend.orders.utils import notify_port_queue_changed
 
 from .serializers import MachineOrderSerializer
 
@@ -33,8 +37,9 @@ class MachineOrderQueueView(APIView):
     """Orders this Pi should be aware of: pending pickups + its own in-progress.
 
     The Pi polls this to build its queue UI. Includes orders awaiting pickup at
-    this Pi's port (or not yet routed to any port) and orders this Pi currently
-    holds, so a reconnecting Pi recovers what it was working on.
+    this Pi's port and orders this Pi currently holds, so a reconnecting Pi
+    recovers what it was working on. Other ports' orders (and unrouted ones)
+    are never listed.
     """
 
     permission_classes = [IsMachineAuthenticated]
@@ -46,9 +51,7 @@ class MachineOrderQueueView(APIView):
                 {"detail": "Machine has no associated NaviPort."}, status=400
             )
 
-        pending = Q(order_status="O") & (
-            Q(navi_port=navi_port) | Q(navi_port__isnull=True)
-        )
+        pending = Q(order_status="O", navi_port=navi_port)
         mine_in_progress = Q(order_status="S", claimed_by=request.raspberry_pi)
 
         orders = (
@@ -98,10 +101,31 @@ class MachineOrderStartView(APIView):
         return _start_order(request, order_id)
 
 
+def _port_paused_response(navi_port):
+    """409 if staff paused this port, else None.
+
+    Single guard so the scan rewrite (J7) can keep it as one call.
+    """
+    if navi_port.accepting_orders:
+        return None
+    return Response(
+        {
+            "detail": PORT_PAUSED_MESSAGE,
+            "code": "port_paused",
+            "status_message": navi_port.status_message or None,
+        },
+        status=409,
+    )
+
+
 def _start_order(request, order_id):
     navi_port = _navi_port_for(request)
     if not navi_port:
         return Response({"detail": "Machine has no associated NaviPort."}, status=400)
+
+    paused = _port_paused_response(navi_port)
+    if paused:
+        return paused
 
     try:
         order = start_order(order_id, request.raspberry_pi, navi_port)
@@ -126,7 +150,17 @@ def _start_order(request, order_id):
             status=402,
         )
 
+    record_event(
+        request.raspberry_pi.pk,
+        DeviceEvent.Type.ORDER_CLAIMED,
+        message=f"Claimed order {order.id}",
+        payload=_order_payload(order),
+    )
     return Response(MachineOrderSerializer(order).data)
+
+
+def _order_payload(order, **extra):
+    return {"order_id": str(order.id), "is_test": order.is_test, **extra}
 
 
 @method_decorator(transaction.non_atomic_requests, name="dispatch")
@@ -151,6 +185,12 @@ class MachineOrderCompleteView(APIView):
                 return Response(
                     {"detail": "Order is not claimed by this machine."}, status=409
                 )
+            record_event(
+                request.raspberry_pi.pk,
+                DeviceEvent.Type.BREW_FAILED,
+                message=error_message or f"Brew failed for order {order.id}",
+                payload=_order_payload(order, error_message=error_message),
+            )
             return Response({"ok": True, "order_status": "C", "refunded": refunded})
 
         # Mirror of claim_order: one conditional UPDATE both verifies this Pi
@@ -165,11 +205,19 @@ class MachineOrderCompleteView(APIView):
             return Response(
                 {"detail": "Order is not claimed by this machine."}, status=409
             )
+        rotate_qr_nonce(order_id)
 
         # Payment was already taken at scan (start), so completion just
         # finalizes the order and kicks off invoicing + awards.
+        record_event(
+            request.raspberry_pi.pk,
+            DeviceEvent.Type.BREW_COMPLETED,
+            message=f"Completed order {order.id}",
+            payload=_order_payload(order),
+        )
         broadcast_order_status(order.id, "D")
-        create_order_invoice.apply_async(args=[order.id])
-        process_order_awards.apply_async(args=[str(order.id)])
-        notify_machines_queue_changed()
+        if not order.is_test:
+            create_order_invoice.apply_async(args=[order.id])
+            process_order_awards.apply_async(args=[str(order.id)])
+        notify_port_queue_changed(order.navi_port)
         return Response({"ok": True})

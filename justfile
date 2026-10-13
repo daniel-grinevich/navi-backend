@@ -101,6 +101,36 @@ debug-wait:
     {{dc}} stop django
     DEBUGPY_ENABLED=1 DEBUGPY_WAIT=1 {{dc}} up -d django
 
+# End-to-end sim: backend + a navi-pi container, registered and wired up.
+# Needs the navi-pi repo: NAVI_PI_PATH=/path/to/navi-pi just sim (default ../navi-pi)
+sim:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Migrate before `up` so django's own startup migrate is a no-op (no race).
+    {{dc_run}} python manage.py migrate --noinput
+    {{dc}} up -d django celery_worker mailpit
+    # Each registration rotates the sim's token (only hashes are stored).
+    eval "$({{dc}} run --rm -T django python manage.py register_sim_pi --env | tr -d '\r' | grep '^NAVI_')"
+    NAVI_DEVICE_TOKEN="$NAVI_DEVICE_TOKEN" {{dc}} --profile sim up -d --build --no-deps --force-recreate pi
+    url() { echo "http://localhost:$({{dc}} port "$1" "$2" | awk -F: '{print $NF}')"; }
+    api="$(url django 8000)"
+    echo
+    echo "Simulator running:"
+    echo "  Pi queue UI:    $(url pi 9000)"
+    echo "  Django admin:   $api/admin/   (no staff login yet? just superuser)"
+    echo "  Device events:  $api/api/admin/devices/$NAVI_SIM_PI_ID/events/"
+    echo "  Fleet API:      $api/api/admin/devices/"
+    echo
+    echo "Queue a test order:  just sim-order   (then paste the QR token into the Pi UI)"
+
+# Queue a $0 test order on the sim Pi and print its QR token
+sim-order:
+    {{dc_run}} python manage.py register_sim_pi --test-order
+
+# Stop the sim Pi container
+sim-down:
+    {{dc}} --profile sim stop pi
+
 # Run all tests
 test:
     {{dc_run}} pytest

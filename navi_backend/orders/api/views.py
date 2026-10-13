@@ -1,4 +1,5 @@
 import stripe
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404
@@ -7,7 +8,6 @@ from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import APIException
-from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAdminUser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -29,6 +29,7 @@ from navi_backend.orders.services.refund_order_service import RefundOrderService
 from navi_backend.payments.services import StripePaymentService
 from navi_backend.payments.tasks import cancel_stripe_setup_intent
 
+from .permissions import CanUpdateOrder
 from .serializers import OrderCustomizationSerializer
 from .serializers import OrderItemSerializer
 from .serializers import OrderSerializer
@@ -52,6 +53,8 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
     action_permissions = {
         "default": [IsOwner, IsAuthenticated],
         "create": [IsAuthenticated],
+        "update": [IsAdminUser],
+        "partial_update": [IsAuthenticated, CanUpdateOrder],
         "destroy": [IsAdminUser],
         "dispatch_order": [IsAdminUser],
     }
@@ -83,7 +86,7 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
         try:
             order.is_cancelable()
         except ValidationError as e:
-            return Response({"detail": str(e)}, status=400)
+            return Response({"detail": " ".join(e.messages)}, status=400)
 
         if order.payment and order.payment.stripe_setup_intent_id:
             cancel_stripe_setup_intent.apply_async(
@@ -105,7 +108,7 @@ class OrderViewSet(UserScopedQuerySetMixin, BaseModelViewSet):
         try:
             order.is_dispatchable()
         except ValidationError as e:
-            return Response({"detail": str(e)}, status=400)
+            return Response({"detail": " ".join(e.messages)}, status=400)
 
         navi_port = get_object_or_404(NaviPort, id=request.data["naviportId"])
 

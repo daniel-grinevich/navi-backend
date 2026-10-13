@@ -99,7 +99,13 @@ CELERY_BEAT_SCHEDULE = {
         # Nightly at 03:00; jurisdiction rates change rarely, so daily is ample.
         "schedule": crontab(hour="3", minute="0"),
     },
+    "purge-old-device-events": {
+        "task": "navi_backend.devices.tasks.purge_old_device_events",
+        "schedule": crontab(hour="3", minute="30"),
+    },
 }
+# How long the device event log (connects, claims, brews, ...) is kept.
+DEVICE_EVENT_RETENTION_DAYS = env.int("DEVICE_EVENT_RETENTION_DAYS", default=30)
 
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -356,6 +362,12 @@ FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
 # Public origin of THIS backend -- used to build absolute magic-link URLs that
 # the browser opens to have cookies set before redirecting to FRONTEND_URL.
 BACKEND_URL = env("BACKEND_URL", default="http://localhost:8000")
+
+# NAVI PORTS
+# ------------------------------------------------------------------------------
+# Rough seconds per drink in a port's queue, used for the customer-facing wait
+# estimate on the sticker deep link (est_wait_seconds = queue_length * this).
+NAVI_PORT_SECONDS_PER_DRINK = env.int("NAVI_PORT_SECONDS_PER_DRINK", default=90)
 
 # SMS (passwordless OTP + notifications)
 # ------------------------------------------------------------------------------

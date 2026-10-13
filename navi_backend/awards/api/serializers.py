@@ -175,7 +175,11 @@ class LoyaltySummarySerializer(serializers.ModelSerializer):
         return prefs.email_rewards
 
     def get_earned_awards(self, obj):
-        qs = UserAward.objects.filter(user=obj.user).select_related("award")
+        qs = (
+            UserAward.objects.filter(user=obj.user)
+            .select_related("award", "level")
+            .prefetch_related("award__levels")
+        )
         return UserAwardSerializer(qs, many=True).data
 
     def get_award_progress(self, obj):
@@ -288,3 +292,48 @@ class AchievementProgressSerializer(serializers.Serializer):
     level = serializers.CharField(allow_null=True)
     level_rank = serializers.IntegerField(allow_null=True)
     next_level = serializers.CharField(allow_null=True)
+
+
+class ProgressTierSerializer(serializers.Serializer):
+    slug = serializers.CharField()
+    name = serializers.CharField()
+    min_points = serializers.IntegerField()
+
+
+class ProgressSummarySerializer(serializers.Serializer):
+    points = serializers.IntegerField()
+    tier = ProgressTierSerializer(allow_null=True)
+    next_tier = ProgressTierSerializer(allow_null=True)
+    badges_earned = serializers.IntegerField()
+    badges_total = serializers.IntegerField()
+
+
+class ProgressLevelSerializer(serializers.Serializer):
+    level = serializers.IntegerField()
+    name = serializers.CharField()
+    threshold = serializers.IntegerField()
+    earned_at = serializers.DateTimeField(allow_null=True)
+
+
+class ProgressRowSerializer(serializers.Serializer):
+    """One award on the user's progress page (see progress_service)."""
+
+    id = serializers.UUIDField()
+    slug = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField()
+    category = serializers.CharField()
+    icon = serializers.CharField()
+    level = serializers.IntegerField()
+    max_level = serializers.IntegerField()
+    current_value = serializers.IntegerField()
+    prev_threshold = serializers.IntegerField()
+    next_threshold = serializers.IntegerField(allow_null=True)
+    unit = serializers.CharField()
+    earned_at = serializers.DateTimeField(allow_null=True)
+    levels = ProgressLevelSerializer(many=True)
+
+
+class MyAchievementProgressSerializer(serializers.Serializer):
+    summary = ProgressSummarySerializer()
+    results = ProgressRowSerializer(many=True)

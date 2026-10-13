@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('orders', '0011_alter_machineerrorlog_created_by_and_more'),
+        ('orders', '0013_order_qr_nonce'),
     ]
 
     operations = [

@@ -18,11 +18,12 @@ from navi_backend.core.logging import get_logger
 from navi_backend.orders.models import MachineErrorLog
 from navi_backend.orders.models import Order
 from navi_backend.orders.models import Status
+from navi_backend.orders.qr import rotate_qr_nonce
 from navi_backend.orders.services.refund_order_service import RefundError
 from navi_backend.orders.services.refund_order_service import RefundOrderService
 from navi_backend.orders.tasks import refund_order
 from navi_backend.orders.utils import broadcast_order_status
-from navi_backend.orders.utils import notify_machines_queue_changed
+from navi_backend.orders.utils import notify_port_queue_changed
 
 logger = get_logger(__name__)
 
@@ -59,6 +60,7 @@ def fail_order(order, raspberry_pi, error_message):
         )
         if not updated:
             raise OrderNotClaimedError
+        rotate_qr_nonce(order.pk)
         MachineErrorLog.objects.create(
             order=order,
             raspberry_pi=raspberry_pi,
@@ -69,7 +71,9 @@ def fail_order(order, raspberry_pi, error_message):
         lambda: broadcast_order_status(order.id, "C", error=error_message),
         robust=True,
     )
-    transaction.on_commit(notify_machines_queue_changed, robust=True)
+    transaction.on_commit(
+        lambda: notify_port_queue_changed(order.navi_port), robust=True
+    )
 
     return _refund_after_failure(order, reason)
 

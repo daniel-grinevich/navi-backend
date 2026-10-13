@@ -1,8 +1,13 @@
 """API tests for order list scoping (client vs admin) and pagination."""
 
+from unittest import mock
+
 import pytest
+from django.urls import reverse
 from rest_framework.test import APIClient
 
+from navi_backend.devices.tests.factories import NaviPortFactory
+from navi_backend.menu.tests.factories import MenuItemFactory
 from navi_backend.orders.tests.factories import OrderFactory
 from navi_backend.users.tests.factories import UserFactory
 
@@ -101,3 +106,53 @@ class TestAdminOrderList:
 
         statuses = {o["order_status"] for o in resp.data["results"]}
         assert statuses == {"C"}
+
+
+@pytest.mark.django_db
+class TestOrderCreate:
+    """POST /api/orders/ always places the order at a NaviPort."""
+
+    url = reverse("api:orders-list")
+
+    def test_missing_navi_port_rejected(self, api_client):
+        api_client.force_authenticate(UserFactory())
+        payload = {
+            "items": [{"menu_item": str(MenuItemFactory(status="A").id), "quantity": 1}]
+        }
+
+        with mock.patch(
+            "navi_backend.orders.services.create_order_service.StripePaymentService"
+        ) as stripe_service:
+            response = api_client.post(self.url, payload, format="json")
+
+        assert response.status_code == 400
+        assert "navi_port" in response.data["error"]["message"]
+        stripe_service.create_setup_intent.assert_not_called()
+
+    def test_create_nudges_only_the_ports_pi(
+        self, api_client, django_capture_on_commit_callbacks
+    ):
+        api_client.force_authenticate(UserFactory())
+        navi_port = NaviPortFactory()
+        payload = {
+            "navi_port": str(navi_port.id),
+            "items": [
+                {"menu_item": str(MenuItemFactory(status="A").id), "quantity": 1}
+            ],
+        }
+
+        with (
+            mock.patch(
+                "navi_backend.orders.services.create_order_service.StripePaymentService"
+            ) as stripe_service,
+            mock.patch(
+                "navi_backend.orders.services.create_order_service.notify_port_queue_changed"
+            ) as notify,
+        ):
+            stripe_service.create_setup_intent.return_value = ("seti_secret", None)
+            with django_capture_on_commit_callbacks(execute=True):
+                response = api_client.post(self.url, payload, format="json")
+
+        assert response.status_code == 201
+        assert str(response.data["order"]["navi_port"]) == str(navi_port.id)
+        notify.assert_called_once_with(navi_port)

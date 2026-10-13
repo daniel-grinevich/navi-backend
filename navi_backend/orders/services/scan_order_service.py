@@ -30,8 +30,9 @@ from navi_backend.core.logging import get_logger
 from navi_backend.orders.models import MachineErrorLog
 from navi_backend.orders.models import Order
 from navi_backend.orders.models import Status
+from navi_backend.orders.qr import rotate_qr_nonce
 from navi_backend.orders.utils import broadcast_order_status
-from navi_backend.orders.utils import notify_machines_queue_changed
+from navi_backend.orders.utils import notify_port_queue_changed
 from navi_backend.payments.services import StripePaymentService
 
 logger = get_logger(__name__)
@@ -75,8 +76,8 @@ def claim_order(order_id, raspberry_pi, navi_port):
     claimable = Q(order_status=Status.ORDERED) | Q(
         order_status=Status.SENT, claimed_at__lt=lease_cutoff
     )
-    # An order may be pre-routed to a port, or unassigned until first scanned.
-    port_ok = Q(navi_port=navi_port) | Q(navi_port__isnull=True)
+    # Only the Pi at the order's own NaviPort may take it.
+    port_ok = Q(navi_port=navi_port)
 
     return Order.objects.filter(Q(pk=order_id) & claimable & port_ok).update(
         order_status=Status.SENT,
@@ -94,7 +95,7 @@ def start_order(order_id, raspberry_pi, navi_port):
     ``PaymentFailedError``.
     """
     order = Order.objects.get(pk=order_id)
-    if order.navi_port_id and order.navi_port_id != navi_port.pk:
+    if order.navi_port_id != navi_port.pk:
         raise WrongLocationError
 
     previous_status = order.order_status
@@ -102,6 +103,9 @@ def start_order(order_id, raspberry_pi, navi_port):
 
     with transaction.atomic():
         claimed = claim_order(order_id, raspberry_pi, navi_port)
+        if claimed:
+            # The QR that was just scanned is spent; any copy of it is now dead.
+            rotate_qr_nonce(order_id)
     if not claimed:
         # Lost the race, or the order is in a terminal state (done/cancelled).
         order.refresh_from_db(fields=["order_status"])
@@ -116,7 +120,9 @@ def start_order(order_id, raspberry_pi, navi_port):
         _log_stale_reclaim(order, previous_pi_id)
 
     try:
-        StripePaymentService.charge_order(order)
+        # Staff test orders are $0 and never touch Stripe.
+        if not order.is_test:
+            StripePaymentService.charge_order(order)
     except (stripe.error.StripeError, ValueError) as exc:
         # Declined (or no card): release the claim so nothing is dispensed
         # for free. A timeout that actually charged is safe to retry -- the
@@ -128,17 +134,20 @@ def start_order(order_id, raspberry_pi, navi_port):
     transaction.on_commit(
         lambda: broadcast_order_status(order.id, Status.SENT), robust=True
     )
-    transaction.on_commit(notify_machines_queue_changed, robust=True)
+    transaction.on_commit(lambda: notify_port_queue_changed(navi_port), robust=True)
     return order
 
 
 def _release_claim(order, raspberry_pi):
     with transaction.atomic():
-        Order.objects.filter(pk=order.pk, claimed_by=raspberry_pi).update(
+        released = Order.objects.filter(pk=order.pk, claimed_by=raspberry_pi).update(
             order_status=Status.ORDERED, claimed_by=None, claimed_at=None
         )
-    # Order is back in the queue for another attempt; let machines know.
-    transaction.on_commit(notify_machines_queue_changed, robust=True)
+        if released:
+            rotate_qr_nonce(order.pk)
+    # Order is back in the queue for another attempt; let its Pi know.
+    navi_port = order.navi_port
+    transaction.on_commit(lambda: notify_port_queue_changed(navi_port), robust=True)
 
 
 def _log_stale_reclaim(order, previous_pi_id):

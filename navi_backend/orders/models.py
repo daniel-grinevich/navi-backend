@@ -1,3 +1,4 @@
+import secrets
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
@@ -21,6 +22,11 @@ class Status(models.TextChoices):
     SENT = "S", _("Sent")
     DONE = "D", _("Done")
     CANCELLED = "C", _("Cancelled")
+
+
+def generate_qr_nonce():
+    """Random per-order value folded into the signed pickup QR (see orders/qr.py)."""
+    return secrets.token_urlsafe(16)
 
 
 class Order(
@@ -59,6 +65,14 @@ class Order(
         help_text=_("Raspberry Pi that currently holds this order."),
     )
     claimed_at = models.DateTimeField(null=True, blank=True)
+    # Staff-created $0 order for exercising a device end to end. Never charged,
+    # invoiced, or counted toward awards.
+    is_test = models.BooleanField(default=False, db_index=True)
+    # Rotated on every claim/release/complete so previously shown QR codes
+    # (screenshots) stop scanning once the order moves.
+    qr_nonce = models.CharField(
+        max_length=32, default=generate_qr_nonce, editable=False
+    )
     # Why a cancelled order was cancelled (machine failure, staff refund, ...).
     cancel_reason = models.TextField(blank=True, default="")
 
@@ -117,11 +131,13 @@ class OrderItem(
         _("Unit Price"),
         decimal_places=2,
         max_digits=8,
+        # $0 is allowed for staff test orders; customer items are always
+        # priced from the menu item (whose own minimum is $0.01).
         validators=[
             MaxValueValidator(Decimal("99999.99")),
-            MinValueValidator(Decimal("0.01")),
+            MinValueValidator(Decimal("0.00")),
         ],
-        help_text=_("Price per unit in dollars (between $99999-$0.01)"),
+        help_text=_("Price per unit in dollars (between $99999-$0.00)"),
     )
 
     def __str__(self):
@@ -137,7 +153,7 @@ class OrderItem(
             )
             raise ValidationError(msg)
 
-        if not self.unit_price:
+        if self.unit_price is None:
             self.unit_price = self.menu_item.price
 
         return super().save(*args, **kwargs)

@@ -15,8 +15,9 @@ from django.db import transaction
 from navi_backend.core.logging import get_logger
 from navi_backend.orders.models import Order
 from navi_backend.orders.models import Status
+from navi_backend.orders.qr import rotate_qr_nonce
 from navi_backend.orders.utils import broadcast_order_status
-from navi_backend.orders.utils import notify_machines_queue_changed
+from navi_backend.orders.utils import notify_port_queue_changed
 from navi_backend.payments.models import Payment
 from navi_backend.payments.services import StripePaymentService
 from navi_backend.payments.services import refund_idempotency_key
@@ -57,7 +58,7 @@ class RefundOrderService:
         ``AlreadyRefundedError`` or a ``stripe.error.StripeError`` if Stripe
         refuses (nothing is changed locally in that case).
         """
-        order = Order.objects.select_related("payment").get(pk=order_id)
+        order = Order.objects.select_related("payment", "navi_port").get(pk=order_id)
         payment = order.payment
         if payment is not None and payment.status == "refunded":
             raise AlreadyRefundedError
@@ -81,6 +82,7 @@ class RefundOrderService:
                 claimed_by=None,
                 claimed_at=None,
             )
+            rotate_qr_nonce(order.pk)
 
         logger.info(
             "order_refunded",
@@ -93,7 +95,10 @@ class RefundOrderService:
             transaction.on_commit(
                 lambda: broadcast_order_status(order.id, "C"), robust=True
             )
-            transaction.on_commit(notify_machines_queue_changed, robust=True)
+            navi_port = order.navi_port
+            transaction.on_commit(
+                lambda: notify_port_queue_changed(navi_port), robust=True
+            )
 
         return RefundResult(
             order_id=str(order.id),
