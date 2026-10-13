@@ -41,7 +41,9 @@ class OrderItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     unit_price = serializers.DecimalField(
         read_only=True, max_digits=8, decimal_places=2
     )
-    menu_item = serializers.PrimaryKeyRelatedField(queryset=MenuItem.objects.all())
+    # Only orderable items: archived/inactive/deleted ones keep a stored price
+    # but must not be purchasable.
+    menu_item = serializers.PrimaryKeyRelatedField(queryset=MenuItem.objects.active())
 
     class Meta:
         model = OrderItem
@@ -83,7 +85,7 @@ class MachineOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ["id", "order_status", "items"]
+        fields = ["id", "order_status", "is_test", "items"]
 
 
 class OrderSerializer(BaseModelSerializer):
@@ -95,6 +97,10 @@ class OrderSerializer(BaseModelSerializer):
     total = serializers.SerializerMethodField()
 
     show_only_to_admin_fields = ()
+    # Status moves only through services (machine scan/complete, cancel,
+    # dispatch) and routing is fixed at checkout; customers can't rewrite
+    # either on an existing order.
+    staff_only_update_fields = ("order_status", "navi_port")
 
     class Meta:
         model = Order
@@ -117,6 +123,36 @@ class OrderSerializer(BaseModelSerializer):
             "partial_update": ["navi_port", "items", "order_status"],
         }
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if self.instance is None:
+            # Orders are always placed at a specific NaviPort: it scopes which
+            # Pi may see and claim the order, and sets the tax jurisdiction.
+            navi_port = attrs.get("navi_port")
+            if not navi_port:
+                raise serializers.ValidationError(
+                    {"navi_port": "Choose a NaviPort location for this order."}
+                )
+            # Only new orders: an existing order keeps its place even if the
+            # port is paused afterwards.
+            ensure_port_accepting_orders(navi_port)
+            ensure_port_supports_items(
+                navi_port, [item["menu_item"] for item in attrs.get("items", [])]
+            )
+            return attrs
+        if self._request_is_staff():
+            return attrs
+        blocked = [f for f in self.staff_only_update_fields if f in self.initial_data]
+        if blocked:
+            raise serializers.ValidationError(
+                dict.fromkeys(blocked, "Only staff can change this field.")
+            )
+        return attrs
+
+    def _request_is_staff(self):
+        request = self.context.get("request")
+        return bool(request and request.user.is_staff)
+
     def get_qr_token(self, obj):
         """Signed token the phone renders as a QR for the Pi to scan.
 
@@ -124,7 +160,7 @@ class OrderSerializer(BaseModelSerializer):
         """
         if obj.order_status != "O":
             return None
-        return make_qr_token(obj.id)
+        return make_qr_token(obj)
 
     def get_subtotal(self, obj):
         """Pre-tax total of the order's items."""
@@ -141,18 +177,6 @@ class OrderSerializer(BaseModelSerializer):
         if obj.payment:
             return obj.payment.total_amount
         return None
-
-    def validate(self, attrs):
-        attrs = super().validate(attrs)
-        navi_port = attrs.get("navi_port")
-        # Only new orders: an existing order keeps its place even if the port
-        # is paused afterwards.
-        if self.instance is None and navi_port is not None:
-            ensure_port_accepting_orders(navi_port)
-            ensure_port_supports_items(
-                navi_port, [item["menu_item"] for item in attrs.get("items", [])]
-            )
-        return attrs
 
     def create(self, validated_data):
         service = CreateOrderService(

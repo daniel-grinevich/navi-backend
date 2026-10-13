@@ -134,7 +134,7 @@ class TestScanWhilePaused:
         with (
             mock.patch(f"{base}.StripePaymentService.charge_order") as charge,
             mock.patch(f"{base}.broadcast_order_status"),
-            mock.patch(f"{base}.notify_machines_queue_changed"),
+            mock.patch(f"{base}.notify_port_queue_changed"),
         ):
             yield charge
 
@@ -145,7 +145,7 @@ class TestScanWhilePaused:
         order = OrderFactory(order_status="O", navi_port=port)
 
         resp = machine_client.post(
-            SCAN_URL, {"qr_token": make_qr_token(order.id)}, format="json"
+            SCAN_URL, {"qr_token": make_qr_token(order)}, format="json"
         )
 
         assert resp.status_code == 409
@@ -160,7 +160,7 @@ class TestScanWhilePaused:
         order = OrderFactory(order_status="O", navi_port=port)
 
         resp = machine_client.post(
-            SCAN_URL, {"qr_token": make_qr_token(order.id)}, format="json"
+            SCAN_URL, {"qr_token": make_qr_token(order)}, format="json"
         )
 
         assert resp.status_code == 200

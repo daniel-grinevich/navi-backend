@@ -1,5 +1,6 @@
 from collections import Counter
 from contextlib import contextmanager
+from functools import partial
 
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
@@ -8,7 +9,7 @@ from navi_backend.core.base_service import BaseService
 from navi_backend.core.logging import get_logger
 from navi_backend.menu.models import CustomizationGroup
 from navi_backend.orders.models import Order
-from navi_backend.orders.utils import notify_machines_queue_changed
+from navi_backend.orders.utils import notify_port_queue_changed
 from navi_backend.payments.services import StripePaymentService
 
 logger = get_logger(__name__)
@@ -110,9 +111,9 @@ class CreateOrderService(BaseService):
         order = Order.objects.create(**ctx["validated_data"])
         ctx["order"] = order
         logger.info("order_created", order_id=order.id, user_id=order.user_id)
-        # The new order enters every Pi's pending queue; tell them once the
+        # The new order enters its port's pending queue; tell that Pi once the
         # surrounding transaction actually commits.
-        transaction.on_commit(notify_machines_queue_changed)
+        transaction.on_commit(partial(notify_port_queue_changed, order.navi_port))
         return ctx
 
     def save_order_items(self, ctx):

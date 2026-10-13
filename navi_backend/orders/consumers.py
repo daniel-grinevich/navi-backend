@@ -3,6 +3,7 @@ import json
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.contrib.auth.models import AnonymousUser
+from django.core.exceptions import ValidationError
 
 from navi_backend.orders.models import Order
 
@@ -13,7 +14,7 @@ def _get_order_for_user(order_id, user):
         if user.is_staff:
             return Order.objects.get(pk=order_id)
         return Order.objects.get(pk=order_id, user=user)
-    except Order.DoesNotExist:
+    except (Order.DoesNotExist, ValidationError):
         return None
 
 

@@ -99,7 +99,13 @@ CELERY_BEAT_SCHEDULE = {
         # Nightly at 03:00; jurisdiction rates change rarely, so daily is ample.
         "schedule": crontab(hour="3", minute="0"),
     },
+    "purge-old-device-events": {
+        "task": "navi_backend.devices.tasks.purge_old_device_events",
+        "schedule": crontab(hour="3", minute="30"),
+    },
 }
+# How long the device event log (connects, claims, brews, ...) is kept.
+DEVICE_EVENT_RETENTION_DAYS = env.int("DEVICE_EVENT_RETENTION_DAYS", default=30)
 
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

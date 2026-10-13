@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('devices', '0010_alter_raspberrypi_last_seen'),
+        ('devices', '0012_remove_raspberrypi_device_token_deviceevent'),
     ]
 
     operations = [
