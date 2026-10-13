@@ -9,6 +9,8 @@ from rest_framework.views import APIView
 
 from navi_backend.awards.tasks import process_order_awards
 from navi_backend.core.permissions import IsMachineAuthenticated
+from navi_backend.devices.models import DeviceEvent
+from navi_backend.devices.services.events import record_event
 from navi_backend.orders.models import MachineErrorLog
 from navi_backend.orders.models import Order
 from navi_backend.orders.qr import InvalidQrTokenError
@@ -147,10 +149,12 @@ def _start_order(request, order_id):
 
     # We won the claim, so the order now carries this port -> its tax
     # jurisdiction. Charge the saved card before making the drink; if the charge
-    # is declined, release the claim so nothing is dispensed for free.
+    # is declined, release the claim so nothing is dispensed for free. Staff
+    # test orders are $0 and never touch Stripe.
     order.refresh_from_db()
     try:
-        StripePaymentService.charge_order(order)
+        if not order.is_test:
+            StripePaymentService.charge_order(order)
     except (stripe.error.StripeError, ValueError) as exc:
         Order.objects.filter(pk=order_id, claimed_by=request.raspberry_pi).update(
             order_status="O", claimed_by=None, claimed_at=None
@@ -163,9 +167,19 @@ def _start_order(request, order_id):
         )
 
     order.refresh_from_db()
+    record_event(
+        request.raspberry_pi.pk,
+        DeviceEvent.Type.ORDER_CLAIMED,
+        message=f"Claimed order {order.id}",
+        payload=_order_payload(order),
+    )
     broadcast_order_status(order.id, "S")
     notify_machines_queue_changed()
     return Response(MachineOrderSerializer(order).data)
+
+
+def _order_payload(order, **extra):
+    return {"order_id": str(order.id), "is_test": order.is_test, **extra}
 
 
 class MachineOrderCompleteView(APIView):
@@ -198,10 +212,23 @@ class MachineOrderCompleteView(APIView):
         if outcome == "complete":
             # Payment was already taken at scan (start), so completion just
             # finalizes the order and kicks off invoicing + awards.
+            record_event(
+                request.raspberry_pi.pk,
+                DeviceEvent.Type.BREW_COMPLETED,
+                message=f"Completed order {order.id}",
+                payload=_order_payload(order),
+            )
             broadcast_order_status(order.id, "D")
-            create_order_invoice.apply_async(args=[order.id])
-            process_order_awards.apply_async(args=[str(order.id)])
+            if not order.is_test:
+                create_order_invoice.apply_async(args=[order.id])
+                process_order_awards.apply_async(args=[str(order.id)])
         else:
+            record_event(
+                request.raspberry_pi.pk,
+                DeviceEvent.Type.BREW_FAILED,
+                message=error_message or f"Brew failed for order {order.id}",
+                payload=_order_payload(order, error_message=error_message),
+            )
             MachineErrorLog.objects.create(
                 order=order,
                 raspberry_pi=request.raspberry_pi,

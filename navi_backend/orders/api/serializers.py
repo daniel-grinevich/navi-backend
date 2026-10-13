@@ -81,7 +81,7 @@ class MachineOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ["id", "order_status", "items"]
+        fields = ["id", "order_status", "is_test", "items"]
 
 
 class OrderSerializer(BaseModelSerializer):

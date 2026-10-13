@@ -46,6 +46,7 @@ from navi_backend.awards.models import Tier
 from navi_backend.awards.models import UserAward
 from navi_backend.awards.models import UserAwardLevel
 from navi_backend.awards.models import UserLoyalty
+from navi_backend.devices.managers import hash_device_token
 from navi_backend.devices.models import EspressoMachine
 from navi_backend.devices.models import MachineType
 from navi_backend.devices.models import NaviPort
@@ -724,7 +725,7 @@ class Command(BaseCommand):
                 location=f"{city}, {state}",
                 is_connected=random.random() < 0.85,
                 firmware_version=f"v{random.randint(1, 4)}.{random.randint(0, 9)}",
-                device_token=secrets.token_urlsafe(32),
+                token_hash=hash_device_token(secrets.token_urlsafe(32)),
                 **audit,
             )
             machine = EspressoMachine.objects.create(
