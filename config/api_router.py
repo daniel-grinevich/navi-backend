@@ -22,6 +22,7 @@ from navi_backend.menu.api.views import CustomizationViewSet
 from navi_backend.menu.api.views import MenuItemViewSet
 from navi_backend.notifications.api.views import EmailLogViewSet
 from navi_backend.notifications.api.views import EmailTemplateViewSet
+from navi_backend.notifications.api.views import NotificationSettingsView
 from navi_backend.notifications.api.views import TextLogViewSet
 from navi_backend.orders.api.machine_views import MachineOrderCompleteView
 from navi_backend.orders.api.machine_views import MachineOrderQueueView
@@ -133,6 +134,12 @@ urlpatterns = [
     path("auth/magic/verify/", MagicLinkVerifyView.as_view(), name="magic-verify"),
     path("auth/sms/request/", SMSRequestView.as_view(), name="sms-request"),
     path("auth/sms/verify/", SMSVerifyView.as_view(), name="sms-verify"),
+    # Admin ops (staff-only)
+    path(
+        "admin/notification-settings/",
+        NotificationSettingsView.as_view(),
+        name="admin-notification-settings",
+    ),
     # Loyalty / awards endpoints
     path("my/loyalty/", MyLoyaltyView.as_view(), name="my-loyalty"),
     path(

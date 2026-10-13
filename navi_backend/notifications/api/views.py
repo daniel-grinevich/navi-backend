@@ -1,13 +1,23 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from navi_backend.core.api.mixins.track_user_mixin import TrackUserMixin
 from navi_backend.notifications.api.serializers import EmailLogSerializer
 from navi_backend.notifications.api.serializers import EmailTemplateSerializer
+from navi_backend.notifications.api.serializers import NotificationSettingsSerializer
+from navi_backend.notifications.api.serializers import (
+    NotificationSettingsUpdateSerializer,
+)
 from navi_backend.notifications.api.serializers import TextLogSerializer
 from navi_backend.notifications.models import EmailLog
 from navi_backend.notifications.models import EmailTemplate
+from navi_backend.notifications.models import NotificationSettings
 from navi_backend.notifications.models import TextLog
+from navi_backend.notifications.services.global_settings import (
+    update_notification_settings,
+)
 
 
 class EmailLogViewSet(viewsets.ReadOnlyModelViewSet):
@@ -36,3 +46,24 @@ class EmailTemplateViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = EmailTemplate.objects.all()
     serializer_class = EmailTemplateSerializer
     permission_classes = [IsAdminUser]
+
+
+class NotificationSettingsView(APIView):
+    """Global notification kill switches (staff only), layered above user prefs."""
+
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        return Response(
+            NotificationSettingsSerializer(NotificationSettings.load()).data
+        )
+
+    def patch(self, request):
+        serializer = NotificationSettingsUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        settings = update_notification_settings(
+            actor=request.user,
+            channels=serializer.validated_data.get("channels"),
+            categories=serializer.validated_data.get("categories"),
+        )
+        return Response(NotificationSettingsSerializer(settings).data)
