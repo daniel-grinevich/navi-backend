@@ -7,6 +7,7 @@ from .models import LoyaltySettings
 from .models import PointsTransaction
 from .models import Tier
 from .models import UserAward
+from .models import UserAwardLevel
 from .models import UserLoyalty
 
 
@@ -56,13 +57,22 @@ class AwardAdmin(admin.ModelAdmin):
         "status",
     )
     list_editable = ("status",)
-    list_filter = ("rule_type", "status")
+    list_filter = ("rule_type", "category", "status")
     search_fields = ("name", "slug")
     actions = ["activate_awards", "archive_awards"]
     fieldsets = (
         (
             None,
-            {"fields": ("name", "slug", "description", "icon", "status")},
+            {
+                "fields": (
+                    "name",
+                    "slug",
+                    "description",
+                    "category",
+                    "icon",
+                    "status",
+                ),
+            },
         ),
         (
             "Rule",
@@ -133,8 +143,20 @@ class PointsTransactionAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at",)
 
 
+class UserAwardLevelInline(admin.TabularInline):
+    model = UserAwardLevel
+    extra = 0
+    fields = ("level", "earned_at")
+    readonly_fields = ("level", "earned_at")
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(UserAward)
 class UserAwardAdmin(admin.ModelAdmin):
+    inlines = [UserAwardLevelInline]
     list_display = ("user", "award", "level", "earned_at")
     list_filter = ("award",)
     search_fields = ("user__email", "user__name", "award__name")

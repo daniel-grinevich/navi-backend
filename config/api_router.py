@@ -8,6 +8,7 @@ from rest_framework.routers import SimpleRouter
 from navi_backend.awards.api.views import AchievementViewSet
 from navi_backend.awards.api.views import AwardViewSet
 from navi_backend.awards.api.views import LoyaltySettingsView
+from navi_backend.awards.api.views import MyAchievementProgressView
 from navi_backend.awards.api.views import MyAwardsViewSet
 from navi_backend.awards.api.views import MyLoyaltyView
 from navi_backend.awards.api.views import MyPointsTransactionViewSet
@@ -135,6 +136,11 @@ urlpatterns = [
     path("auth/sms/verify/", SMSVerifyView.as_view(), name="sms-verify"),
     # Loyalty / awards endpoints
     path("my/loyalty/", MyLoyaltyView.as_view(), name="my-loyalty"),
+    path(
+        "my/achievements/progress/",
+        MyAchievementProgressView.as_view(),
+        name="my-achievements-progress",
+    ),
     path(
         "loyalty-settings/",
         LoyaltySettingsView.as_view(),

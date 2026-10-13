@@ -49,7 +49,7 @@ def evaluate_user_awards(self, user_id):
 
     invalidate_user_metrics(user.id)
     with transaction.atomic():
-        loyalty = UserLoyalty.for_user(user)
+        loyalty = UserLoyalty.for_user_locked(user)
         points_service.evaluate_awards(loyalty)
         points_service.recompute_tier(loyalty)
 
