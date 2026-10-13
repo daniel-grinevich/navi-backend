@@ -88,8 +88,5 @@ class SMSNotificationService(NotificationService):
             error=self.error,
             is_sent=self.is_sent,
             kind=self.kind,
-            meta={
-                "message": self.message,
-                "skipped": self.skipped,
-            },
+            meta=self._meta(message=self.message),
         )
