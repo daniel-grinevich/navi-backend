@@ -12,6 +12,7 @@ from navi_backend.awards.api.views import MyAwardsViewSet
 from navi_backend.awards.api.views import MyLoyaltyView
 from navi_backend.awards.api.views import MyPointsTransactionViewSet
 from navi_backend.awards.api.views import TierViewSet
+from navi_backend.devices.api.views import AdminDeviceViewSet
 from navi_backend.devices.api.views import EspressoMachineViewSet
 from navi_backend.devices.api.views import MachineTypeViewSet
 from navi_backend.devices.api.views import NaviPortViewSet
@@ -61,6 +62,7 @@ router.register(r"orders", OrderViewSet, basename="orders")
 
 # Admin routes (staff-only, unscoped — for admin panel tables)
 router.register(r"admin/orders", AdminOrderViewSet, basename="admin-orders")
+router.register(r"admin/devices", AdminDeviceViewSet, basename="admin-devices")
 
 # Menu routes
 router.register(r"menu-items", MenuItemViewSet, basename="menu-items")

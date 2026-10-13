@@ -31,6 +31,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
+from navi_backend.devices.managers import hash_device_token
 from navi_backend.devices.models import EspressoMachine
 from navi_backend.devices.models import MachineType
 from navi_backend.devices.models import NaviPort
@@ -603,7 +604,7 @@ class Command(BaseCommand):
                 location=f"{city}, {state}",
                 is_connected=random.random() < 0.85,
                 firmware_version=f"v{random.randint(1, 4)}.{random.randint(0, 9)}",
-                device_token=secrets.token_urlsafe(32),
+                token_hash=hash_device_token(secrets.token_urlsafe(32)),
                 **audit,
             )
             machine = EspressoMachine.objects.create(

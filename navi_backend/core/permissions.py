@@ -1,8 +1,8 @@
-from django.utils import timezone
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.permissions import BasePermission
 
 from navi_backend.devices.models import RaspberryPi
+from navi_backend.devices.services.events import touch_presence
 
 
 class ActionBasedPermission(BasePermission):
@@ -62,13 +62,11 @@ class ReadOnly(BasePermission):
 
 class IsMachineAuthenticated(BasePermission):
     def has_permission(self, request, view):
-        token = request.headers.get("X-Device-Token")
-        if not token:
+        rpi = RaspberryPi.objects.authenticate(request.headers.get("X-Device-Token"))
+        if rpi is None:
             return False
-        rpi = RaspberryPi.objects.filter(device_token=token, is_connected=True).first()
-        if rpi:
-            request.raspberry_pi = rpi
-            # Presence heartbeat: any authenticated machine request counts as
-            # a check-in (queryset update skips save() side effects).
-            RaspberryPi.objects.filter(pk=rpi.pk).update(last_seen=timezone.now())
-        return rpi is not None
+        request.raspberry_pi = rpi
+        # Presence heartbeat: any authenticated machine request counts as a
+        # check-in. Pis may also report their firmware via a header.
+        touch_presence(rpi.pk, request.headers.get("X-Firmware-Version"))
+        return True
