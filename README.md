@@ -32,6 +32,20 @@ Deploys are GitOps via the [rainbow-road](https://github.com/daniel-grinevich/ra
 3. Staging auto-syncs; **production waits for a manual Sync click in the ArgoCD UI**
 4. Every sync runs `manage.py migrate` as a PreSync Job before the app pods roll
 
+### Staging
+
+Staging deploys only from a `vX.Y.Z-staging*` tag on a commit already merged to `development`:
+
+```bash
+git fetch origin
+git tag v1.4.0-staging origin/development && git push origin v1.4.0-staging
+# re-deploy a fix for the same version: v1.4.0-staging.2, v1.4.0-staging.3, ...
+```
+
+`deploy-staging.yml` refuses tags whose commit isn't on `origin/development`, pushes the image as
+`staging-latest`, `staging-<sha>` and the tag name, and bumps `navi/staging` in rainbow-road (auto-syncs).
+Pushing to a branch never deploys. Staging tags don't match the production tag filter.
+
 Watch the build in the GitHub Actions tab and the rollout in ArgoCD.
 
 ## Quality gates
