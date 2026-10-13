@@ -60,6 +60,15 @@ class ReadOnly(BasePermission):
         return request.method in SAFE_METHODS
 
 
+class IsAdminUserOrReadOnly(BasePermission):
+    """Anyone may read; only staff may write."""
+
+    def has_permission(self, request, _view):
+        if request.method in SAFE_METHODS:
+            return True
+        return bool(request.user and request.user.is_staff)
+
+
 class IsMachineAuthenticated(BasePermission):
     def has_permission(self, request, view):
         rpi = RaspberryPi.objects.authenticate(request.headers.get("X-Device-Token"))

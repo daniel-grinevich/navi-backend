@@ -5,11 +5,11 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import APIException
 from rest_framework.permissions import IsAdminUser
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
 from navi_backend.core.api.mixins.track_user_mixin import TrackUserMixin
 from navi_backend.core.pagination import StandardResultsSetPagination
+from navi_backend.core.permissions import IsAdminUserOrReadOnly
 from navi_backend.devices.api.serializers import DeviceEventSerializer
 from navi_backend.devices.api.serializers import DeviceSerializer
 from navi_backend.devices.api.serializers import DeviceTestOrderSerializer
@@ -38,7 +38,7 @@ class DeviceNotReady(APIException):
 class NaviPortViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = NaviPort.objects.select_related("espresso_machine", "raspberry_pi")
     serializer_class = NaviPortSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminUserOrReadOnly]
 
 
 class RaspberryPiViewSet(TrackUserMixin, viewsets.ModelViewSet):

@@ -167,11 +167,6 @@ urlpatterns = [
         name="machine-order-scan",
     ),
     path(
-        "machine/orders/<uuid:order_id>/start/",
-        MachineOrderStartView.as_view(),
-        name="machine-order-start",
-    ),
-    path(
         "machine/orders/<uuid:order_id>/complete/",
         MachineOrderCompleteView.as_view(),
         name="machine-order-complete",
@@ -184,4 +179,14 @@ urlpatterns = [
         name="api-docs",
     ),
 ]
+# Claim-by-raw-id skips the QR, so any enabled Pi could start (and charge)
+# any order. Dev/testing only; real machines go through /scan/.
+if settings.DEBUG:
+    urlpatterns += [
+        path(
+            "machine/orders/<uuid:order_id>/start/",
+            MachineOrderStartView.as_view(),
+            name="machine-order-start",
+        ),
+    ]
 urlpatterns += router.urls
