@@ -1,9 +1,12 @@
 name: Deploy staging to GHCR
 
+# Staging ships only from a deliberate tag on merged code, e.g.
+#   git tag v1.4.0-staging origin/development && git push origin v1.4.0-staging
+# No branch trigger and no workflow_dispatch: a tag is the only way in.
 on:
   push:
     tags:
-      - 'staging'
+      - 'v[0-9]+.[0-9]+.[0-9]+-staging*'
 
 env:
   REGISTRY: ghcr.io
@@ -22,6 +25,17 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Require tagged commit to be on development
+        run: |
+          git fetch origin development
+          commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+          if ! git merge-base --is-ancestor "$commit" origin/development; then
+            echo "::error::Tag ${GITHUB_REF_NAME} points at ${commit}, which is not on origin/development. Only merged code can be deployed to staging."
+            exit 1
+          fi
 
       - name: Get short SHA
         id: sha
@@ -45,6 +59,7 @@ jobs:
           tags: |
             type=raw,value=staging-latest
             type=raw,value=staging-${{ steps.sha.outputs.short-sha }}
+            type=ref,event=tag
 
       - name: Build and push Docker image
         id: push
