@@ -73,6 +73,8 @@ class Order(
     qr_nonce = models.CharField(
         max_length=32, default=generate_qr_nonce, editable=False
     )
+    # Why a cancelled order was cancelled (machine failure, staff refund, ...).
+    cancel_reason = models.TextField(blank=True, default="")
 
     def __str__(self):
         return f"{self.user} (v{self.created_at})"

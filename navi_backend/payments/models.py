@@ -13,6 +13,7 @@ class Payment(UUIDModel, AuditModel):
         ("succeeded", "Succeeded"),
         ("canceled", "Canceled"),
         ("failed", "Failed"),
+        ("refunded", "Refunded"),
     ]
 
     # Card is saved at checkout via a SetupIntent; the actual charge (a
@@ -34,6 +35,15 @@ class Payment(UUIDModel, AuditModel):
     # succeeds.
     stripe_tax_calculation_id = models.CharField(max_length=255, blank=True, default="")
     stripe_tax_transaction_id = models.CharField(max_length=255, blank=True, default="")
+    # Full refunds only for now (machine failure or staff); amount_refunded
+    # also tracks partial refunds made in the Stripe dashboard.
+    stripe_refund_id = models.CharField(max_length=255, blank=True, default="")
+    amount_refunded = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    @property
+    def is_charged(self):
+        """True once a PaymentIntent has succeeded and hasn't been refunded."""
+        return self.status == "succeeded" and bool(self.stripe_payment_intent_id)
 
     def __str__(self):
         ref = self.stripe_payment_intent_id or self.stripe_setup_intent_id

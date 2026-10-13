@@ -23,7 +23,6 @@ import config.api_router
 import config.urls
 from navi_backend.devices.tests.factories import NaviPortFactory
 from navi_backend.devices.tests.factories import RaspberryPiFactory
-from navi_backend.orders.api.machine_views import CLAIM_LEASE_SECONDS
 from navi_backend.orders.api.serializers import OrderSerializer
 from navi_backend.orders.models import MachineErrorLog
 from navi_backend.orders.qr import QR_MAX_AGE_SECONDS
@@ -32,10 +31,13 @@ from navi_backend.orders.qr import InvalidQrTokenError
 from navi_backend.orders.qr import make_qr_token
 from navi_backend.orders.qr import read_qr_token
 from navi_backend.orders.qr import rotate_qr_nonce
+from navi_backend.orders.services.scan_order_service import CLAIM_LEASE_SECONDS
 
 from .factories import OrderFactory
 
-pytestmark = pytest.mark.django_db
+# Real commits: the scan/complete views are non-atomic and broadcast via
+# transaction.on_commit, which never fires inside a test-wrapping transaction.
+pytestmark = pytest.mark.django_db(transaction=True)
 
 SCAN_URL = reverse("api:machine-order-scan")
 QUEUE_URL = reverse("api:machine-order-queue")
@@ -63,27 +65,43 @@ def order(navi_port):
     return OrderFactory(order_status="O", navi_port=navi_port)
 
 
+# Broadcasts/nudges are sent from the views and the order services.
+NOTIFY_MODULES = (
+    "navi_backend.orders.api.machine_views",
+    "navi_backend.orders.services.scan_order_service",
+    "navi_backend.orders.services.fail_order_service",
+)
+
+
+def _patch_everywhere(name):
+    m = mock.MagicMock()
+    patchers = [mock.patch(f"{module}.{name}", m) for module in NOTIFY_MODULES]
+    for p in patchers:
+        p.start()
+    return m, patchers
+
+
 @pytest.fixture
 def mock_broadcast():
-    with mock.patch(
-        "navi_backend.orders.api.machine_views.broadcast_order_status"
-    ) as m:
-        yield m
+    m, patchers = _patch_everywhere("broadcast_order_status")
+    yield m
+    for p in patchers:
+        p.stop()
 
 
 @pytest.fixture
 def mock_notify():
-    with mock.patch(
-        "navi_backend.orders.api.machine_views.notify_port_queue_changed"
-    ) as m:
-        yield m
+    m, patchers = _patch_everywhere("notify_port_queue_changed")
+    yield m
+    for p in patchers:
+        p.stop()
 
 
 @pytest.fixture(autouse=True)
 def mock_charge():
     """Stub the off-session charge fired at scan so tests don't hit Stripe."""
     with mock.patch(
-        "navi_backend.orders.api.machine_views.StripePaymentService.charge_order"
+        "navi_backend.orders.services.scan_order_service.StripePaymentService.charge_order"
     ) as m:
         yield m
 
@@ -475,7 +493,7 @@ class TestComplete:
         awards.apply_async.assert_called_once()
         mock_broadcast.assert_called_once_with(claimed_order.id, "D")
 
-    def test_error_releases_claim(
+    def test_error_cancels_order(
         self, machine_client, pi, claimed_order, mock_broadcast
     ):
         nonce_before = claimed_order.qr_nonce
@@ -487,14 +505,18 @@ class TestComplete:
         )
 
         assert response.status_code == 200
+        # Payment was never charged (factory payment is "ready"): no refund.
+        assert response.data == {"ok": True, "order_status": "C", "refunded": False}
         claimed_order.refresh_from_db()
-        assert claimed_order.order_status == "O"
+        # Never back to "O" -- that is how a rescan used to charge twice.
+        assert claimed_order.order_status == "C"
+        assert claimed_order.cancel_reason == "Machine error: no beans"
         assert claimed_order.claimed_by is None
         assert claimed_order.qr_nonce != nonce_before
         log = MachineErrorLog.objects.get(order=claimed_order)
         assert log.raspberry_pi == pi
         assert log.error_message == "no beans"
-        mock_broadcast.assert_called_once_with(claimed_order.id, "O", error="no beans")
+        mock_broadcast.assert_called_once_with(claimed_order.id, "C", error="no beans")
 
     def test_other_pi_cannot_complete(self, claimed_order, mock_broadcast):
         other_pi = RaspberryPiFactory(is_connected=True)

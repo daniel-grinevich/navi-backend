@@ -6,6 +6,8 @@ from weasyprint import HTML
 from navi_backend.core.logging import get_logger
 from navi_backend.notifications.tasks import send_invoice_email
 from navi_backend.orders.models import Order
+from navi_backend.orders.services.refund_order_service import RefundError
+from navi_backend.orders.services.refund_order_service import RefundOrderService
 from navi_backend.payments.models import Invoice
 
 logger = get_logger(__name__)
@@ -45,3 +47,18 @@ def create_order_invoice(self, order_id):
     )
 
     send_invoice_email.apply_async(args=[order.user.id, invoice.id])
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=8)
+def refund_order(self, order_id, reason):
+    """Retry a refund that failed inline (e.g. Stripe was unreachable).
+
+    Safe to re-run: the Stripe call reuses the order's refund idempotency key,
+    and an already-refunded order is a no-op.
+    """
+    try:
+        RefundOrderService.refund(order_id, reason, notify=False)
+    except RefundError as exc:
+        logger.info(
+            "order_refund_retry_skipped", order_id=order_id, reason=type(exc).__name__
+        )

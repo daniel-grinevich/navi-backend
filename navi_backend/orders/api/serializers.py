@@ -88,6 +88,10 @@ class MachineOrderSerializer(serializers.ModelSerializer):
         fields = ["id", "order_status", "is_test", "items"]
 
 
+class RefundRequestSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=500)
+
+
 class OrderSerializer(BaseModelSerializer):
     items = OrderItemSerializer(many=True, required=False)
     user = UserSerializer(read_only=True)

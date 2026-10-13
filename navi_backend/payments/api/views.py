@@ -38,6 +38,8 @@ class StripeWebhookView(View):
         "payment_intent.succeeded",
         "payment_intent.payment_failed",
         "payment_intent.canceled",
+        "setup_intent.succeeded",
+        "charge.refunded",
     }
 
     def post(self, request):

@@ -138,7 +138,9 @@ class TestChargeOrder:
         OrderItemFactory(order=order, quantity=1, unit_price=Decimal("10.00"))
         return order, payment
 
-    def test_charges_saved_card_off_session_and_records_async(self):
+    def test_charges_saved_card_off_session_and_records_async(
+        self, django_capture_on_commit_callbacks
+    ):
         order, payment = self._order(stripe_payment_method_id="pm_123", status="ready")
 
         fake_calc = SimpleNamespace(
@@ -159,14 +161,17 @@ class TestChargeOrder:
             # No cached rate for this port -> falls back to a live calculation.
             stripe.tax.Calculation.create.return_value = fake_calc
             stripe.PaymentIntent.create.return_value = fake_intent
-            StripePaymentService.charge_order(order)
+            with django_capture_on_commit_callbacks(execute=True):
+                StripePaymentService.charge_order(order)
 
             _, kwargs = stripe.PaymentIntent.create.call_args
             assert kwargs["amount"] == 1087
             assert kwargs["off_session"] is True
             assert kwargs["confirm"] is True
             assert kwargs["payment_method"] == "pm_123"
-            # Tax recording happens asynchronously, off the scan path.
+            assert kwargs["idempotency_key"] == f"order-{order.id}-charge"
+            # Tax recording happens asynchronously, off the scan path, once
+            # the charge is committed.
             record_task.apply_async.assert_called_once_with(args=[str(order.id)])
 
         payment.refresh_from_db()

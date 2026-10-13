@@ -52,7 +52,7 @@ def _quiet_side_effects():
 @pytest.fixture
 def mock_charge():
     with mock.patch(
-        "navi_backend.orders.api.machine_views.StripePaymentService.charge_order"
+        "navi_backend.orders.services.scan_order_service.StripePaymentService.charge_order"
     ) as m:
         yield m
 

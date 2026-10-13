@@ -132,7 +132,10 @@ class TestScanWhilePaused:
     def mock_side_effects(self):
         base = "navi_backend.orders.api.machine_views"
         with (
-            mock.patch(f"{base}.StripePaymentService.charge_order") as charge,
+            mock.patch(
+                "navi_backend.orders.services.scan_order_service."
+                "StripePaymentService.charge_order"
+            ) as charge,
             mock.patch(f"{base}.broadcast_order_status"),
             mock.patch(f"{base}.notify_port_queue_changed"),
         ):
