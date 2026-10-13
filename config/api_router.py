@@ -12,8 +12,10 @@ from navi_backend.awards.api.views import MyAwardsViewSet
 from navi_backend.awards.api.views import MyLoyaltyView
 from navi_backend.awards.api.views import MyPointsTransactionViewSet
 from navi_backend.awards.api.views import TierViewSet
+from navi_backend.devices.api.views import AdminNaviPortView
 from navi_backend.devices.api.views import EspressoMachineViewSet
 from navi_backend.devices.api.views import MachineTypeViewSet
+from navi_backend.devices.api.views import NaviPortBySlugView
 from navi_backend.devices.api.views import NaviPortViewSet
 from navi_backend.devices.api.views import RaspberryPiViewSet
 from navi_backend.menu.api.views import CategoryViewSet
@@ -139,6 +141,17 @@ urlpatterns = [
         "loyalty-settings/",
         LoyaltySettingsView.as_view(),
         name="loyalty-settings",
+    ),
+    # NaviPort sticker deep link (public) + staff maintenance toggle
+    path(
+        "navi_ports/by-slug/<slug:slug>/",
+        NaviPortBySlugView.as_view(),
+        name="navi-port-by-slug",
+    ),
+    path(
+        "admin/navi_ports/<uuid:pk>/",
+        AdminNaviPortView.as_view(),
+        name="admin-navi-port",
     ),
     # Machine endpoints
     path(

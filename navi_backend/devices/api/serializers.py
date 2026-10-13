@@ -92,3 +92,19 @@ class MachineTypeSerializer(BaseModelSerializer):
             "maintenance_frequency",
             "supported_drinks",
         ]
+
+
+class NaviPortAvailabilitySerializer(serializers.ModelSerializer):
+    """Staff maintenance toggle: pause a port and tell customers why."""
+
+    status_message = serializers.CharField(
+        max_length=255, allow_blank=True, allow_null=True, required=False
+    )
+
+    class Meta:
+        model = NaviPort
+        fields = ["accepting_orders", "status_message"]
+
+    def validate_status_message(self, value):
+        # The column is non-null; null in the API means "no message".
+        return value or ""

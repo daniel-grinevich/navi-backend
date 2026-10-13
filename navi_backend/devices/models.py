@@ -104,6 +104,32 @@ class NaviPort(UUIDModel, SlugifiedModel, NamedModel, AuditModel, AddressModel):
     )
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True)
+    # Maintenance switch: staff pause a port (out of milk, broken grinder) and
+    # ordering + scanning there stop until it's flipped back.
+    accepting_orders = models.BooleanField(
+        _("Accepting orders"),
+        default=True,
+        help_text=_("Uncheck to pause ordering and pickup at this machine."),
+    )
+    status_message = models.CharField(
+        _("Status message"),
+        max_length=255,
+        blank=True,
+        help_text=_(
+            "Shown to customers while the machine isn't taking orders, "
+            'e.g. "Out of milk - back at 2pm".'
+        ),
+    )
 
     def save(self, *args, **kwargs):
         return super().save(*args, **kwargs)
+
+    @property
+    def is_online(self):
+        """Whether the attached Pi is checking in (False if no Pi)."""
+        return bool(self.raspberry_pi and self.raspberry_pi.is_online)
+
+    @property
+    def is_accepting_orders(self):
+        """Admin flag AND presence -- what customers can actually rely on."""
+        return self.accepting_orders and self.is_online

@@ -2,6 +2,8 @@ from rest_framework import serializers
 
 from navi_backend.core.api import BaseModelSerializer
 from navi_backend.core.api.mixins import ReadOnlyAuditMixin
+from navi_backend.devices.services.port_status import ensure_port_accepting_orders
+from navi_backend.devices.services.port_status import ensure_port_supports_items
 from navi_backend.menu.models import Customization
 from navi_backend.menu.models import MenuItem
 from navi_backend.orders.models import Order
@@ -139,6 +141,18 @@ class OrderSerializer(BaseModelSerializer):
         if obj.payment:
             return obj.payment.total_amount
         return None
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        navi_port = attrs.get("navi_port")
+        # Only new orders: an existing order keeps its place even if the port
+        # is paused afterwards.
+        if self.instance is None and navi_port is not None:
+            ensure_port_accepting_orders(navi_port)
+            ensure_port_supports_items(
+                navi_port, [item["menu_item"] for item in attrs.get("items", [])]
+            )
+        return attrs
 
     def create(self, validated_data):
         service = CreateOrderService(

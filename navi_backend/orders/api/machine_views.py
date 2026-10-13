@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 
 from navi_backend.awards.tasks import process_order_awards
 from navi_backend.core.permissions import IsMachineAuthenticated
+from navi_backend.devices.services.port_status import PORT_PAUSED_MESSAGE
 from navi_backend.orders.models import MachineErrorLog
 from navi_backend.orders.models import Order
 from navi_backend.orders.qr import InvalidQrTokenError
@@ -120,10 +121,31 @@ class MachineOrderStartView(APIView):
         return _start_order(request, order_id)
 
 
+def _port_paused_response(navi_port):
+    """409 if staff paused this port, else None.
+
+    Single guard so the scan rewrite (J7) can keep it as one call.
+    """
+    if navi_port.accepting_orders:
+        return None
+    return Response(
+        {
+            "detail": PORT_PAUSED_MESSAGE,
+            "code": "port_paused",
+            "status_message": navi_port.status_message or None,
+        },
+        status=409,
+    )
+
+
 def _start_order(request, order_id):
     navi_port = _navi_port_for(request)
     if not navi_port:
         return Response({"detail": "Machine has no associated NaviPort."}, status=400)
+
+    paused = _port_paused_response(navi_port)
+    if paused:
+        return paused
 
     order = get_object_or_404(Order, pk=order_id)
 
