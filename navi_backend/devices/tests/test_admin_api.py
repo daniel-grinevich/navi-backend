@@ -62,7 +62,7 @@ def mock_channel_layer():
         mock.patch("navi_backend.devices.services.fleet.disconnect_device") as revoke,
         mock.patch(
             "navi_backend.orders.services.device_test_order_service."
-            "notify_machines_queue_changed"
+            "notify_port_queue_changed"
         ),
     ):
         yield revoke

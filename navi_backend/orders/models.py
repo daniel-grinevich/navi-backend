@@ -1,3 +1,4 @@
+import secrets
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
@@ -21,6 +22,11 @@ class Status(models.TextChoices):
     SENT = "S", _("Sent")
     DONE = "D", _("Done")
     CANCELLED = "C", _("Cancelled")
+
+
+def generate_qr_nonce():
+    """Random per-order value folded into the signed pickup QR (see orders/qr.py)."""
+    return secrets.token_urlsafe(16)
 
 
 class Order(
@@ -62,6 +68,11 @@ class Order(
     # Staff-created $0 order for exercising a device end to end. Never charged,
     # invoiced, or counted toward awards.
     is_test = models.BooleanField(default=False, db_index=True)
+    # Rotated on every claim/release/complete so previously shown QR codes
+    # (screenshots) stop scanning once the order moves.
+    qr_nonce = models.CharField(
+        max_length=32, default=generate_qr_nonce, editable=False
+    )
 
     def __str__(self):
         return f"{self.user} (v{self.created_at})"

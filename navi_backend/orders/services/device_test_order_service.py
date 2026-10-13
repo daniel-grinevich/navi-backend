@@ -16,7 +16,7 @@ from navi_backend.devices.services.events import record_event
 from navi_backend.menu.models import MenuItem
 from navi_backend.orders.models import Order
 from navi_backend.orders.models import OrderItem
-from navi_backend.orders.utils import notify_machines_queue_changed
+from navi_backend.orders.utils import notify_port_queue_changed
 
 
 class DeviceNotReadyError(Exception):
@@ -72,5 +72,5 @@ def create_test_order(
         },
         actor=actor,
     )
-    transaction.on_commit(notify_machines_queue_changed)
+    transaction.on_commit(lambda: notify_port_queue_changed(navi_port))
     return order

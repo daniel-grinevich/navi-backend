@@ -42,9 +42,7 @@ def machine_client(pi):
 def _quiet_side_effects():
     with (
         mock.patch("navi_backend.orders.api.machine_views.broadcast_order_status"),
-        mock.patch(
-            "navi_backend.orders.api.machine_views.notify_machines_queue_changed"
-        ),
+        mock.patch("navi_backend.orders.api.machine_views.notify_port_queue_changed"),
         mock.patch("navi_backend.orders.api.machine_views.create_order_invoice"),
         mock.patch("navi_backend.orders.api.machine_views.process_order_awards"),
     ):
@@ -71,9 +69,7 @@ class TestMachineApiEvents:
     def test_claim_and_complete(self, machine_client, pi, navi_port, mock_charge):
         order = OrderFactory(order_status="O", navi_port=navi_port)
 
-        machine_client.post(
-            SCAN_URL, {"qr_token": make_qr_token(order.id)}, format="json"
-        )
+        machine_client.post(SCAN_URL, {"qr_token": make_qr_token(order)}, format="json")
         machine_client.post(
             reverse("api:machine-order-complete", args=[order.id]),
             {"outcome": "complete"},
@@ -117,7 +113,7 @@ class TestTestOrderMachineFlow:
         )
 
         scan = machine_client.post(
-            SCAN_URL, {"qr_token": make_qr_token(order.id)}, format="json"
+            SCAN_URL, {"qr_token": make_qr_token(order)}, format="json"
         )
         assert scan.status_code == 200
         mock_charge.assert_not_called()

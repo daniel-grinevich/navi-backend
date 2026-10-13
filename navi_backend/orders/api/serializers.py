@@ -123,7 +123,15 @@ class OrderSerializer(BaseModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
-        if self.instance is None or self._request_is_staff():
+        if self.instance is None:
+            # Orders are always placed at a specific NaviPort: it scopes which
+            # Pi may see and claim the order, and sets the tax jurisdiction.
+            if not attrs.get("navi_port"):
+                raise serializers.ValidationError(
+                    {"navi_port": "Choose a NaviPort location for this order."}
+                )
+            return attrs
+        if self._request_is_staff():
             return attrs
         blocked = [f for f in self.staff_only_update_fields if f in self.initial_data]
         if blocked:
@@ -143,7 +151,7 @@ class OrderSerializer(BaseModelSerializer):
         """
         if obj.order_status != "O":
             return None
-        return make_qr_token(obj.id)
+        return make_qr_token(obj)
 
     def get_subtotal(self, obj):
         """Pre-tax total of the order's items."""

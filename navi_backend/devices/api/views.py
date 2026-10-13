@@ -160,7 +160,7 @@ class AdminDeviceViewSet(
         except DeviceNotReadyError as exc:
             raise DeviceNotReady(str(exc)) from exc
         return Response(
-            {"order_id": order.id, "qr_token": make_qr_token(order.id)},
+            {"order_id": order.id, "qr_token": make_qr_token(order)},
             status=status.HTTP_202_ACCEPTED,
         )
 
