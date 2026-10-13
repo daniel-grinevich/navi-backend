@@ -1,10 +1,7 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
-
-def pi_group(pi_id) -> str:
-    """Channels group holding a single Pi's websocket(s) (see devices/consumers)."""
-    return f"pi_{pi_id}"
+from navi_backend.devices.services.fleet import pi_group
 
 
 def broadcast_order_status(order_id, status, error=None):

@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -14,6 +15,7 @@ from navi_backend.awards.models import PointsTransaction
 from navi_backend.awards.models import Tier
 from navi_backend.awards.models import UserAward
 from navi_backend.awards.models import UserLoyalty
+from navi_backend.awards.services.progress_service import achievement_progress
 from navi_backend.awards.services.rules import metric_value
 from navi_backend.core.api import BaseModelViewSet
 from navi_backend.core.cache import get_or_set_safe
@@ -24,6 +26,7 @@ from .serializers import AchievementSerializer
 from .serializers import AwardSerializer
 from .serializers import LoyaltySettingsSerializer
 from .serializers import LoyaltySummarySerializer
+from .serializers import MyAchievementProgressSerializer
 from .serializers import PointsTransactionSerializer
 from .serializers import TierSerializer
 from .serializers import UserAwardSerializer
@@ -103,6 +106,21 @@ class MyLoyaltyView(APIView):
             prefs.email_rewards = bool(request.data["notifications_enabled"])
             prefs.save(update_fields=["email_rewards", "updated_at"])
         return Response(LoyaltySummarySerializer(loyalty).data)
+
+
+class MyAchievementProgressView(APIView):
+    """The current user's progress toward every active award, with the full
+    level ladder and their points/tier summary (drives the frontend gauges).
+
+    Guest accounts are real users, so they get progress like anyone else.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses=MyAchievementProgressSerializer)
+    def get(self, request):
+        data = achievement_progress(request.user)
+        return Response(MyAchievementProgressSerializer(data).data)
 
 
 class MyAwardsViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -187,8 +205,11 @@ class AchievementViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
                 )
                 # Once maxed, target stays at the top level's threshold.
                 target = next_level.threshold if next_level else levels[-1].threshold
-                level_name = user_award.level.name if user_award else None
-                level_rank = user_award.level.rank if user_award else None
+                # A UserAward can exist without a level (earned before the
+                # award was made multi-level, or its level was deleted).
+                reached = user_award.level if user_award else None
+                level_name = reached.name if reached else None
+                level_rank = reached.rank if reached else None
                 next_level_name = next_level.name if next_level else None
             else:
                 target = award.threshold or 0

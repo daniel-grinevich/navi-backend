@@ -16,12 +16,18 @@ from navi_backend.awards.models import PointsReason
 from navi_backend.awards.models import PointsTransaction
 from navi_backend.awards.models import Tier
 from navi_backend.awards.models import UserAward
+from navi_backend.awards.models import UserAwardLevel
 from navi_backend.awards.models import UserLoyalty
 from navi_backend.awards.services.rules import invalidate_user_metrics
 from navi_backend.awards.services.rules import metric_value
 from navi_backend.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Award bonus points can push a user over a TOTAL_POINTS threshold, which can
+# grant more bonus points, and so on. Re-evaluate until nothing new is earned;
+# the cap is a safety net against a misconfigured award graph.
+_MAX_EVALUATION_PASSES = 10
 
 
 def _record_points(loyalty, points, reason, order=None, note=""):
@@ -76,8 +82,24 @@ def evaluate_awards(loyalty):
     user's :class:`UserAward` to the highest level whose threshold the metric
     has crossed, granting the bonus points of every newly crossed level.
 
+    Bonus points from one award can unlock another (TOTAL_POINTS rules), so
+    evaluation repeats until a pass earns nothing new.
+
+    Callers should hold the loyalty row lock (``UserLoyalty.for_user_locked``)
+    so concurrent evaluations for the same user are serialized.
+
     Returns the list of :class:`Award` objects newly earned or leveled up.
     """
+    newly_earned = []
+    for _ in range(_MAX_EVALUATION_PASSES):
+        earned_this_pass = _evaluate_awards_once(loyalty)
+        if not earned_this_pass:
+            break
+        newly_earned.extend(earned_this_pass)
+    return newly_earned
+
+
+def _evaluate_awards_once(loyalty):
     existing = {
         ua.award_id: ua
         for ua in UserAward.objects.filter(user=loyalty.user).select_related("level")
@@ -152,6 +174,11 @@ def _evaluate_leveled_award(loyalty, award, levels, user_award):
         if not updated:
             return False
 
+    UserAwardLevel.objects.bulk_create(
+        [UserAwardLevel(user_award=user_award, level=level) for level in crossed],
+        ignore_conflicts=True,
+    )
+
     bonus = sum(level.points_reward for level in crossed)
     if bonus:
         _record_points(
@@ -174,6 +201,11 @@ def process_order(order):
     if order.user_id is None:
         return None
 
+    # Lock the user's loyalty row first: it serializes concurrent completions
+    # for the same user (no lost counter updates) and makes the idempotency
+    # check below race-free when the same order is processed twice at once.
+    loyalty = UserLoyalty.for_user_locked(order.user)
+
     already_processed = PointsTransaction.objects.filter(
         order=order,
         reason=PointsReason.ORDER,
@@ -183,7 +215,6 @@ def process_order(order):
         return None
 
     settings = LoyaltySettings.load()
-    loyalty = UserLoyalty.for_user(order.user)
 
     order_total = order.price or Decimal("0.00")
     loyalty.orders_completed += 1
@@ -227,11 +258,10 @@ def _notify_award(loyalty, award, level=None):
     # would create a circular import.
     from navi_backend.awards.tasks import send_award_earned_email  # noqa: PLC0415
 
-    send_award_earned_email.delay(
-        str(loyalty.user_id),
-        str(award.id),
-        str(level.id) if level else None,
-    )
+    args = (str(loyalty.user_id), str(award.id), str(level.id) if level else None)
+    # Enqueue only once the grant is committed: a rolled-back evaluation must
+    # not email the user about a badge they don't have.
+    transaction.on_commit(lambda: send_award_earned_email.delay(*args))
 
 
 def _notify_tier(loyalty, tier):
@@ -239,4 +269,5 @@ def _notify_tier(loyalty, tier):
         return
     from navi_backend.awards.tasks import send_tier_reached_email  # noqa: PLC0415
 
-    send_tier_reached_email.delay(str(loyalty.user_id), str(tier.id))
+    args = (str(loyalty.user_id), str(tier.id))
+    transaction.on_commit(lambda: send_tier_reached_email.delay(*args))

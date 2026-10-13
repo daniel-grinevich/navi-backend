@@ -8,10 +8,12 @@ from rest_framework.routers import SimpleRouter
 from navi_backend.awards.api.views import AchievementViewSet
 from navi_backend.awards.api.views import AwardViewSet
 from navi_backend.awards.api.views import LoyaltySettingsView
+from navi_backend.awards.api.views import MyAchievementProgressView
 from navi_backend.awards.api.views import MyAwardsViewSet
 from navi_backend.awards.api.views import MyLoyaltyView
 from navi_backend.awards.api.views import MyPointsTransactionViewSet
 from navi_backend.awards.api.views import TierViewSet
+from navi_backend.devices.api.views import AdminDeviceViewSet
 from navi_backend.devices.api.views import EspressoMachineViewSet
 from navi_backend.devices.api.views import MachineTypeViewSet
 from navi_backend.devices.api.views import NaviPortViewSet
@@ -22,6 +24,7 @@ from navi_backend.menu.api.views import CustomizationViewSet
 from navi_backend.menu.api.views import MenuItemViewSet
 from navi_backend.notifications.api.views import EmailLogViewSet
 from navi_backend.notifications.api.views import EmailTemplateViewSet
+from navi_backend.notifications.api.views import NotificationSettingsView
 from navi_backend.notifications.api.views import TextLogViewSet
 from navi_backend.orders.api.machine_views import MachineOrderCompleteView
 from navi_backend.orders.api.machine_views import MachineOrderQueueView
@@ -61,6 +64,7 @@ router.register(r"orders", OrderViewSet, basename="orders")
 
 # Admin routes (staff-only, unscoped — for admin panel tables)
 router.register(r"admin/orders", AdminOrderViewSet, basename="admin-orders")
+router.register(r"admin/devices", AdminDeviceViewSet, basename="admin-devices")
 
 # Menu routes
 router.register(r"menu-items", MenuItemViewSet, basename="menu-items")
@@ -133,8 +137,19 @@ urlpatterns = [
     path("auth/magic/verify/", MagicLinkVerifyView.as_view(), name="magic-verify"),
     path("auth/sms/request/", SMSRequestView.as_view(), name="sms-request"),
     path("auth/sms/verify/", SMSVerifyView.as_view(), name="sms-verify"),
+    # Admin ops (staff-only)
+    path(
+        "admin/notification-settings/",
+        NotificationSettingsView.as_view(),
+        name="admin-notification-settings",
+    ),
     # Loyalty / awards endpoints
     path("my/loyalty/", MyLoyaltyView.as_view(), name="my-loyalty"),
+    path(
+        "my/achievements/progress/",
+        MyAchievementProgressView.as_view(),
+        name="my-achievements-progress",
+    ),
     path(
         "loyalty-settings/",
         LoyaltySettingsView.as_view(),
@@ -152,11 +167,6 @@ urlpatterns = [
         name="machine-order-scan",
     ),
     path(
-        "machine/orders/<uuid:order_id>/start/",
-        MachineOrderStartView.as_view(),
-        name="machine-order-start",
-    ),
-    path(
         "machine/orders/<uuid:order_id>/complete/",
         MachineOrderCompleteView.as_view(),
         name="machine-order-complete",
@@ -169,4 +179,14 @@ urlpatterns = [
         name="api-docs",
     ),
 ]
+# Claim-by-raw-id skips the QR, so any enabled Pi could start (and charge)
+# any order. Dev/testing only; real machines go through /scan/.
+if settings.DEBUG:
+    urlpatterns += [
+        path(
+            "machine/orders/<uuid:order_id>/start/",
+            MachineOrderStartView.as_view(),
+            name="machine-order-start",
+        ),
+    ]
 urlpatterns += router.urls

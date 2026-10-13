@@ -5,6 +5,7 @@ from navi_backend.core.tests.factories import AuditFactory
 from navi_backend.core.tests.factories import SlugifiedFactory
 from navi_backend.core.tests.factories import StatusFactory
 from navi_backend.core.tests.factories import UpdateRecordFactory
+from navi_backend.devices.managers import hash_device_token
 from navi_backend.devices.models import EspressoMachine
 from navi_backend.devices.models import MachineType
 from navi_backend.devices.models import NaviPort
@@ -28,6 +29,16 @@ class RaspberryPiFactory(
     is_connected = factory.Faker("boolean")
     firmware_version = factory.Faker("bothify", text="v#.##")
     last_seen = factory.LazyFunction(timezone.now)
+
+    @factory.post_generation
+    def device_token(self, create, extracted, **kwargs):
+        # Only the hash is stored; keep the plaintext on the instance so tests
+        # can authenticate as this Pi via ``pi.device_token``.
+        self.device_token = extracted or self.issue_token()
+        if extracted:
+            self.token_hash = hash_device_token(extracted)
+        if create:
+            RaspberryPi.objects.filter(pk=self.pk).update(token_hash=self.token_hash)
 
 
 class MachineTypeFactory(

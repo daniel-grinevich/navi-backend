@@ -116,7 +116,9 @@ class TestOrderCreate:
 
     def test_missing_navi_port_rejected(self, api_client):
         api_client.force_authenticate(UserFactory())
-        payload = {"items": [{"menu_item": str(MenuItemFactory().id), "quantity": 1}]}
+        payload = {
+            "items": [{"menu_item": str(MenuItemFactory(status="A").id), "quantity": 1}]
+        }
 
         with mock.patch(
             "navi_backend.orders.services.create_order_service.StripePaymentService"
@@ -134,7 +136,9 @@ class TestOrderCreate:
         navi_port = NaviPortFactory()
         payload = {
             "navi_port": str(navi_port.id),
-            "items": [{"menu_item": str(MenuItemFactory().id), "quantity": 1}],
+            "items": [
+                {"menu_item": str(MenuItemFactory(status="A").id), "quantity": 1}
+            ],
         }
 
         with (

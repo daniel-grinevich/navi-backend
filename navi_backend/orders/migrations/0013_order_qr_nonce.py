@@ -8,7 +8,7 @@ import navi_backend.orders.models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("orders", "0011_alter_machineerrorlog_created_by_and_more"),
+        ("orders", "0012_order_is_test_alter_orderitem_unit_price"),
     ]
 
     operations = [
