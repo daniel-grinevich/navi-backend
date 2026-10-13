@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
+      # Filter patterns match the whole ref, so staging tags (v1.4.0-staging)
+      # already miss the pattern above; exclude them explicitly anyway.
+      - '!v*-staging*'
 
 env:
   REGISTRY: ghcr.io

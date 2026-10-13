@@ -31,7 +31,9 @@ Release flow (semantic versioning):
 4. On sync, a **PreSync migrate Job** (`navi/base/migrate-job.yaml` in rainbow-road) runs
    `manage.py migrate` before any deployment rolls. If migrations fail, the deploy stops.
 
-Staging (`navi-staging` app) auto-syncs from the `staging-latest` image tag — no button.
+Staging (`navi-staging` app) auto-syncs — no button. It deploys **only** from a tag on
+merged code: `git tag v1.4.0-staging origin/development && git push origin v1.4.0-staging`
+(`deploy-staging.yml`; fails if the commit isn't on `origin/development`). Branch pushes never deploy.
 
 Gotchas learned the hard way:
 

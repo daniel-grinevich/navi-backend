@@ -177,6 +177,7 @@ class TestNotificationGating:
         user,
         loyalty_settings,
         monkeypatch,
+        django_capture_on_commit_callbacks,
     ):
         loyalty_settings.notifications_enabled = False
         loyalty_settings.save()
@@ -189,7 +190,8 @@ class TestNotificationGating:
             lambda *a, **k: sent.append(a),
         )
 
-        points_service.process_order(_completed_order(user))
+        with django_capture_on_commit_callbacks(execute=True):
+            points_service.process_order(_completed_order(user))
         assert sent == []
 
     def test_no_notification_when_user_opted_out(
@@ -197,6 +199,7 @@ class TestNotificationGating:
         user,
         loyalty_settings,
         monkeypatch,
+        django_capture_on_commit_callbacks,
     ):
         AwardFactory(rule_type=RuleType.ORDERS_COMPLETED, threshold=1)
         loyalty = UserLoyalty.for_user(user)
@@ -210,7 +213,8 @@ class TestNotificationGating:
             lambda *a, **k: sent.append(a),
         )
 
-        points_service.process_order(_completed_order(user))
+        with django_capture_on_commit_callbacks(execute=True):
+            points_service.process_order(_completed_order(user))
         assert sent == []
 
     def test_notification_sent_when_enabled(
@@ -218,6 +222,7 @@ class TestNotificationGating:
         user,
         loyalty_settings,
         monkeypatch,
+        django_capture_on_commit_callbacks,
     ):
         AwardFactory(rule_type=RuleType.ORDERS_COMPLETED, threshold=1)
 
@@ -228,5 +233,6 @@ class TestNotificationGating:
             lambda *a, **k: sent.append(a),
         )
 
-        points_service.process_order(_completed_order(user))
+        with django_capture_on_commit_callbacks(execute=True):
+            points_service.process_order(_completed_order(user))
         assert len(sent) == 1

@@ -10,8 +10,12 @@ from asgiref.sync import sync_to_async
 from channels.db import database_sync_to_async
 from channels.testing import WebsocketCommunicator
 
+from navi_backend.devices.consumers import REVOKED_CLOSE_CODE
 from navi_backend.devices.consumers import MachineConsumer
+from navi_backend.devices.models import DeviceEvent
 from navi_backend.devices.models import RaspberryPi
+from navi_backend.devices.services.fleet import disconnect_device
+from navi_backend.devices.services.fleet import rotate_token
 from navi_backend.devices.tests.factories import RaspberryPiFactory
 from navi_backend.orders.utils import notify_machines_queue_changed
 
@@ -103,3 +107,44 @@ class TestMachineConsumer:
         assert connected
         assert await communicator.receive_json_from() == {"type": "connected"}
         await communicator.disconnect()
+
+
+@database_sync_to_async
+def _event_types(pi):
+    return list(
+        DeviceEvent.objects.filter(raspberry_pi=pi)
+        .order_by("created_at")
+        .values_list("type", flat=True)
+    )
+
+
+class TestMachineConsumerEvents:
+    async def test_connect_and_disconnect_are_logged(self):
+        pi = await _make_pi()
+        communicator = _communicator(pi.device_token)
+        await communicator.connect()
+        await communicator.receive_json_from()  # connected
+        await communicator.disconnect()
+
+        types = await _event_types(pi)
+        assert types[0] == DeviceEvent.Type.CONNECTED
+        assert types[-1] == DeviceEvent.Type.DISCONNECTED
+
+    async def test_revoke_closes_socket(self):
+        pi = await _make_pi()
+        communicator = _communicator(pi.device_token)
+        await communicator.connect()
+        await communicator.receive_json_from()  # connected
+
+        await sync_to_async(disconnect_device, thread_sensitive=False)(pi.pk)
+
+        output = await communicator.receive_output()
+        assert output == {"type": "websocket.close", "code": REVOKED_CLOSE_CODE}
+
+    async def test_rotated_token_cannot_reconnect(self):
+        pi = await _make_pi()
+        old_token = pi.device_token
+        await database_sync_to_async(rotate_token)(pi, actor=pi.created_by)
+
+        connected, _ = await _communicator(old_token).connect()
+        assert not connected
