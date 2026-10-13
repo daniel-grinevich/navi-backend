@@ -363,6 +363,12 @@ FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
 # the browser opens to have cookies set before redirecting to FRONTEND_URL.
 BACKEND_URL = env("BACKEND_URL", default="http://localhost:8000")
 
+# NAVI PORTS
+# ------------------------------------------------------------------------------
+# Rough seconds per drink in a port's queue, used for the customer-facing wait
+# estimate on the sticker deep link (est_wait_seconds = queue_length * this).
+NAVI_PORT_SECONDS_PER_DRINK = env.int("NAVI_PORT_SECONDS_PER_DRINK", default=90)
+
 # SMS (passwordless OTP + notifications)
 # ------------------------------------------------------------------------------
 # "console" (default) just logs the message -- fine for local dev. Set to

@@ -2,6 +2,8 @@ from rest_framework import serializers
 
 from navi_backend.core.api import BaseModelSerializer
 from navi_backend.core.api.mixins import ReadOnlyAuditMixin
+from navi_backend.devices.services.port_status import ensure_port_accepting_orders
+from navi_backend.devices.services.port_status import ensure_port_supports_items
 from navi_backend.menu.models import Customization
 from navi_backend.menu.models import MenuItem
 from navi_backend.orders.models import Order
@@ -126,10 +128,17 @@ class OrderSerializer(BaseModelSerializer):
         if self.instance is None:
             # Orders are always placed at a specific NaviPort: it scopes which
             # Pi may see and claim the order, and sets the tax jurisdiction.
-            if not attrs.get("navi_port"):
+            navi_port = attrs.get("navi_port")
+            if not navi_port:
                 raise serializers.ValidationError(
                     {"navi_port": "Choose a NaviPort location for this order."}
                 )
+            # Only new orders: an existing order keeps its place even if the
+            # port is paused afterwards.
+            ensure_port_accepting_orders(navi_port)
+            ensure_port_supports_items(
+                navi_port, [item["menu_item"] for item in attrs.get("items", [])]
+            )
             return attrs
         if self._request_is_staff():
             return attrs
