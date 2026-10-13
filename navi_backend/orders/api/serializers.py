@@ -39,7 +39,9 @@ class OrderItemSerializer(ReadOnlyAuditMixin, serializers.ModelSerializer):
     unit_price = serializers.DecimalField(
         read_only=True, max_digits=8, decimal_places=2
     )
-    menu_item = serializers.PrimaryKeyRelatedField(queryset=MenuItem.objects.all())
+    # Only orderable items: archived/inactive/deleted ones keep a stored price
+    # but must not be purchasable.
+    menu_item = serializers.PrimaryKeyRelatedField(queryset=MenuItem.objects.active())
 
     class Meta:
         model = OrderItem
@@ -93,6 +95,10 @@ class OrderSerializer(BaseModelSerializer):
     total = serializers.SerializerMethodField()
 
     show_only_to_admin_fields = ()
+    # Status moves only through services (machine scan/complete, cancel,
+    # dispatch) and routing is fixed at checkout; customers can't rewrite
+    # either on an existing order.
+    staff_only_update_fields = ("order_status", "navi_port")
 
     class Meta:
         model = Order
@@ -114,6 +120,21 @@ class OrderSerializer(BaseModelSerializer):
         field_sets = {
             "partial_update": ["navi_port", "items", "order_status"],
         }
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if self.instance is None or self._request_is_staff():
+            return attrs
+        blocked = [f for f in self.staff_only_update_fields if f in self.initial_data]
+        if blocked:
+            raise serializers.ValidationError(
+                dict.fromkeys(blocked, "Only staff can change this field.")
+            )
+        return attrs
+
+    def _request_is_staff(self):
+        request = self.context.get("request")
+        return bool(request and request.user.is_staff)
 
     def get_qr_token(self, obj):
         """Signed token the phone renders as a QR for the Pi to scan.

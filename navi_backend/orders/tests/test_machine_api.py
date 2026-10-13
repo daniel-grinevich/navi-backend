@@ -4,16 +4,21 @@ Covers the signed QR token, the atomic claim on scan/start, the claim lease,
 and the complete/error paths.
 """
 
+import importlib
 import time
 from datetime import timedelta
 from unittest import mock
 
 import pytest
 import stripe
+from django.urls import NoReverseMatch
+from django.urls import clear_url_caches
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+import config.api_router
+import config.urls
 from navi_backend.devices.tests.factories import NaviPortFactory
 from navi_backend.devices.tests.factories import RaspberryPiFactory
 from navi_backend.orders.api.machine_views import CLAIM_LEASE_SECONDS
@@ -263,7 +268,34 @@ class TestClaimLock:
         assert response.status_code == 409
 
 
+def _reload_urlconf():
+    importlib.reload(config.api_router)
+    importlib.reload(config.urls)
+    clear_url_caches()
+
+
+@pytest.fixture
+def debug_urls(settings):
+    """Rebuild the URLconf with DEBUG on, where the start route exists."""
+    settings.DEBUG = True
+    _reload_urlconf()
+    yield
+    settings.DEBUG = False
+    _reload_urlconf()
+
+
 class TestStart:
+    def test_start_route_absent_without_debug(self, machine_client, order):
+        with pytest.raises(NoReverseMatch):
+            reverse("api:machine-order-start", args=[order.id])
+
+        response = machine_client.post(f"/api/machine/orders/{order.id}/start/")
+
+        assert response.status_code == 404
+        order.refresh_from_db()
+        assert order.order_status == "O"
+
+    @pytest.mark.usefixtures("debug_urls")
     def test_start_claims_by_id(
         self, machine_client, pi, navi_port, order, mock_broadcast
     ):

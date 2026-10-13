@@ -1,8 +1,8 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAdminUser
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 from navi_backend.core.api.mixins.track_user_mixin import TrackUserMixin
+from navi_backend.core.permissions import IsAdminUserOrReadOnly
 from navi_backend.devices.api.serializers import EspressoMachineSerializer
 from navi_backend.devices.api.serializers import MachineTypeSerializer
 from navi_backend.devices.api.serializers import NaviPortSerializer
@@ -16,7 +16,7 @@ from navi_backend.devices.models import RaspberryPi
 class NaviPortViewSet(TrackUserMixin, viewsets.ModelViewSet):
     queryset = NaviPort.objects.select_related("espresso_machine", "raspberry_pi")
     serializer_class = NaviPortSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminUserOrReadOnly]
 
 
 class RaspberryPiViewSet(TrackUserMixin, viewsets.ModelViewSet):
